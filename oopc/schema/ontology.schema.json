@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bsavoie.github.io/open-ontology-of-polymer-chemistry/schema/ontology-v1",
+  "title": "OOPC ontology profile v1",
+  "type": "object",
+  "required": ["version", "namespace", "terms"],
+  "properties": {
+    "version": {"type": "string"},
+    "namespace": {"type": "string"},
+    "terms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "kind", "definition", "domain", "range", "requiredContext", "examples", "counterexamples", "mappings", "status"],
+        "properties": {
+          "id": {"type": "string"}, "label": {"type": "string"},
+          "kind": {"enum": ["class", "relation"]}, "definition": {"type": "string", "minLength": 1},
+          "domain": {"type": "array", "items": {"type": "string"}}, "range": {"type": "array", "items": {"type": "string"}},
+          "requiredContext": {"type": "array", "items": {"type": "string"}},
+          "examples": {"type": "array"}, "counterexamples": {"type": "array"}, "mappings": {"type": "array"},
+          "status": {"enum": ["stable", "experimental", "superseded"]}
+        }
+      }
+    }
+  }
+}

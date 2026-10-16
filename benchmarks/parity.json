@@ -1,0 +1,15 @@
+{
+  "format": "oopc-parity-set-v1",
+  "about": "Fixed questions for comparing the ontology researcher with a plain web session. 'covered' questions have saved findings in the maintainer's local knowledge base; 'uncovered' ones do not.",
+  "depth": "standard",
+  "questions": [
+    {"id": "c1", "covered": true, "question": "In Klimczuk et al. (2024) on 3D-printed PLA, how much mass did the PLA1 specimens lose after 35 days at pH 10, and what does that gravimetric result not establish?"},
+    {"id": "c2", "covered": true, "question": "What glass transition temperatures do open-access DSC studies report for neat poly(butylene succinate), and at what heating rate and scan?"},
+    {"id": "c3", "covered": true, "question": "What DSC melting temperature and crystallinity are reported for neat polycaprolactone (for example Capa 6800), with heating rate and scan?"},
+    {"id": "c4", "covered": true, "question": "In Lawler et al. (2012) on end-of-life reverse-osmosis membranes, what sodium hypochlorite concentration and exposure time were used to treat BW30FR membranes?"},
+    {"id": "u1", "covered": false, "question": "What tensile modulus and elongation at break are reported for neat polyhydroxybutyrate (PHB) films in open-access studies, with test standard and specimen conditions?"},
+    {"id": "u2", "covered": false, "question": "What oxygen permeability is reported for neat PLA film in open-access studies, with film thickness, temperature and relative humidity?"},
+    {"id": "u3", "covered": false, "question": "What glass transition temperature is reported for neat poly(methyl methacrylate) by DSC in open-access studies, with heating rate and scan?"},
+    {"id": "u4", "covered": false, "question": "What heat deflection temperature is reported for neat polycarbonate, with the load, standard and specimen conditioning?"}
+  ]
+}

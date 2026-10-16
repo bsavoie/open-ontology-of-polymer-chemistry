@@ -1,0 +1,8 @@
+{
+  "schema": "wop-publication-snapshot-v2",
+  "file": "data/wiki-snapshot-v2.json",
+  "sha256": "8e1d8ec6fb2d3170d81bf2b456308156e3f9db41ce2e38393d47f8af3e104e40",
+  "polymerCount": 274,
+  "source": "https://github.com/bsavoie/wiki-of-open-polymer-data",
+  "policy": "The companion reads this pinned snapshot. Updating the lock is an explicit seed migration; imported claims retain seed status."
+}

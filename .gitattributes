@@ -1,0 +1,16 @@
+# Preserve pinned seed, schema, and source text bytes on every checkout host.
+* text=auto eol=lf
+
+# Generated/downloaded binary artifacts must never receive newline conversion.
+*.sqlite binary
+*.db binary
+*.zip binary
+*.gz binary
+*.whl binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.woff binary
+*.woff2 binary

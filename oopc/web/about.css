@@ -1,0 +1,246 @@
+/* About page: long-form reading, figures and definitions. Tokens and the top bar come from researcher.css;
+   figures are inline SVG coloured here by class, so they follow the theme. */
+
+/* Reading layout */
+.about{display:block;padding:40px 28px 40px;outline:none}
+.column,.about-section>*{max-width:680px;margin-left:auto;margin-right:auto}
+.about-section{margin-top:96px}
+.about-section>.figure{max-width:880px}
+.about-section>.figure-wide{max-width:1240px}
+.about p,.about li,.about dd{font-size:17px;line-height:1.7}
+.about p{margin-top:0;margin-bottom:18px}
+.about h1{font-family:var(--serif);font-size:46px;line-height:1.1;font-weight:600;letter-spacing:-.015em;margin:0 0 22px;text-wrap:balance}
+.about h2{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:-.01em;margin-bottom:20px}
+.about h3{font-size:15px;font-weight:650;margin:32px auto 12px}
+.about-lede{font-size:19px!important;line-height:1.65!important;color:var(--subtle)}
+.section-number{font:600 12px/1 var(--sans)!important;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:12px!important;display:flex;align-items:center;gap:12px}
+.section-number::after{content:"";flex:0 0 32px;height:1px;background:var(--line)}
+.about em.rel{font-family:var(--serif);font-style:italic;color:var(--subtle)}
+.about code{font-family:var(--mono);font-size:.82em;background:var(--canvas);border:1px solid var(--soft-line);padding:1px 5px;border-radius:4px}
+.about a:not(.badge){color:var(--accent)}
+
+/* Opening: the claim beside the loop */
+.about-hero{display:grid;grid-template-columns:minmax(0,480px) minmax(0,640px);gap:56px;align-items:center;justify-content:center;max-width:1180px;margin:0 auto}
+.hero-text .eyebrow{margin-bottom:14px}
+.hero-figure{margin:0}
+.hero-figure figcaption{max-width:520px}
+.term-hint{font-size:13.5px!important;color:var(--subtle);margin:0!important}
+.hero-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px 22px;margin:28px 0 0!important}
+.about a.hero-link{display:inline-block;padding:10px 22px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-size:15px;font-weight:650;text-decoration:none}
+.about a.hero-link:hover{filter:brightness(1.08)}
+.about a.hero-quiet{font-size:15px;font-weight:550;text-decoration:none}
+.about a.hero-quiet::after{content:" ↓"}
+.about a.hero-quiet:hover{text-decoration:underline}
+.hint-touch{display:none}
+@media(hover:none){.hint-pointer{display:none}.hint-touch{display:inline}}
+
+/* Terms */
+.term{border-bottom:1px dotted color-mix(in srgb,var(--accent) 60%,transparent);cursor:help;touch-action:manipulation;transition:border-color .15s,color .15s}
+.term:hover{border-bottom-style:solid;border-bottom-color:var(--accent)}
+.term:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.badge.term{border-bottom:none}
+.badge.term:hover{box-shadow:0 0 0 1px currentColor}
+.term.is-open{color:var(--accent);border-bottom-style:solid}
+
+/* Figures */
+.figure{margin:40px auto 32px;padding:0}
+.figure-art{aspect-ratio:var(--wide);width:100%}
+.figure-art svg{display:block;width:100%;height:auto;overflow:visible}
+.figure-art .art-narrow{display:none}
+.figure figcaption{max-width:680px;margin:14px auto 0;font-size:13.5px;line-height:1.55;color:var(--subtle)}
+.figure figcaption strong{color:var(--ink);font-weight:650}
+.figure-art.failed{aspect-ratio:auto}
+.figure-art.failed::before{content:"This figure could not be loaded.";display:block;padding:24px;text-align:center;font-size:13px;color:var(--subtle);border:1px dashed var(--line);border-radius:10px}
+
+/* SVG text */
+.fig text{font-family:var(--sans);fill:var(--ink)}
+.fig .lbl{font-size:13px}
+.fig .lbl-strong{font-weight:650}
+.fig .lbl-sm{font-size:12.5px}
+.fig .lbl-xs{font-size:11.5px}
+.fig .muted{fill:var(--subtle)}
+.fig .mono{font:11px var(--mono);fill:var(--subtle)}
+.fig .cap{font-size:10px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;fill:var(--subtle)}
+.fig .pred{font:italic 13.5px var(--serif);fill:var(--subtle);paint-order:stroke;stroke:var(--page);stroke-width:5px;stroke-linejoin:round}
+.fig .lbl-node{font-size:10.5px;font-weight:700;letter-spacing:.06em;fill:var(--accent)}
+.fig .step-name{font:600 17px var(--serif)}
+.fig .step-minor{font-size:15px}
+.fig .atom{font:14px var(--sans)}
+.fig .bracket-label{font:italic 13px var(--serif)}
+.fig .hero-label{font-size:12.5px;font-weight:600;fill:var(--accent);paint-order:stroke;stroke:var(--page);stroke-width:5px;stroke-linejoin:round}
+.fig .badge-text{font-size:12px;font-weight:600}
+.fig text.term{cursor:help}
+.fig text.term:hover,.fig text.term:focus,.fig text.term.is-open{fill:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.fig text.term:focus{outline:none}
+
+/* SVG lines */
+.fig .edge{fill:none;stroke:var(--subtle);stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round}
+.fig .dash{stroke-dasharray:3 4}
+.fig .faint{stroke:var(--line)}
+.fig .edge-fan{stroke:var(--faint);stroke-width:1}
+.fig .ring{stroke:var(--ink);stroke-width:1.5}
+.fig .outer-arc{stroke:var(--subtle)}
+.fig .spoke-accent{stroke:var(--accent);stroke-width:1.5}
+.fig .rule{stroke:var(--soft-line);stroke-width:1}
+.fig .spoke{stroke:var(--soft-line);stroke-width:1}
+.fig .bond{stroke:var(--ink);stroke-width:1.5;stroke-linecap:round;fill:none}
+.fig .wedge{fill:var(--ink)}
+.fig .bracket{fill:none;stroke:var(--ink);stroke-width:1.4}
+.fig .link{stroke:var(--faint);stroke-opacity:.5;stroke-width:1}
+.fig .link-hi{stroke:var(--accent);stroke-opacity:1;stroke-width:1.6}
+.fig .leader{stroke:var(--accent);stroke-width:1}
+
+/* SVG shapes */
+.fig .dot{fill:var(--faint);opacity:.75}
+.fig .dot-hi{fill:var(--accent);opacity:1}
+.fig .n-concept{fill:var(--surface);stroke:var(--ink);stroke-width:1.4}
+.fig .n-main{fill:var(--accent-light);stroke:var(--accent);stroke-width:1.6}
+.fig .n-facet{fill:var(--canvas);stroke:var(--line)}
+.fig .n-process{fill:var(--surface);stroke:var(--line)}
+.fig .n-evidence{fill:var(--surface);stroke:var(--subtle);stroke-width:1.2;stroke-linejoin:round}
+.fig .claim{fill:var(--surface);stroke:var(--ink);stroke-width:1.3}
+.fig .card{fill:var(--surface);stroke:var(--line)}
+.fig .store{fill:var(--canvas);stroke:var(--line);stroke-dasharray:2 3}
+.fig .step{fill:var(--surface);stroke:var(--ink);stroke-width:1.6}
+.fig .step-satellite{stroke:var(--subtle);stroke-dasharray:2 2}
+.fig .bar-new{fill:var(--surface);stroke:var(--line)}
+.fig .bar-saved{fill:var(--accent)}
+
+/* Status colours, matching the app's badges */
+.fig .fdot.s-reviewed{fill:var(--accent);stroke:var(--accent)}
+.fig .fdot.s-added{fill:var(--surface);stroke:var(--ink);stroke-width:1.2}
+.fig .fdot.s-checking{fill:var(--gold-light);stroke:var(--gold);stroke-width:1.3}
+.fig .badge-shape.s-reviewed{fill:var(--accent-light)}
+.fig .badge-shape.s-added{fill:var(--canvas);stroke:var(--line)}
+.fig .badge-shape.s-checking{fill:var(--gold-light)}
+.fig .badge-shape.s-rejected{fill:var(--danger-light)}
+.fig .badge-dot{opacity:.8}
+.fig .s-reviewed.badge-dot,.fig text.s-reviewed{fill:var(--good)}
+.fig .s-added.badge-dot,.fig text.s-added{fill:var(--subtle)}
+.fig .s-checking.badge-dot,.fig text.s-checking{fill:var(--gold)}
+.fig .s-rejected.badge-dot,.fig text.s-rejected{fill:var(--danger)}
+
+/* Motion: the loop's saved knowledge fills in once, and the seed graph's links fade in */
+@media(prefers-reduced-motion:no-preference){
+  .fig-loop .fdot{animation:about-fade .5s ease-out both}
+  .fig-loop .fdot:nth-of-type(3n+1){animation-delay:.25s}
+  .fig-loop .fdot:nth-of-type(3n+2){animation-delay:.5s}
+  .fig-loop .fdot:nth-of-type(3n){animation-delay:.75s}
+  .fig-hero .links{animation:about-fade .9s ease-out both}
+}
+@keyframes about-fade{from{opacity:0}to{opacity:1}}
+
+/* The loop, in words */
+.steps-list{padding-left:0;list-style:none;counter-reset:step;margin:0 auto 18px}
+.steps-list li{counter-increment:step;position:relative;padding-left:40px;margin-bottom:12px}
+.steps-list li::before{content:counter(step);position:absolute;left:0;top:3px;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font:600 13px/1 var(--serif);color:var(--subtle)}
+.outer-loops{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.outer-loop{padding:18px 20px;border:1px dashed var(--line);border-radius:12px;background:var(--surface)}
+.outer-loop p{font-size:15.5px!important;line-height:1.6!important;margin:0!important}
+.outer-loop .outer-loop-title{font:600 17px/1.3 var(--serif)!important;margin-bottom:6px!important}
+
+/* Figure 3: a finding */
+.about-section>.figure-finding{max-width:680px}
+.finding-example{padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.finding-example p{margin:0}
+.fx-status{display:flex;align-items:center}
+.fx-statement{font-size:16.5px!important;line-height:1.5!important;margin:12px 0 16px!important}
+.fx-fields{display:grid;grid-template-columns:104px minmax(0,1fr);gap:7px 16px;margin:0;padding:14px 0;border-top:1px solid var(--soft-line);border-bottom:1px solid var(--soft-line)}
+.fx-fields dt,.fx-label{font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--subtle);padding-top:4px;white-space:nowrap}
+.fx-fields dd{margin:0;font-size:14px!important;line-height:1.5!important;overflow-wrap:anywhere}
+.fx-fields .term{border-bottom-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.fx-value{font-family:var(--mono);font-size:13.5px!important}
+.fx-excerpt{display:inline-block;padding:3px 10px;border-radius:4px;background:repeating-linear-gradient(135deg,var(--canvas) 0 6px,var(--soft-line) 6px 7px);color:var(--subtle);font-size:12.5px;font-style:italic}
+.fx-vouch{margin-top:14px!important;font-size:13.5px!important;line-height:1.55!important;color:var(--subtle)}
+.fx-label{display:block;padding:0;margin-bottom:4px}
+
+/* Labels */
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 32px;margin:8px auto 0}
+.status-grid dt{margin:0 0 6px}
+.status-grid dd{margin:0;font-size:15.5px!important;line-height:1.55!important}
+.note{padding:16px 20px;border-left:2px solid var(--gold);background:var(--gold-light);border-radius:0 8px 8px 0;font-size:15.5px;line-height:1.6;margin-top:8px}
+.note strong{font-weight:650}
+
+/* Live numbers */
+.live{margin-top:8px;margin-bottom:28px}
+.live h3{margin-top:0;font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle)}
+.live .stat-row li{flex:1 1 110px;font-size:14px}
+.live .stat-row span{display:block;line-height:1.35}
+
+/* Glossary: closed until wanted; the definition cards read it either way */
+.glossary summary{display:block;cursor:pointer;list-style:none}
+.glossary summary::-webkit-details-marker{display:none}
+.glossary summary h2{display:inline-block;margin-bottom:6px}
+.glossary summary h2::after{content:"";display:inline-block;width:9px;height:9px;margin-left:16px;border-right:1.5px solid var(--subtle);border-bottom:1.5px solid var(--subtle);transform:rotate(45deg);vertical-align:6px;transition:transform .2s}
+.glossary details[open] summary h2::after{transform:rotate(-135deg);vertical-align:0}
+.glossary summary:hover h2{color:var(--accent)}
+.glossary summary:focus-visible{outline:2px solid var(--accent);outline-offset:6px;border-radius:4px}
+.glossary-count{display:block;font-size:15px;color:var(--subtle)}
+.glossary-group{margin-top:36px}
+.glossary-group h3{font-size:12px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);margin:0 0 6px}
+.glossary dl{margin:0}
+.glossary .entry{display:grid;grid-template-columns:190px minmax(0,1fr);gap:4px 24px;padding:16px 0;border-top:1px solid var(--soft-line);scroll-margin-top:96px;transition:background-color .6s}
+.glossary .entry:target{background:var(--accent-light);margin:0 -12px;padding:16px 12px;border-radius:6px}
+.glossary dt{font:600 16.5px/1.4 var(--serif)}
+.glossary dd{margin:0}
+.glossary .definition{margin:0;font-size:15.5px;line-height:1.6}
+.glossary .example{margin:6px 0 0;font-size:14px;line-height:1.55;color:var(--subtle)}
+.example>span:first-child{font-size:10.5px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle);margin-right:8px}
+.glossary .see-also{margin:6px 0 0;font-size:13px;color:var(--subtle)}
+.glossary .see-also a{text-decoration:none}.glossary .see-also a:hover{text-decoration:underline}
+
+/* Footer */
+.about-footer{padding:24px 28px 72px;border-top:1px solid var(--line);font-size:13px;color:var(--subtle)}
+.about-footer p{margin:0 0 6px}
+
+/* Definition card */
+.definition-card{position:absolute;z-index:30;width:min(344px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;padding:16px 18px 14px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);font-size:15px;line-height:1.55}
+.definition-card[hidden]{display:none}
+.definition-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.definition-group{margin:0;font-size:10.5px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle)}
+.definition-close{border:0;background:none;width:28px;height:28px;margin:-6px -8px -6px 0;border-radius:6px;color:var(--subtle);font-size:19px;line-height:1}
+.definition-close:hover{background:var(--canvas);color:var(--ink)}
+.definition-card h3{font:600 20px/1.3 var(--serif);margin:2px 0 8px}
+.definition-card h3:focus{outline:none}
+.definition-card .definition{margin:0 0 8px}
+.definition-card .example{margin:0;font-size:13.5px;color:var(--subtle)}
+.definition-card em.rel{font-family:var(--serif);font-style:italic}
+.definition-card code{font-family:var(--mono);font-size:12px;background:var(--canvas);border:1px solid var(--soft-line);padding:1px 4px;border-radius:4px}
+.definition-related{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-top:12px;padding-top:10px;border-top:1px solid var(--soft-line);font-size:13px}
+.definition-related[hidden]{display:none}
+.definition-related>span{color:var(--subtle)}
+.definition-foot{margin-top:10px;font-size:13px}
+.definition-foot:has(.definition-back[hidden]){display:none}
+.definition-card .text-button{font-size:13px}
+
+@media(max-width:1100px){
+  .about-hero{grid-template-columns:minmax(0,680px);gap:8px}
+  .hero-figure{width:100%;max-width:560px;margin:28px auto 0}
+  .hero-figure figcaption{max-width:none}
+}
+@media(max-width:760px){
+  .figure-art[style*="--narrow"]{aspect-ratio:var(--narrow)}
+  .figure-art .art-narrow{display:block}
+  .figure-art:has(.art-narrow) .art-wide{display:none}
+}
+@media(max-width:640px){
+  .about{padding:32px 16px 32px}
+  .about-section{margin-top:72px}
+  .about h1{font-size:34px}
+  .about h2{font-size:25px}
+  .about p,.about li,.about dd{font-size:16px}
+  .about-lede{font-size:17.5px!important}
+  .figure{margin:28px auto 24px}
+  .outer-loops{grid-template-columns:1fr}
+  .finding-example{padding:16px}
+  .fx-fields{grid-template-columns:1fr;gap:2px 0}
+  .fx-fields dd{margin-bottom:8px}
+  .status-grid{grid-template-columns:1fr;gap:14px}
+  .glossary .entry{grid-template-columns:1fr}
+  .about-footer{padding:20px 16px 56px}
+  .definition-card{position:fixed;left:0!important;right:0;top:auto!important;bottom:0;width:auto;max-height:72dvh;border-radius:16px 16px 0 0;border-bottom:0;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+}
+@media print{
+  .topbar,.term-hint,.definition-card,.live{display:none!important}
+  .term{border-bottom:none}
+}

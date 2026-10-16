@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Open Ontology of Polymer Chemistry</title>
+  <link rel="stylesheet" href="/researcher.css">
+  <script src="/researcher.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#view">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="#/ask" aria-label="Open Ontology of Polymer Chemistry home">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M10 10 29 10 34 28 17 35 5 24Z M10 10 17 35 M29 10 5 24"/><circle cx="10" cy="10" r="3"/><circle cx="29" cy="10" r="3"/><circle cx="34" cy="28" r="3"/><circle cx="17" cy="35" r="3"/><circle cx="5" cy="24" r="3"/></svg>
+      <span><strong>Open Ontology</strong><span class="brand-subtitle">of Polymer Chemistry</span></span>
+    </a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#/ask" data-tab="ask">Ask</a>
+      <a href="#/polymers" data-tab="polymers">Polymers</a>
+      <a href="#/knowledge" data-tab="knowledge">Knowledge</a>
+      <a href="#/history" data-tab="history">History</a>
+    </nav>
+    <div class="topbar-actions">
+      <a class="topbar-link" href="/about.html">About</a>
+      <button id="settings-button" class="icon-button" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button>
+      <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch to dark theme" title="Switch theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" class="fill"/></svg></button>
+    </div>
+  </header>
+  <div id="error-banner" class="error-banner" role="alert" hidden><span id="error-message"></span><button id="error-dismiss" type="button" aria-label="Dismiss">×</button></div>
+  <main id="view" class="view" tabindex="-1" aria-live="polite"></main>
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <div class="dialog-heading"><h2 id="settings-title">Settings</h2><button type="button" class="icon-button" data-close aria-label="Close settings">×</button></div>
+    <section class="settings-section" aria-labelledby="account-title">
+      <h3 id="account-title">Research engine</h3>
+      <p class="muted small">Questions run through your own subscription. Both engines share one memory and one history; each answer records which engine produced it. The reviewer checks an answer in a fresh session of the engine that wrote it, which can open the sources it read. ChatGPT (Codex) is the default: in October 2026 Claude Code’s web fetch could not open about two in five of the sources researchers cited (publisher pages and many PDFs), so its answers find fewer readable sources.</p>
+      <div id="runtime-list" class="runtime-list" role="radiogroup" aria-labelledby="account-title"><p class="muted small">Checking…</p></div>
+      <p class="muted small">Sign-in happens on the provider’s own website; no password is entered here.</p>
+      <p id="account-error" class="inline-error" role="alert" hidden></p>
+    </section>
+    <section class="settings-section" aria-labelledby="knowledge-title">
+      <h3 id="knowledge-title">Adding findings</h3>
+      <div class="runtime-list" role="radiogroup" aria-labelledby="knowledge-title">
+        <label class="runtime-option"><input type="radio" name="review-mode" value="researcher"><span><strong>The research agent decides</strong><br><span class="muted small">Values it read directly in a source’s text or a table are added at once. Values it read off a figure, converted or combined go to a separate reviewer first.</span></span></label>
+        <label class="runtime-option"><input type="radio" name="review-mode" value="all"><span><strong>Review every finding first</strong><br><span class="muted small">Nothing is used by later questions until a separate reviewer has checked it against its source.</span></span></label>
+      </div>
+      <label class="spot-rate">Spot checks<select id="spot-rate"><option value="0">Off</option><option value="0.1">1 in 10 added findings</option><option value="0.2">1 in 5 added findings</option><option value="1">Every added finding</option></select></label>
+      <p class="muted small">After an answer is delivered, the reviewer that checks its figure readings, conversions and combined values also checks a sample of the ones the research agent added, to show how often its judgement holds up. The answer never waits for it.</p>
+      <label class="spot-rate">Background research, questions a week<input type="number" id="research-per-week" min="0" max="100" step="1" inputmode="numeric"></label>
+      <p class="muted small">0 (the default) turns it off. Above 0, each answer's open questions join the research queue and the hourly loop asks up to this many a week, using a signed-in engine's spare quota.</p>
+      <p id="knowledge-error" class="inline-error" role="alert" hidden></p>
+    </section>
+    <section class="settings-section" aria-labelledby="privacy-title">
+      <h3 id="privacy-title">Privacy</h3>
+      <p class="small">Your question is sent to the selected engine’s provider (OpenAI or Anthropic) to run the research. The answer, its findings and its activity record stay on this computer. Each finding is labelled with who vouched for it: the research agent, or a separate reviewer that checked it against its source. Your questions and activity records are never included in public releases.</p>
+    </section>
+  </dialog>
+  <noscript><p class="error-banner">JavaScript is required for this application.</p></noscript>
+</body>
+</html>

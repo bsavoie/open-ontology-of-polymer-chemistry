@@ -1,0 +1,14 @@
+{
+  "name": "oopc-inspector-assets",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Reproducible offline browser assets for the Open Ontology of Polymer Chemistry inspector",
+  "scripts": {
+    "vendor": "node -e \"const f=require('node:fs');f.mkdirSync('oopc/web/vendor',{recursive:true});f.copyFileSync('node_modules/cytoscape/dist/cytoscape.min.js','oopc/web/vendor/cytoscape.min.js');f.copyFileSync('node_modules/cytoscape/LICENSE','oopc/web/vendor/cytoscape.LICENSE');f.copyFileSync('node_modules/openchemlib/dist/openchemlib.js','oopc/web/vendor/openchemlib.js');f.copyFileSync('node_modules/openchemlib/LICENSE','oopc/web/vendor/openchemlib.LICENSE');\"",
+    "check": "node --check oopc/web/app.js && node --check oopc/web/researcher.js && node --check oopc/web/about.js && node --test tests/inspector*.test.cjs"
+  },
+  "devDependencies": {
+    "cytoscape": "3.34.3",
+    "openchemlib": "9.25.0"
+  }
+}

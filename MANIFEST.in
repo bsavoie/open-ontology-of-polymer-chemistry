@@ -1,0 +1,21 @@
+include README.md NOTICE LICENSE LICENSE-DATA LICENSE-CONTENT pyproject.toml CHANGELOG.md
+recursive-include oopc *.py
+include oopc/web/index.html oopc/web/researcher.js oopc/web/researcher.css
+include oopc/web/operator.html oopc/web/app.js oopc/web/style.css
+include oopc/web/vendor/cytoscape.min.js oopc/web/vendor/cytoscape.LICENSE
+include oopc/web/vendor/openchemlib.js oopc/web/vendor/openchemlib.LICENSE
+include oopc/schema/*.json
+prune .oopc
+prune private
+prune artifacts
+prune releases
+prune benchmarks
+prune data
+prune examples
+prune tests
+prune config
+prune docs
+prune tools
+prune dist
+prune build
+global-exclude *.py[cod] .DS_Store

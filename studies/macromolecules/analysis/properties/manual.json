@@ -1,0 +1,1637 @@
+{
+ "acid-doping immersion duration": {
+  "class": "post-treatment"
+ },
+ "adhesive powder-to-water mass ratio": {
+  "class": "blend-composition"
+ },
+ "ageing-induced crystallinity increase": {
+  "class": "morphology-other"
+ },
+ "aging dependence of dsc enthalpy-recovery overshoot": {
+  "class": "thermal-other"
+ },
+ "amorphous waxd strain regime": {
+  "class": "morphology-other"
+ },
+ "annealing temperature for decreased electrical conductivity (σ)": {
+  "class": "electrical-other"
+ },
+ "annealing temperature for increased electrical conductivity (σ)": {
+  "class": "electrical-other"
+ },
+ "annealing temperature threshold for electrical conductivity decline": {
+  "class": "electrical-other"
+ },
+ "annealing temperature without detectable ftir-atr change": {
+  "class": "thermal-degradation-other"
+ },
+ "assay stirring speed": {
+  "class": "exposure-conditions"
+ },
+ "assay suspension volume": {
+  "class": "exposure-conditions"
+ },
+ "baseline processing duration": {
+  "class": "preparation-other"
+ },
+ "baseline processing temperature": {
+  "class": "preparation-other"
+ },
+ "bound-water hydration number": {
+  "class": "moisture-sorption"
+ },
+ "cacl2 concentration at volume transition": {
+  "class": "solution-other"
+ },
+ "change in glass transition temperature (δtg)": {
+  "class": "thermal-other"
+ },
+ "change in thermogravimetric degradation onset temperature": {
+  "class": "thermal-degradation-other"
+ },
+ "cloud-point slope versus sodium sulfate concentration": {
+  "class": "solution-other"
+ },
+ "co2 trap replacement": {
+  "class": "test-condition-other"
+ },
+ "compounding temperature range": {
+  "class": "melt-processing-conditions"
+ },
+ "compression set (cs), qualitative change": {
+  "class": "compression-set"
+ },
+ "compression-set measurement error": {
+  "class": "analysis-criterion"
+ },
+ "cooldown duration": {
+  "class": "test-condition-other"
+ },
+ "cooldown endpoint temperature": {
+  "class": "test-temperature"
+ },
+ "copolymer formulation batch mass": {
+  "class": "synthesis-conditions"
+ },
+ "critical clay volume fraction": {
+  "class": "filler-reinforcement"
+ },
+ "cross-section/surface morphology": {
+  "class": "morphology-other"
+ },
+ "crystallization observed during dsc cooling": {
+  "class": "crystallization-temperature"
+ },
+ "csa doping molar ratio (x)": {
+  "class": "formulation-other"
+ },
+ "cyclic stretching temperature": {
+  "class": "test-temperature"
+ },
+ "cyclic-voltammetry scan rate": {
+  "class": "test-condition-other"
+ },
+ "dcb adherend longitudinal grain angle": {
+  "class": "specimen-dimensions"
+ },
+ "dependence of glass transition temperature (tg) on water content": {
+  "class": "thermal-other"
+ },
+ "dependence of sequence alternation on synthesis conditions": {
+  "class": "chain-microstructure"
+ },
+ "device oxygen concentration": {
+  "class": "test-atmosphere"
+ },
+ "diameter": {
+  "class": "specimen-dimensions"
+ },
+ "difference between bending and tensile modulus": {
+  "class": "mechanical-other"
+ },
+ "dm loading": {
+  "class": "cure-system"
+ },
+ "dma specimen preparation temperature": {
+  "class": "specimen-preparation"
+ },
+ "doping and test electrolyte phosphoric-acid concentration": {
+  "class": "post-treatment"
+ },
+ "draw ratio at maximum degree of crystallinity": {
+  "class": "mechanical-other"
+ },
+ "draw ratio at onset of strain-induced density fluctuations": {
+  "class": "mechanical-other"
+ },
+ "draw ratio at strain-induced density-fluctuation onset": {
+  "class": "mechanical-other"
+ },
+ "draw ratio at strain-induced density-fluctuation onset (λ)": {
+  "class": "mechanical-other"
+ },
+ "draw-ratio interval of almost constant usaxs invariant": {
+  "class": "morphology-other"
+ },
+ "dry-mass loss": {
+  "class": "enzymatic-degradation"
+ },
+ "drying mass loss": {
+  "class": "moisture-sorption"
+ },
+ "dsc apparent glass-transition-temperature dependence on heating rate": {
+  "class": "thermal-other"
+ },
+ "dsc enthalpy (h)": {
+  "class": "melting-enthalpy"
+ },
+ "dsc enthalpy (δh)": {
+  "class": "thermal-other"
+ },
+ "dsc heating rate at melting-peak coalescence": {
+  "class": "thermal-other"
+ },
+ "dsc replicate count and uncertainty convention": {
+  "class": "replicate-count"
+ },
+ "dynamic packing piston frequency": {
+  "class": "melt-processing-conditions"
+ },
+ "effect of bone drying on equilibrium moisture regain (mr)": {
+  "class": "moisture-sorption"
+ },
+ "effect of crystallinity on hydrolytic degradation": {
+  "class": "hydrolytic-degradation"
+ },
+ "electrical conductivity calibration error": {
+  "class": "analysis-criterion"
+ },
+ "elongation at break (εb), standard deviation": {
+  "class": "analysis-criterion"
+ },
+ "elongation at fracture": {
+  "class": "elongation-at-break"
+ },
+ "elongation at maximum tensile stress": {
+  "class": "mechanical-other"
+ },
+ "environmental controls": {
+  "class": "test-condition-other"
+ },
+ "enzymatic degradation assay enzyme panel": {
+  "class": "exposure-conditions"
+ },
+ "enzymatic hydrolysis screening panel size": {
+  "class": "exposure-conditions"
+ },
+ "enzyme-free control weight change": {
+  "class": "test-condition-other"
+ },
+ "epoxidized linseed oil addition": {
+  "class": "plasticizer"
+ },
+ "equilibrium mass gain relative to xerogel": {
+  "class": "swelling-ratio"
+ },
+ "equilibrium mass-change threshold": {
+  "class": "analysis-criterion"
+ },
+ "ethoxy content": {
+  "class": "degree-of-substitution"
+ },
+ "ethylbenzene content": {
+  "class": "synthesis-conditions"
+ },
+ "ethylene mole fraction": {
+  "class": "copolymer-composition"
+ },
+ "ethylene thiourea loading": {
+  "class": "cure-system"
+ },
+ "extension": {
+  "class": "elongation-at-break"
+ },
+ "exudation contact configuration": {
+  "class": "test-condition-other"
+ },
+ "feed methanol concentration": {
+  "class": "test-condition-other"
+ },
+ "fep mass fraction": {
+  "class": "blend-composition"
+ },
+ "fiber length": {
+  "class": "particle-fiber-size"
+ },
+ "fiber morphology": {
+  "class": "morphology-other"
+ },
+ "film blowing": {
+  "class": "melt-processing-conditions"
+ },
+ "film formation duration": {
+  "class": "solution-processing-conditions"
+ },
+ "film preparation heating duration": {
+  "class": "melt-processing-conditions"
+ },
+ "film preparation heating temperature": {
+  "class": "melt-processing-conditions"
+ },
+ "film preparation melting duration": {
+  "class": "melt-processing-conditions"
+ },
+ "film preparation melting temperature": {
+  "class": "melt-processing-conditions"
+ },
+ "film preparation pressure": {
+  "class": "melt-processing-conditions"
+ },
+ "filtration size": {
+  "class": "preparation-other"
+ },
+ "first-stage degradation enthalpy change": {
+  "class": "thermal-degradation-other"
+ },
+ "fitted creep-stress threshold": {
+  "class": "creep-stress-relaxation"
+ },
+ "flex modulus, as labelled by source": {
+  "class": "flexural-modulus"
+ },
+ "flexural failure-strain reduction": {
+  "class": "property-retention-after-aging"
+ },
+ "flexural replication and uncertainty convention": {
+  "class": "replicate-count"
+ },
+ "flexural strength reduction": {
+  "class": "property-retention-after-aging"
+ },
+ "flexural toughness reduction": {
+  "class": "property-retention-after-aging"
+ },
+ "flexural toughness retention": {
+  "class": "property-retention-after-aging"
+ },
+ "formaldehyde emission specimen substrate": {
+  "class": "specimen-preparation"
+ },
+ "fracture toughness reduction": {
+  "class": "property-retention-after-aging"
+ },
+ "fracture-test initial load": {
+  "class": "test-load"
+ },
+ "fresh-film testing age": {
+  "class": "conditioning"
+ },
+ "frost-line height": {
+  "class": "melt-processing-conditions"
+ },
+ "ftir β/γ separation limitation": {
+  "class": "analysis-criterion"
+ },
+ "glass mass fraction": {
+  "class": "filler-reinforcement"
+ },
+ "glass transition measurement error": {
+  "class": "analysis-criterion"
+ },
+ "glass transition temperature (tg) estimated error": {
+  "class": "analysis-criterion"
+ },
+ "glass transition temperature test rate": {
+  "class": "heating-cooling-rate"
+ },
+ "glass-transition heat-capacity change (δcp)": {
+  "class": "heat-capacity"
+ },
+ "glycolide content": {
+  "class": "copolymer-composition"
+ },
+ "gpc solvent flow rate": {
+  "class": "test-condition-other"
+ },
+ "gravimetric balance resolution": {
+  "class": "instrument"
+ },
+ "gravimetric mass loss": {
+  "class": "degradation-other"
+ },
+ "gravimetric mass remaining": {
+  "class": "analysis-criterion"
+ },
+ "gravimetric specimen mass loss": {
+  "class": "degradation-other"
+ },
+ "half-power-point frequency difference (hppfd)": {
+  "class": "electrical-other"
+ },
+ "haze scattering-angle threshold": {
+  "class": "analysis-criterion"
+ },
+ "hdt specimen mould cooling endpoint": {
+  "class": "annealing-thermal-history"
+ },
+ "hdt specimen post-cooling hold duration": {
+  "class": "annealing-thermal-history"
+ },
+ "hdt temperature increase": {
+  "class": "thermal-other"
+ },
+ "heat deflection temperature (hdt) enhancement": {
+  "class": "thermal-other"
+ },
+ "heat-capacity change at glass transition (δcp)": {
+  "class": "heat-capacity"
+ },
+ "heating-rate dependence of cloud point": {
+  "class": "solution-other"
+ },
+ "hexafluoropropene component mass fraction": {
+  "class": "copolymer-composition"
+ },
+ "hexafluoropropylene content": {
+  "class": "copolymer-composition"
+ },
+ "holding pressure": {
+  "class": "melt-processing-conditions"
+ },
+ "homogenization duration": {
+  "class": "solution-processing-conditions"
+ },
+ "homogenization speed": {
+  "class": "solution-processing-conditions"
+ },
+ "hot-compression pressure": {
+  "class": "melt-processing-conditions"
+ },
+ "hydrogel dispersion temperature": {
+  "class": "solution-processing-conditions"
+ },
+ "hydrogen feed flow rate": {
+  "class": "test-condition-other"
+ },
+ "hydrogen permeate sensor response (s)": {
+  "class": "gas-permeability-other"
+ },
+ "hydrogen test concentration": {
+  "class": "test-condition-other"
+ },
+ "hydrogen upstream gauge pressure": {
+  "class": "test-load"
+ },
+ "hydrolysis medium replacement protocol": {
+  "class": "exposure-conditions"
+ },
+ "immersion bath temperatures": {
+  "class": "exposure-conditions"
+ },
+ "impregnation duration": {
+  "class": "melt-processing-conditions"
+ },
+ "impregnation pressure": {
+  "class": "melt-processing-conditions"
+ },
+ "impregnation temperature": {
+  "class": "melt-processing-conditions"
+ },
+ "in-plane linear swelling": {
+  "class": "dimensional-stability"
+ },
+ "increase in degree of crystallinity": {
+  "class": "morphology-other"
+ },
+ "indentation elastic-modulus increase": {
+  "class": "mechanical-other"
+ },
+ "initial heating endpoint temperature": {
+  "class": "thermal-program"
+ },
+ "initial soil ph": {
+  "class": "exposure-conditions"
+ },
+ "initial stage mass loss": {
+  "class": "thermal-mass-loss"
+ },
+ "initial tensile modulus experimental error": {
+  "class": "analysis-criterion"
+ },
+ "initial tensile modulus, dependence on draw ratio": {
+  "class": "mechanical-other"
+ },
+ "initiation reagent ratio": {
+  "class": "synthesis-conditions"
+ },
+ "injection molding temperature range": {
+  "class": "melt-processing-conditions"
+ },
+ "injection-molding flow-front velocity": {
+  "class": "melt-processing-conditions"
+ },
+ "instantaneous-recovery test specific load": {
+  "class": "test-load"
+ },
+ "intrinsic viscosity increase at infinite ionic strength": {
+  "class": "solution-other"
+ },
+ "iodine-source hotplate temperature": {
+  "class": "post-treatment"
+ },
+ "irradiation atmosphere": {
+  "class": "exposure-conditions"
+ },
+ "isoprene content": {
+  "class": "copolymer-composition"
+ },
+ "isothermal rheology duration": {
+  "class": "test-duration"
+ },
+ "laminate resin content": {
+  "class": "blend-composition"
+ },
+ "laser-sintering laser power": {
+  "class": "melt-processing-conditions"
+ },
+ "laser-sintering scan spacing": {
+  "class": "melt-processing-conditions"
+ },
+ "lcst identification": {
+  "class": "analysis-criterion"
+ },
+ "level of functionalization (lof)": {
+  "class": "degree-of-substitution"
+ },
+ "light transmittance reference": {
+  "class": "analysis-criterion"
+ },
+ "light-scattering-derived correlation length": {
+  "class": "morphology-other"
+ },
+ "limiting newtonian viscosity (η0)": {
+  "class": "solution-viscosity"
+ },
+ "liquid paraffin loading": {
+  "class": "plasticizer"
+ },
+ "load-drop threshold for loading-speed increase": {
+  "class": "test-condition-other"
+ },
+ "loading-cycle identification": {
+  "class": "analysis-criterion"
+ },
+ "loading-mode dependence of mechanical hysteresis": {
+  "class": "resilience-recovery"
+ },
+ "longitudinal toe modulus": {
+  "class": "tensile-modulus"
+ },
+ "main decomposition mass loss": {
+  "class": "thermal-mass-loss"
+ },
+ "manometric test differential pressure": {
+  "class": "test-load"
+ },
+ "mass change": {
+  "class": "volume-swell"
+ },
+ "material composition designation": {
+  "class": "material-identity"
+ },
+ "material moisture condition": {
+  "class": "conditioning"
+ },
+ "maximum build platform temperature": {
+  "class": "melt-processing-conditions"
+ },
+ "maximum cyclic tensile strain": {
+  "class": "test-load"
+ },
+ "maximum fracture strength": {
+  "class": "tensile-strength"
+ },
+ "maximum relative shore hardness loss": {
+  "class": "property-retention-after-aging"
+ },
+ "maximum stress": {
+  "class": "tensile-strength"
+ },
+ "maximum-temperature dwell time": {
+  "class": "thermal-program"
+ },
+ "measured lactide:glycolide molar ratio": {
+  "class": "copolymer-composition"
+ },
+ "measurement specimen volume": {
+  "class": "specimen-dimensions"
+ },
+ "mechanical analysis software version": {
+  "class": "instrument"
+ },
+ "mechanical measurement replication and uncertainty convention": {
+  "class": "replicate-count"
+ },
+ "mechanical-test moisture condition": {
+  "class": "conditioning"
+ },
+ "melt flow index coefficient of variation (c.o.v.)": {
+  "class": "analysis-criterion"
+ },
+ "melt-pressing temperature specification": {
+  "class": "melt-processing-conditions"
+ },
+ "melt-processing duration": {
+  "class": "melt-processing-conditions"
+ },
+ "melt-processing rotor speed": {
+  "class": "melt-processing-conditions"
+ },
+ "melt-processing temperature": {
+  "class": "melt-processing-conditions"
+ },
+ "melt-spinning feasibility": {
+  "class": "processability"
+ },
+ "melting endpoint temperature": {
+  "class": "melting-temperature"
+ },
+ "melting temperature measurement cycle": {
+  "class": "thermal-program"
+ },
+ "methanol calibration concentration range": {
+  "class": "analysis-criterion"
+ },
+ "methanol detection electrode configuration": {
+  "class": "instrument"
+ },
+ "methanol feed concentration": {
+  "class": "test-condition-other"
+ },
+ "microcapsule core content": {
+  "class": "formulation-other"
+ },
+ "microcapsule mass fraction": {
+  "class": "additive"
+ },
+ "mineralization sample loading": {
+  "class": "exposure-conditions"
+ },
+ "minimum oxygen-permeation fit coefficient of determination (r2)": {
+  "class": "analysis-criterion"
+ },
+ "mixing batch rubber mass": {
+  "class": "melt-processing-conditions"
+ },
+ "mixing duration after masterbatch addition": {
+  "class": "melt-processing-conditions"
+ },
+ "moisture and volatile removal temperature range": {
+  "class": "thermal-degradation-other"
+ },
+ "moisture-content threshold for increased water-vapor diffusivity": {
+  "class": "barrier-other"
+ },
+ "moisture-regain heat-drying regimen": {
+  "class": "drying"
+ },
+ "mold temperature at specimen removal": {
+  "class": "melt-processing-conditions"
+ },
+ "molecular-weight-distribution change": {
+  "class": "molar-mass-loss"
+ },
+ "monomer concentration": {
+  "class": "synthesis-conditions"
+ },
+ "monomer molar ratio": {
+  "class": "copolymer-composition"
+ },
+ "monomer-solution water volume": {
+  "class": "synthesis-conditions"
+ },
+ "monomer/diluent ratio": {
+  "class": "synthesis-conditions"
+ },
+ "moulding melt-temperature offset above melting point": {
+  "class": "melt-processing-conditions"
+ },
+ "mox detector operating power": {
+  "class": "instrument"
+ },
+ "mox detector operating temperature": {
+  "class": "instrument"
+ },
+ "mxd6 mass fraction": {
+  "class": "blend-composition"
+ },
+ "nano-zinc sulfide loading": {
+  "class": "filler-reinforcement"
+ },
+ "nitrogen amendment mass": {
+  "class": "exposure-conditions"
+ },
+ "normalized remaining monolayer area (a/a0)": {
+  "class": "degradation-other"
+ },
+ "notch included angle": {
+  "class": "specimen-dimensions"
+ },
+ "novolac resin mass fraction": {
+  "class": "blend-composition"
+ },
+ "nucrel 535 mass fraction": {
+  "class": "additive"
+ },
+ "number of tensile measurements": {
+  "class": "replicate-count"
+ },
+ "number of thermal cycles": {
+  "class": "test-condition-other"
+ },
+ "o-ring cord diameter": {
+  "class": "specimen-dimensions"
+ },
+ "o-ring inner diameter": {
+  "class": "specimen-dimensions"
+ },
+ "o-ring internal diameter": {
+  "class": "specimen-dimensions"
+ },
+ "observed degradation onset time": {
+  "class": "degradation-other"
+ },
+ "observed mass-loss onset time": {
+  "class": "degradation-other"
+ },
+ "occurrence of strain-induced density fluctuations (sidf)": {
+  "class": "mechanical-other"
+ },
+ "ofpma monomer loading": {
+  "class": "copolymer-composition"
+ },
+ "optical measurement photon-energy range": {
+  "class": "test-condition-other"
+ },
+ "optical-test measurement-point count": {
+  "class": "replicate-count"
+ },
+ "oscillatory rheometry test temperatures": {
+  "class": "test-temperature"
+ },
+ "oscillatory shear stress range": {
+  "class": "test-frequency-amplitude"
+ },
+ "overlap concentration (φ*)": {
+  "class": "solution-thermodynamics"
+ },
+ "oxygen gas-permeability (source terminology)": {
+  "class": "oxygen-transmission-rate"
+ },
+ "oxygen permeability (p o2), labelled oxygen transmission rate": {
+  "class": "oxygen-permeability"
+ },
+ "oxygen permeability (reported pressure-normalized transmission)": {
+  "class": "oxygen-transmission-rate"
+ },
+ "oxygen permeability (reported terminology; units of permeance)": {
+  "class": "oxygen-transmission-rate"
+ },
+ "oxygen permeability coefficient (p o2), labeled otr": {
+  "class": "oxygen-permeability"
+ },
+ "oxygen permeability coefficient (p o2), labeled oxygen transmission rate": {
+  "class": "oxygen-permeability"
+ },
+ "oxygen transmission test conditions": {
+  "class": "test-condition-other"
+ },
+ "oxygen transport measurement scope": {
+  "class": "test-condition-other"
+ },
+ "oxygen-diffusion activation energy (ed)": {
+  "class": "barrier-other"
+ },
+ "oxygen-permeation gas configuration": {
+  "class": "test-condition-other"
+ },
+ "oxygen-test chamber moisture content": {
+  "class": "test-humidity"
+ },
+ "panel curing process": {
+  "class": "cure-schedule"
+ },
+ "pen mass fraction": {
+  "class": "blend-composition"
+ },
+ "permanent deformation": {
+  "class": "resilience-recovery"
+ },
+ "permeation downstream pressure condition": {
+  "class": "test-load"
+ },
+ "permeation feed flow rate": {
+  "class": "test-condition-other"
+ },
+ "permeation partial-pressure difference": {
+  "class": "test-load"
+ },
+ "physical-property specimen condition": {
+  "class": "specimen-preparation"
+ },
+ "pipe size": {
+  "class": "specimen-dimensions"
+ },
+ "polybutadiene content": {
+  "class": "blend-composition"
+ },
+ "polybutadiene loading": {
+  "class": "blend-composition"
+ },
+ "polylactide resin content": {
+  "class": "blend-composition"
+ },
+ "polymer-concentration dependence of cloud point": {
+  "class": "solution-other"
+ },
+ "polymerization heating conditions": {
+  "class": "synthesis-conditions"
+ },
+ "polymerization ph": {
+  "class": "synthesis-conditions"
+ },
+ "polymerization stirring rate": {
+  "class": "synthesis-conditions"
+ },
+ "polymerization uv lamp power": {
+  "class": "synthesis-conditions"
+ },
+ "polystyrene block mass fraction": {
+  "class": "copolymer-composition"
+ },
+ "possible relative error in dielectric constant (δε')": {
+  "class": "analysis-criterion"
+ },
+ "post-compression cooling rate": {
+  "class": "melt-processing-conditions"
+ },
+ "post-cooling hold duration": {
+  "class": "thermal-program"
+ },
+ "post-exposure rinse count": {
+  "class": "test-condition-other"
+ },
+ "post-molding aging duration before dsc": {
+  "class": "conditioning"
+ },
+ "post-polymerization filtration membrane pore size": {
+  "class": "synthesis-conditions"
+ },
+ "post-pressing cooling procedure": {
+  "class": "melt-processing-conditions"
+ },
+ "post-release thermal recovery duration": {
+  "class": "test-duration"
+ },
+ "post-release thermal recovery temperature": {
+  "class": "test-temperature"
+ },
+ "post-treatment immersion duration": {
+  "class": "post-treatment"
+ },
+ "postpolymerization washing duration": {
+  "class": "synthesis-conditions"
+ },
+ "pps mass fraction": {
+  "class": "blend-composition"
+ },
+ "pre-exposure thermal pretreatment duration": {
+  "class": "annealing-thermal-history"
+ },
+ "pre-ramp isothermal hold duration": {
+  "class": "thermal-program"
+ },
+ "pre-ramp isothermal hold temperature": {
+  "class": "thermal-program"
+ },
+ "pre-swelling extraction duration": {
+  "class": "preparation-other"
+ },
+ "pre-unloading relaxation duration": {
+  "class": "test-duration"
+ },
+ "pre-weighing hold duration": {
+  "class": "test-duration"
+ },
+ "precursor thermal imidization": {
+  "class": "cure-schedule"
+ },
+ "precursor tube inner diameter": {
+  "class": "specimen-dimensions"
+ },
+ "preforming duration": {
+  "class": "melt-processing-conditions"
+ },
+ "preforming pressure": {
+  "class": "melt-processing-conditions"
+ },
+ "preliminary stretching threshold for change in stress-strain behavior": {
+  "class": "mechanical-other"
+ },
+ "preparation": {
+  "class": "specimen-preparation"
+ },
+ "preparation and testing specification": {
+  "class": "test-method-standard"
+ },
+ "preparation cooling rate": {
+  "class": "annealing-thermal-history"
+ },
+ "preparation cooling temperature interval": {
+  "class": "annealing-thermal-history"
+ },
+ "preparation oven duration": {
+  "class": "preparation-other"
+ },
+ "preparation oven temperature": {
+  "class": "preparation-other"
+ },
+ "preparation ph": {
+  "class": "preparation-other"
+ },
+ "preparation ring width": {
+  "class": "specimen-dimensions"
+ },
+ "preparation time": {
+  "class": "preparation-other"
+ },
+ "preprocessing moisture content": {
+  "class": "drying"
+ },
+ "printing nozzle diameter": {
+  "class": "melt-processing-conditions"
+ },
+ "processing temperature": {
+  "class": "melt-processing-conditions"
+ },
+ "product form and processing": {
+  "class": "specimen-preparation"
+ },
+ "programming elongation": {
+  "class": "test-load"
+ },
+ "protease activity loading": {
+  "class": "exposure-conditions"
+ },
+ "proton irradiation energy": {
+  "class": "exposure-conditions"
+ },
+ "ptt mass fraction": {
+  "class": "blend-composition"
+ },
+ "qualitative phase dominance": {
+  "class": "crystal-structure-phase"
+ },
+ "qualitative surface and integrity change": {
+  "class": "degradation-other"
+ },
+ "raster angle": {
+  "class": "melt-processing-conditions"
+ },
+ "razor-notching displacement rate": {
+  "class": "specimen-preparation"
+ },
+ "reaction agitation speed": {
+  "class": "synthesis-conditions"
+ },
+ "reaction volume": {
+  "class": "exposure-conditions"
+ },
+ "reactive diluent content": {
+  "class": "blend-composition"
+ },
+ "reactivity ratios": {
+  "class": "chain-microstructure"
+ },
+ "reactor loading": {
+  "class": "exposure-conditions"
+ },
+ "recoverable dry-mass loss": {
+  "class": "biodegradation"
+ },
+ "recovery-test pretension": {
+  "class": "test-load"
+ },
+ "recycled methyl methacrylate feedstock fraction": {
+  "class": "synthesis-conditions"
+ },
+ "recycled tpee mass fraction": {
+  "class": "blend-composition"
+ },
+ "reference specimen initial cooling": {
+  "class": "annealing-thermal-history"
+ },
+ "relative average gear service life": {
+  "class": "fatigue"
+ },
+ "relative change in recovered strain (er)": {
+  "class": "resilience-recovery"
+ },
+ "relative change in strain endpoint (sep)": {
+  "class": "resilience-recovery"
+ },
+ "relative change in water-vapor sorption capacity": {
+  "class": "moisture-sorption"
+ },
+ "relative increase in activation energy for diffusion (ed)": {
+  "class": "barrier-other"
+ },
+ "relative increase in blow-up ratio (bur)": {
+  "class": "processability"
+ },
+ "relative increase in notched charpy impact strength": {
+  "class": "impact-strength-other"
+ },
+ "relative increase in tensile strength": {
+  "class": "mechanical-other"
+ },
+ "relative oxygen-permeability decrease": {
+  "class": "barrier-other"
+ },
+ "relative reduction in composting lag phase": {
+  "class": "biodegradation"
+ },
+ "relative reduction in gas solubility (s)": {
+  "class": "barrier-other"
+ },
+ "relative spectral transmittance loss": {
+  "class": "property-retention-after-aging"
+ },
+ "relative standard deviation of tensile-property averages": {
+  "class": "analysis-criterion"
+ },
+ "relative tensile breaking strength": {
+  "class": "property-retention-after-aging"
+ },
+ "reported glycolide content": {
+  "class": "copolymer-composition"
+ },
+ "reported impact-strength difference": {
+  "class": "impact-strength-other"
+ },
+ "reported improvement in oxygen barrier performance": {
+  "class": "barrier-other"
+ },
+ "reported increase in co2-based biodegradation": {
+  "class": "biodegradation"
+ },
+ "reported specimen depth": {
+  "class": "specimen-dimensions"
+ },
+ "reported tensile testing load": {
+  "class": "test-load"
+ },
+ "reported tensile-result variability": {
+  "class": "analysis-criterion"
+ },
+ "reported uncertainty definition": {
+  "class": "analysis-criterion"
+ },
+ "reported waxd internal strain": {
+  "class": "morphology-other"
+ },
+ "reported weatherometer filter cutoff": {
+  "class": "exposure-conditions"
+ },
+ "residual fragment size": {
+  "class": "degradation-other"
+ },
+ "residual mass": {
+  "class": "char-yield"
+ },
+ "residual mass (wr)": {
+  "class": "char-yield"
+ },
+ "residual mass fraction": {
+  "class": "char-yield"
+ },
+ "residual mass fraction (wresidual)": {
+  "class": "char-yield"
+ },
+ "residual specimen mass": {
+  "class": "hydrolytic-degradation"
+ },
+ "residual weight gain after drying": {
+  "class": "water-absorption"
+ },
+ "resin batch mass": {
+  "class": "synthesis-conditions"
+ },
+ "resin composition designation": {
+  "class": "material-identity"
+ },
+ "retained ionic-liquid mass fraction": {
+  "class": "formulation-other"
+ },
+ "rheometer cone angle": {
+  "class": "test-geometry"
+ },
+ "rheometer cone diameter": {
+  "class": "test-geometry"
+ },
+ "rheometer cylinder cross-sectional area": {
+  "class": "test-geometry"
+ },
+ "rheometry sample volume": {
+  "class": "specimen-dimensions"
+ },
+ "rheometry shear-rate range": {
+  "class": "test-frequency-amplitude"
+ },
+ "rolling duration": {
+  "class": "melt-processing-conditions"
+ },
+ "rolling temperature": {
+  "class": "melt-processing-conditions"
+ },
+ "sample loading in soil": {
+  "class": "exposure-conditions"
+ },
+ "saturation water volume fraction": {
+  "class": "water-absorption"
+ },
+ "se300": {
+  "class": "stress-at-strain"
+ },
+ "second-stage degradation enthalpy change": {
+  "class": "thermal-degradation-other"
+ },
+ "second-stage mass loss": {
+  "class": "thermal-mass-loss"
+ },
+ "secondary cure peak temperature": {
+  "class": "cure-kinetics"
+ },
+ "seebeck measurement temperature difference (δt)": {
+  "class": "test-condition-other"
+ },
+ "sem preparation": {
+  "class": "specimen-preparation"
+ },
+ "shear-modulus threshold for heat deflection temperature (hdt) estimation": {
+  "class": "analysis-criterion"
+ },
+ "shore a hardness difference between 1 s and 15 s (delta hardness)": {
+  "class": "hardness-other"
+ },
+ "shore a hardness reading delay": {
+  "class": "test-duration"
+ },
+ "sic onset strain": {
+  "class": "mechanical-other"
+ },
+ "simulation loading basis": {
+  "class": "plasticizer"
+ },
+ "size exclusion chromatography flow rate": {
+  "class": "test-condition-other"
+ },
+ "size exclusion chromatography temperature": {
+  "class": "test-temperature"
+ },
+ "sodium chloride concentration in assay medium": {
+  "class": "exposure-conditions"
+ },
+ "soil gravimetric mass loss": {
+  "class": "biodegradation"
+ },
+ "soil incubation moisture": {
+  "class": "exposure-conditions"
+ },
+ "soil moisture relative to field capacity": {
+  "class": "exposure-conditions"
+ },
+ "soil polymer loading": {
+  "class": "exposure-conditions"
+ },
+ "soil sieve size": {
+  "class": "exposure-conditions"
+ },
+ "solid-resin adhesive spread": {
+  "class": "preparation-other"
+ },
+ "solubility-test specimen particle size": {
+  "class": "specimen-dimensions"
+ },
+ "soluble mass fraction (φs)": {
+  "class": "crosslink-density"
+ },
+ "solution mass-per-volume concentration": {
+  "class": "measurement-solution"
+ },
+ "solution ph": {
+  "class": "measurement-solution"
+ },
+ "solution sonication duration": {
+  "class": "solution-processing-conditions"
+ },
+ "solution stirring duration": {
+  "class": "solution-processing-conditions"
+ },
+ "solvent density (ρs)": {
+  "class": "analysis-criterion"
+ },
+ "solvent mass fraction": {
+  "class": "blend-composition"
+ },
+ "solvent molar volume (vs)": {
+  "class": "analysis-criterion"
+ },
+ "solvent molar volume (vs) used in crosslink-density calculation": {
+  "class": "analysis-criterion"
+ },
+ "solvent preparation": {
+  "class": "measurement-solution"
+ },
+ "solvent sodium hydroxide mass fraction": {
+  "class": "solution-processing-conditions"
+ },
+ "solvent urea mass fraction": {
+  "class": "solution-processing-conditions"
+ },
+ "solvent-removal temperature": {
+  "class": "drying"
+ },
+ "solvent-vapor treatment setup": {
+  "class": "post-treatment"
+ },
+ "specimen drying temperature range": {
+  "class": "drying"
+ },
+ "specimen formulation": {
+  "class": "formulation-other"
+ },
+ "specimen immersion depth at upper edge": {
+  "class": "exposure-conditions"
+ },
+ "specimen mold cavity depth": {
+  "class": "specimen-dimensions"
+ },
+ "specimen particle-size fraction": {
+  "class": "specimen-dimensions"
+ },
+ "specimen phase-transition condition": {
+  "class": "specimen-preparation"
+ },
+ "specimen precipitation solvent": {
+  "class": "preparation-other"
+ },
+ "specimen preparation heating duration": {
+  "class": "specimen-preparation"
+ },
+ "specimen preparation temperature": {
+  "class": "specimen-preparation"
+ },
+ "specimen pressure-treatment duration": {
+  "class": "post-treatment"
+ },
+ "specimen pretreatment duration": {
+  "class": "annealing-thermal-history"
+ },
+ "specimen treatment pressure": {
+  "class": "post-treatment"
+ },
+ "specimen washing": {
+  "class": "specimen-preparation"
+ },
+ "specimen washing solvent ratio": {
+  "class": "specimen-preparation"
+ },
+ "specimen-preparation equipment": {
+  "class": "specimen-preparation"
+ },
+ "spinning batch mass": {
+  "class": "melt-processing-conditions"
+ },
+ "spinning die diameter": {
+  "class": "melt-processing-conditions"
+ },
+ "spun-yarn filament count": {
+  "class": "specimen-preparation"
+ },
+ "stabilization duration": {
+  "class": "conditioning"
+ },
+ "stabilization program": {
+  "class": "post-treatment"
+ },
+ "stabilization temperature": {
+  "class": "conditioning"
+ },
+ "stage 1 mass loss": {
+  "class": "thermal-mass-loss"
+ },
+ "standing duration before vulcanization": {
+  "class": "cure-schedule"
+ },
+ "starch concentration": {
+  "class": "solution-processing-conditions"
+ },
+ "starting material form": {
+  "class": "specimen-preparation"
+ },
+ "steam sterilization duration": {
+  "class": "post-treatment"
+ },
+ "stock-solution stirring duration": {
+  "class": "solution-processing-conditions"
+ },
+ "storage-modulus experimental uncertainty": {
+  "class": "analysis-criterion"
+ },
+ "strain hardening in extension": {
+  "class": "melt-rheology-other"
+ },
+ "stretched holding duration": {
+  "class": "drawing-conditions"
+ },
+ "stretching rate": {
+  "class": "drawing-conditions"
+ },
+ "structol wb222 loading": {
+  "class": "additive"
+ },
+ "styrene mass fraction": {
+  "class": "copolymer-composition"
+ },
+ "substrate carbon loading": {
+  "class": "exposure-conditions"
+ },
+ "substrate preparation baking duration": {
+  "class": "specimen-preparation"
+ },
+ "substrate preparation baking temperature": {
+  "class": "specimen-preparation"
+ },
+ "supplier-reported viscosity": {
+  "class": "solution-viscosity"
+ },
+ "supply form": {
+  "class": "specimen-preparation"
+ },
+ "surface finish": {
+  "class": "specimen-preparation"
+ },
+ "surface-to-core crystallinity difference": {
+  "class": "morphology-other"
+ },
+ "suture size": {
+  "class": "specimen-dimensions"
+ },
+ "swelling bath volume": {
+  "class": "test-condition-other"
+ },
+ "swelling measurement conditions": {
+  "class": "test-temperature"
+ },
+ "swelling measurement experimental error": {
+  "class": "analysis-criterion"
+ },
+ "swelling solvent volume": {
+  "class": "test-condition-other"
+ },
+ "swelling-solvent molar volume (v1)": {
+  "class": "analysis-criterion"
+ },
+ "temperature before peroxide addition": {
+  "class": "preparation-other"
+ },
+ "temperature dependence of residual-deformation accumulation following creep-recovery": {
+  "class": "creep-stress-relaxation"
+ },
+ "temperature for time-dependent rheological change": {
+  "class": "melt-rheology-other"
+ },
+ "temperature of maximum thermal degradation rate (tdeg)": {
+  "class": "max-decomposition-rate-temperature"
+ },
+ "temperature of reported complete mass loss": {
+  "class": "thermal-degradation-other"
+ },
+ "tensile fracture strength": {
+  "class": "property-retention-after-aging"
+ },
+ "tensile modulus change": {
+  "class": "property-retention-after-aging"
+ },
+ "tensile modulus standard deviation": {
+  "class": "analysis-criterion"
+ },
+ "tensile necking stress": {
+  "class": "tensile-yield-strength"
+ },
+ "tensile rupture stress (σr)": {
+  "class": "tensile-strength"
+ },
+ "tensile sampling": {
+  "class": "replicate-count"
+ },
+ "tensile specimen scale": {
+  "class": "specimen-dimensions"
+ },
+ "tensile specimen specification": {
+  "class": "specimen-dimensions"
+ },
+ "tensile specimen standard": {
+  "class": "test-method-standard"
+ },
+ "tensile test environment": {
+  "class": "test-atmosphere"
+ },
+ "tensile test spun distance": {
+  "class": "test-geometry"
+ },
+ "tensile yield strength standard deviation": {
+  "class": "analysis-criterion"
+ },
+ "tensile-test spun distance": {
+  "class": "test-geometry"
+ },
+ "tert-butanol content in preparation dispersion": {
+  "class": "solution-processing-conditions"
+ },
+ "test compost age": {
+  "class": "exposure-conditions"
+ },
+ "test relative-humidity difference (δrh)": {
+  "class": "test-humidity"
+ },
+ "test vessel volume": {
+  "class": "test-condition-other"
+ },
+ "test-fluid blending duration": {
+  "class": "exposure-conditions"
+ },
+ "test-gas oxygen concentration": {
+  "class": "test-atmosphere"
+ },
+ "test-specimen injection velocity": {
+  "class": "melt-processing-conditions"
+ },
+ "tga specimen formulation": {
+  "class": "formulation-other"
+ },
+ "theoretical co2 determination": {
+  "class": "analysis-criterion"
+ },
+ "thermal degradation onset temperature range": {
+  "class": "decomposition-onset-temperature"
+ },
+ "thermal degradation temperature interval": {
+  "class": "thermal-degradation-other"
+ },
+ "thermal depoling duration": {
+  "class": "post-treatment"
+ },
+ "thermal depoling temperature": {
+  "class": "post-treatment"
+ },
+ "thermal fixing temperature": {
+  "class": "annealing-thermal-history"
+ },
+ "thermal-analysis temperature range": {
+  "class": "thermal-program"
+ },
+ "thermal-cycle maximum temperature": {
+  "class": "thermal-program"
+ },
+ "thermal-cycle upper temperature relative to melting point": {
+  "class": "thermal-program"
+ },
+ "time before increasing rheological moduli": {
+  "class": "melt-rheology-other"
+ },
+ "time to swelling plateau": {
+  "class": "swelling-ratio"
+ },
+ "time to water saturation": {
+  "class": "water-absorption"
+ },
+ "titanium dioxide mass fraction": {
+  "class": "filler-reinforcement"
+ },
+ "tmptma monomer loading": {
+  "class": "cure-system"
+ },
+ "total amine concentration": {
+  "class": "measurement-solution"
+ },
+ "total enthalpy (δh)": {
+  "class": "thermal-other"
+ },
+ "total sorption-capacity measurement error": {
+  "class": "analysis-criterion"
+ },
+ "total weight loss after desorption": {
+  "class": "degradation-other"
+ },
+ "toughener mass fraction": {
+  "class": "additive"
+ },
+ "toughness recovery after thermal rejuvenation": {
+  "class": "property-retention-after-aging"
+ },
+ "transmembrane pressure difference": {
+  "class": "test-load"
+ },
+ "typical cloud-point measurement standard error": {
+  "class": "analysis-criterion"
+ },
+ "ultimate tensile strength experimental error": {
+  "class": "analysis-criterion"
+ },
+ "ultraviolet absorber loading": {
+  "class": "additive"
+ },
+ "uv irradiation wavelength": {
+  "class": "exposure-conditions"
+ },
+ "uv lamp distance": {
+  "class": "exposure-conditions"
+ },
+ "uv lamp power": {
+  "class": "exposure-conditions"
+ },
+ "vacuum degassing duration": {
+  "class": "preparation-other"
+ },
+ "vacuum degassing schedule": {
+  "class": "preparation-other"
+ },
+ "vacuum degassing temperature": {
+  "class": "preparation-other"
+ },
+ "vacuum-degassing duration": {
+  "class": "preparation-other"
+ },
+ "vinyl molar content": {
+  "class": "copolymer-composition"
+ },
+ "vinylidene fluoride content": {
+  "class": "copolymer-composition"
+ },
+ "viscometer cone diameter": {
+  "class": "test-geometry"
+ },
+ "viscosity": {
+  "class": "solution-viscosity"
+ },
+ "viscosity identifier": {
+  "class": "intrinsic-viscosity"
+ },
+ "volume-change measurement method": {
+  "class": "test-method-standard"
+ },
+ "washing water replacement frequency": {
+  "class": "preparation-other"
+ },
+ "water absorption dependence on filler addition": {
+  "class": "water-absorption"
+ },
+ "water content before testing": {
+  "class": "conditioning"
+ },
+ "water molecules per ethylene oxide unit (h2o/eo)": {
+  "class": "moisture-sorption"
+ },
+ "water permeance": {
+  "class": "water-vapor-transmission-rate"
+ },
+ "water washing duration": {
+  "class": "preparation-other"
+ },
+ "water-absorption monitoring duration in methods": {
+  "class": "test-duration"
+ },
+ "water-content threshold for glass transition below room temperature": {
+  "class": "thermal-other"
+ },
+ "water-immersion duration in results": {
+  "class": "test-duration"
+ },
+ "water-induced plasticization": {
+  "class": "thermal-other"
+ },
+ "water-related mass uptake": {
+  "class": "water-absorption"
+ },
+ "water-retention test relative centrifugal acceleration": {
+  "class": "test-load"
+ },
+ "water-sorption specimen composition": {
+  "class": "specimen-preparation"
+ },
+ "water-uptake coefficient of variation": {
+  "class": "analysis-criterion"
+ },
+ "water-vapor barrier improvement factor (bif)": {
+  "class": "barrier-other"
+ },
+ "water-vapor partial-pressure difference": {
+  "class": "test-humidity"
+ },
+ "water-vapor permeability test relative-humidity difference": {
+  "class": "test-humidity"
+ },
+ "water-vapor sorption relative pressure range": {
+  "class": "test-humidity"
+ },
+ "water-vapor test reservoir volume": {
+  "class": "test-condition-other"
+ },
+ "water-vapor transmission rate (wvtr) increase": {
+  "class": "barrier-other"
+ },
+ "waxd acquisition time per step": {
+  "class": "test-condition-other"
+ },
+ "waxd angular step size": {
+  "class": "test-condition-other"
+ },
+ "waxd azimuthal integration range": {
+  "class": "test-condition-other"
+ },
+ "waxd data analysis software": {
+  "class": "instrument"
+ },
+ "waxd deformation speed": {
+  "class": "test-rate"
+ },
+ "waxd detector": {
+  "class": "instrument"
+ },
+ "waxd processing software": {
+  "class": "instrument"
+ },
+ "waxd radiation": {
+  "class": "instrument"
+ },
+ "waxd radiation wavelength": {
+  "class": "instrument"
+ },
+ "waxd sample-to-detector distance": {
+  "class": "test-geometry"
+ },
+ "waxd x-ray wavelength": {
+  "class": "instrument"
+ },
+ "waxs acquisition time per step": {
+  "class": "test-condition-other"
+ },
+ "waxs angular step size": {
+  "class": "test-condition-other"
+ },
+ "weight loss": {
+  "class": "enzymatic-degradation"
+ },
+ "wet soil mass": {
+  "class": "exposure-conditions"
+ },
+ "wet specimen volume (vwet)": {
+  "class": "swelling-ratio"
+ },
+ "wood-failure exclusion threshold": {
+  "class": "analysis-criterion"
+ },
+ "x-ray diffraction (xrd) wavelength": {
+  "class": "instrument"
+ },
+ "x-ray diffraction angular range": {
+  "class": "test-condition-other"
+ },
+ "xrd tube current": {
+  "class": "instrument"
+ },
+ "xrd tube voltage": {
+  "class": "instrument"
+ },
+ "xrd wavelength": {
+  "class": "instrument"
+ },
+ "yield-strength strain offset": {
+  "class": "analysis-criterion"
+ },
+ "young's modulus increase": {
+  "class": "mechanical-other"
+ },
+ "zero-shear viscosity (η0)": {
+  "class": "melt-viscosity"
+ },
+ "zero-shear viscosity (η0,cc)": {
+  "class": "solution-viscosity"
+ },
+ "γ-phase equatorial crystallinity index reduction": {
+  "class": "morphology-other"
+ }
+}

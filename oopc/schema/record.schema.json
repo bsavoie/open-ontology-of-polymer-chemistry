@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bsavoie.github.io/open-ontology-of-polymer-chemistry/schema/record-v1",
+  "title": "OOPC canonical record v1",
+  "type": "object",
+  "required": ["@id", "@type", "label", "status"],
+  "properties": {
+    "@id": {"type": "string", "minLength": 1, "pattern": "^\\S+$"},
+    "@type": {"type": "string", "minLength": 1},
+    "label": {"type": "string", "minLength": 1},
+    "status": {"enum": ["seed", "candidate", "agent-validated", "experimental", "disputed", "superseded", "reuse-tested"]},
+    "layer": {"enum": ["science", "provenance", "taxonomy", "memory"]},
+    "evidence": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "context": {"type": "object"},
+    "history": {"type": "array", "items": {"type": "object"}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"@type": {"const": "Claim"}}},
+      "then": {
+        "required": ["subject", "predicate", "object", "context", "evidence"],
+        "properties": {"subject": {"type": "string"}, "predicate": {"type": "string"}, "object": {"type": "string"}}
+      }
+    },
+    {
+      "if": {"properties": {"@type": {"const": "Evidence"}}},
+      "then": {
+        "required": ["document", "locator", "accessStatus", "reuseStatus", "permissionBasis", "lineageId", "accessedDate"],
+        "properties": {
+          "accessStatus": {"const": "anonymous_full_content"},
+          "reuseStatus": {"enum": ["open_licensed", "public_domain", "publicly_accessible_citation_only"]},
+          "locator": {"type": "string", "minLength": 1},
+          "document": {"type": "string"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"@type": {"const": "Structure"}}},
+      "then": {"required": ["molfileV3000", "molfileSha256"], "properties": {"molfileV3000": {"type": "string", "pattern": "V3000"}, "molfileSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}
+    },
+    {
+      "if": {"properties": {"@type": {"const": "Section"}}},
+      "then": {"required": ["sectionKey", "text", "evidence"], "properties": {"text": {"type": "string"}, "sectionKey": {"type": "string"}}}
+    }
+  ],
+  "description": "Cross-record references, term constraints, scientific review independence, quantitative qualifiers, and evidence support are additionally enforced by oopc.validation. This schema does not assert source truth."
+}

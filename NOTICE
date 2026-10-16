@@ -1,0 +1,20 @@
+Open Ontology of Polymer Chemistry
+Copyright 2026 Brett Savoie and contributors.
+
+Code is licensed under Apache-2.0. Original structured data is dedicated under
+CC0-1.0. Original prose and diagrams are licensed under CC BY 4.0.
+
+This distribution includes a pinned snapshot and derived records from the Wiki
+of Open Polymer Data, https://github.com/bsavoie/wiki-of-open-polymer-data .
+Its structured data is CC0-1.0 and its prose is CC BY 4.0. Import preserves source
+text and qualifications; projection and organization have changed. Linked source
+documents retain their original copyright and reuse terms and are not included.
+
+Cytoscape.js 3.34.3 is bundled under the MIT license. The complete upstream
+license is in oopc/web/vendor/cytoscape.LICENSE.
+
+OpenChemLib JS 9.25.0 is bundled under the BSD 3-Clause license. The complete
+upstream license is in oopc/web/vendor/openchemlib.LICENSE.
+
+External vocabulary mappings identify references and do not relicense their
+contents, imply endorsement, or assert complete semantic equivalence.

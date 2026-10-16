@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>About · Open Ontology of Polymer Chemistry</title>
+  <meta name="description" content="How the Open Ontology of Polymer Chemistry turns every answer into checked, cited knowledge for the next question, written for undergraduates.">
+  <link rel="stylesheet" href="/researcher.css">
+  <link rel="stylesheet" href="/about.css">
+  <script src="/about.js" defer></script>
+</head>
+<body class="about-page">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="/#/ask" aria-label="Open Ontology of Polymer Chemistry home">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M10 10 29 10 34 28 17 35 5 24Z M10 10 17 35 M29 10 5 24"/><circle cx="10" cy="10" r="3"/><circle cx="29" cy="10" r="3"/><circle cx="34" cy="28" r="3"/><circle cx="17" cy="35" r="3"/><circle cx="5" cy="24" r="3"/></svg>
+      <span><strong>Open Ontology</strong><span class="brand-subtitle">of Polymer Chemistry</span></span>
+    </a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="/#/ask">Ask</a>
+      <a href="/#/polymers">Polymers</a>
+      <a href="/#/knowledge">Knowledge</a>
+      <a href="/#/history">History</a>
+    </nav>
+    <div class="topbar-actions">
+      <a class="topbar-link" href="/about.html" aria-current="page">About</a>
+      <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch to dark theme" title="Switch theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" class="fill"/></svg></button>
+    </div>
+  </header>
+
+  <main id="main" class="about" tabindex="-1">
+    <section class="about-hero" aria-labelledby="page-title">
+      <div class="hero-text">
+        <p class="eyebrow">About</p>
+        <h1 id="page-title">A polymer knowledge base that improves with every question</h1>
+        <p class="about-lede">Ask a question about polymers and a <span class="term" data-term="research-agent">research agent</span> answers it, reading what this project already knows before it searches open sources. Everything it reads is saved with its <span class="term" data-term="source">source</span> and a label saying who has checked it, and the next question reads it first. Each answer leaves the knowledge base larger, and better checked, than it found it.</p>
+        <p class="term-hint"><span class="hint-pointer">Double-click</span><span class="hint-touch">Tap</span> any underlined term for a short definition.</p>
+        <p class="hero-actions"><a class="hero-link" href="/#/ask">Ask a question</a><a class="hero-quiet" href="#loop">How the loop works</a></p>
+      </div>
+      <figure class="figure hero-figure">
+        <div class="figure-art" data-figure="fig-loop" data-narrow="fig-loop-narrow" style="--wide:600/580;--narrow:360/430"></div>
+        <figcaption><strong>Figure 1.</strong> The loop. Saved knowledge sits at the centre: every answer reads it first and adds to it, a reviewer labels what was added, and open questions can send the loop round again.</figcaption>
+      </figure>
+    </section>
+
+    <section class="about-section" id="loop" aria-labelledby="loop-title">
+      <p class="section-number">01</p>
+      <h2 id="loop-title">The loop</h2>
+      <p>Five steps turn every answer into knowledge for the next one.</p>
+      <ol class="steps-list">
+        <li><strong>Ask.</strong> You type a <span class="term" data-term="question">question</span> and choose a <span class="term" data-term="depth">depth</span>: how much time and searching the answer may use.</li>
+        <li><strong>Answer.</strong> The research agent first sends a <span class="term" data-term="query">query</span> to saved knowledge, and turns to <span class="term" data-term="web-search">web search</span> only for what that does not cover. Its answer gives a <span class="term" data-term="citation">citation</span> for everything a source reports, and labels its own reasoning <span class="term" data-term="interpretation">Interpretation</span> and textbook knowledge <span class="term" data-term="background">Background</span>.</li>
+        <li><strong>Save.</strong> Each value it read is saved as a <span class="term" data-term="finding">finding</span>, with its source, its place in that source and its conditions. Each document it opened gets a <span class="term" data-term="source-note">source note</span>.</li>
+        <li><strong>Review.</strong> A separate <span class="term" data-term="reviewer">reviewer</span>, a fresh session of the same AI <span class="term" data-term="engine">engine</span>, opens the sources behind the findings the agent read off a figure, converted or combined, and behind a sample of the rest, and labels each one.</li>
+        <li><strong>Reuse.</strong> The next question's <span class="term" data-term="knowledge-search">knowledge search</span> finds those findings first.</li>
+      </ol>
+      <h3>Around the loop</h3>
+      <div class="outer-loops">
+        <div class="outer-loop">
+          <p class="outer-loop-title">It asks itself</p>
+          <p>Each answer ends with a few questions it could not settle. With background research switched on (it is off by default), they join a <span class="term" data-term="research-queue">research queue</span> that the loop works through on its own, a few questions a week.</p>
+        </div>
+        <div class="outer-loop">
+          <p class="outer-loop-title">It is measured</p>
+          <p>On demand, a fixed <span class="term" data-term="parity-set">parity set</span> of eight questions is answered by the research agent and by a <span class="term" data-term="plain-session">plain session</span>, and one checker compares the two. When people change the agent's instructions, this shows whether its answers got better or worse.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="about-section" id="accumulates" aria-labelledby="accumulates-title">
+      <p class="section-number">02</p>
+      <h2 id="accumulates-title">What accumulates</h2>
+      <p>The first question about a polymer reads mostly from the web. Its findings stay attached to that polymer, so the next question starts from them and searches only for what is missing, while reviews turn added findings into reviewed ones, or reject them. The knowledge base is <span class="term" data-term="cumulative">cumulative</span>: over time, answers rest more on checked, cited knowledge and less on fresh searching.</p>
+      <figure class="figure">
+        <div class="figure-art" data-figure="fig-accumulation" data-narrow="fig-accumulation-narrow" style="--wide:880/238;--narrow:360/240"></div>
+        <figcaption><strong>Figure 2.</strong> How knowledge accumulates. An illustration of the mechanism, not measured data; the numbers below, when shown, are real.</figcaption>
+      </figure>
+      <section id="live" class="live" aria-labelledby="live-title" hidden>
+        <h3 id="live-title">This computer's knowledge base now</h3>
+        <ul class="stat-row">
+          <li><strong data-count="answered">—</strong><span>questions answered</span></li>
+          <li><strong data-count="reviewed">—</strong><span>findings reviewed</span></li>
+          <li><strong data-count="added">—</strong><span>findings added</span></li>
+          <li><strong data-count="checking">—</strong><span>needing checking</span></li>
+          <li><strong data-count="reused">—</strong><span>answers that drew on saved findings</span></li>
+        </ul>
+      </section>
+    </section>
+
+    <section class="about-section" id="finding" aria-labelledby="finding-title">
+      <p class="section-number">03</p>
+      <h2 id="finding-title">What a finding holds</h2>
+      <p>A number means little without its context. Polylactide is a <span class="term" data-term="polymer-family">polymer family</span>; NatureWorks 3100HP is one <span class="term" data-term="material">material</span>, or grade; a moulded bar is the <span class="term" data-term="specimen">specimen</span> actually measured; and its <span class="term" data-term="glass-transition">glass transition temperature</span> shifts with the <span class="term" data-term="conditions">conditions</span>, here a <span class="term" data-term="dsc">DSC</span> scan at 10 °C per minute. A finding keeps all of these, with the exact place in the source, so a reader can judge where the value applies and check it.</p>
+      <figure class="figure figure-finding" aria-labelledby="finding-caption">
+          <article class="finding-example" aria-label="An example finding">
+            <p class="fx-status"><span class="badge good term" data-term="reviewed">Reviewed</span></p>
+            <p class="fx-statement">Neat injection-molded NatureWorks PLA 3100HP (60 s cycle) showed DSC Tg 58.5 °C and Tm 176.9 °C on the first heating scan.</p>
+            <dl class="fx-fields">
+              <dt>Material</dt><dd>Neat PLA, NatureWorks 3100HP, injection-molded, mold 110 °C, 60 s cycle</dd>
+              <dt>Property</dt><dd>DSC glass transition temperature; DSC melting temperature</dd>
+              <dt>Value</dt><dd class="fx-value">58.5; 176.9 °C</dd>
+              <dt>Conditions</dt><dd>First heating scan at 10 °C/min to 190 °C; TA Q200; N₂ 50 mL/min; hermetic Al pans.</dd>
+              <dt>Source</dt><dd><a href="https://doi.org/10.3390/polym14050977" target="_blank" rel="noopener noreferrer">Improvement of the PLA Crystallinity and Heat Distortion Temperature Optimizing the Content of Nucleating Agents and the Injection Molding Cycle Time</a>. <i>Polymers</i> 14, 977 (2022).</dd>
+              <dt><span class="term" data-term="locator">Locator</span></dt><dd>Table 3, PLA 60 s row</dd>
+              <dt><span class="term" data-term="excerpt">Excerpt</span></dt><dd><span class="fx-excerpt">The exact table row, kept privately for checking</span></dd>
+            </dl>
+            <p class="fx-vouch"><span class="fx-label">Who vouched</span> Saved by the research agent (Claude Code), which flagged it for review because it had not seen the heating rate word for word. A separate reviewer (Codex) opened the article and found it supported: “Table 3 reports Tg 58.5 °C and Tm 176.9 °C for PLA at 60 s, and §2 confirms the stated material, molding and DSC conditions.”</p>
+          </article>
+        <figcaption id="finding-caption"><strong>Figure 3.</strong> A reviewed finding from this project's knowledge base. It is an older record that holds two values; findings saved now hold one value each. The article is open access.</figcaption>
+      </figure>
+    </section>
+
+    <section class="about-section" id="vouch" aria-labelledby="vouch-title">
+      <p class="section-number">04</p>
+      <h2 id="vouch-title">Who vouches for a fact</h2>
+      <p>Every finding keeps its <span class="term" data-term="provenance">provenance</span>: where it was read, and who has checked it. One label says which, in the same colours the app uses.</p>
+      <dl class="status-grid">
+        <div><dt><span class="badge good term" data-term="reviewed">Reviewed</span></dt><dd>A separate reviewer opened the source and found that it supports the finding.</dd></div>
+        <div><dt><span class="badge term" data-term="added">Added</span></dt><dd>Read directly in the source and saved on the agent's own judgement. Used, but not yet checked by anyone else.</dd></div>
+        <div><dt><span class="badge warn term" data-term="needs-checking">Needs checking</span></dt><dd>Read off a figure, converted or combined and not yet reviewed, or the reviewer could not confirm it. Treat it as a lead.</dd></div>
+        <div><dt><span class="badge bad term" data-term="rejected">Rejected</span></dt><dd>The source does not support it. Hidden from searches, kept with the reason.</dd></div>
+      </dl>
+      <figure class="figure">
+        <div class="figure-art" data-figure="fig-who-vouches" data-narrow="fig-who-vouches-narrow" style="--wide:880/322;--narrow:360/612"></div>
+        <figcaption><strong>Figure 4.</strong> Who vouches for a fact. The reviewer checks every figure reading, conversion and combined value, and a <span class="term" data-term="spot-check">spot check</span> of the added ones, one in five by default; how often those are rejected shows whether the agent's judgement can be trusted.</figcaption>
+      </figure>
+      <aside class="note"><strong>What “Reviewed” does not mean.</strong> The reviewer confirmed that the source says what the finding says. It did not repeat the experiment, and a published value can still be wrong.</aside>
+    </section>
+
+    <section class="about-section" id="graph" aria-labelledby="graph-title">
+      <p class="section-number">05</p>
+      <h2 id="graph-title">The graph underneath</h2>
+      <p>An <span class="term" data-term="ontology">ontology</span> is an agreed vocabulary for a subject: the kinds of things it describes and how they may be related, written precisely enough for a computer to use. Here the facts are stored as a <span class="term" data-term="knowledge-graph">knowledge graph</span>. Each thing is a <span class="term" data-term="node">node</span> with a permanent <span class="term" data-term="identifier">identifier</span>, and each relationship is an <span class="term" data-term="edge">edge</span> whose label, the <span class="term" data-term="predicate">predicate</span>, says how two nodes relate. Every edge is itself a <span class="term" data-term="claim">claim</span> with its own evidence and status, so of any link, not only any node, you can ask who says so.</p>
+      <figure class="figure figure-wide">
+        <div class="figure-art" data-figure="fig-seed-graph" data-narrow="fig-seed-graph-narrow" style="--wide:1240/340;--narrow:360/320"></div>
+        <figcaption><strong>Figure 5.</strong> The seed: each dot is one of the 274 polymer families imported from the Wiki of Open Polymer Data, and lines join families to their members and relatives. Fifty-one have no family link yet. Polylactide is highlighted.</figcaption>
+      </figure>
+      <p>The graph began as that <span class="term" data-term="seed">seed</span>: 274 polymer families, 245 chemical structures and 27,559 records, each labelled an <span class="term" data-term="imported-draft">imported draft</span>, because importing a sourced statement is not the same as checking it. Saved findings attach to its polymer families.</p>
+      <figure class="figure">
+        <div class="figure-art" data-figure="fig-polylactide" data-narrow="fig-polylactide-narrow" style="--wide:880/452;--narrow:360/648"></div>
+        <figcaption><strong>Figure 6.</strong> Polylactide in the graph, as the seed records it. Relationship names are in italics; the diamond marks the claim behind one edge, with the evidence it cites. Labels in the figures can be double-clicked too.</figcaption>
+      </figure>
+    </section>
+
+    <section class="about-section" id="honest" aria-labelledby="honest-title">
+      <p class="section-number">06</p>
+      <h2 id="honest-title">Keeping it honest</h2>
+      <p><strong>Privacy.</strong> Your question, and the saved findings relevant to it, go to the engine's provider (OpenAI or Anthropic) while it is answered and reviewed. The knowledge base itself is stored on this computer, and your questions, the agents' working records and saved excerpts never enter a public release.</p>
+      <p><strong>Limits.</strong> AI agents misread tables and mislabel units. The labels exist because of this: they say how much checking each fact has had, so you can decide how far to rely on it. Matching a plain session on the parity set is a <span class="term" data-term="guardrail">guardrail</span>, not the goal; the project's value is provenance and memory.</p>
+      <p><strong>Origins.</strong> The seed comes from the Wiki of Open Polymer Data. Original prose and diagrams here are licensed CC BY 4.0, structured data CC0 and the code Apache 2.0. Linked sources keep their own rights: the project links to their full text rather than copying it.</p>
+    </section>
+
+    <section class="about-section glossary" id="glossary" aria-labelledby="glossary-title">
+      <details>
+        <summary><span class="section-number">Reference</span><h2 id="glossary-title">Glossary</h2><span class="glossary-count">Every term on this page, in one place</span></summary>
+
+      <div class="glossary-group">
+        <h3>The knowledge base</h3>
+        <dl>
+          <div class="entry" id="term-ontology"><dt>Ontology</dt><dd><p class="definition">An agreed vocabulary for a subject: the kinds of things it describes and the ways they may be related, written precisely enough for a computer to use. Think of a field's dictionary and grammar together.</p><p class="example"><span>In this project</span> It says that a material can be a <em class="rel">materialOf</em> a polymer family, and that a measurement must state its conditions.</p><p class="see-also">Related: <a href="#term-knowledge-graph">knowledge graph</a>, <a href="#term-predicate">predicate</a>, <a href="#term-claim">claim</a></p></dd></div>
+          <div class="entry" id="term-knowledge-graph"><dt>Knowledge graph</dt><dd><p class="definition">Facts stored as a network rather than a table: things are nodes and the relationships between them are edges, so you can follow connections from one fact to the next.</p><p class="example"><span>In this project</span> The seed's 274 polymer families and 27,559 records, plus every saved finding.</p><p class="see-also">Related: <a href="#term-node">node</a>, <a href="#term-edge">edge</a>, <a href="#term-seed">seed</a></p></dd></div>
+          <div class="entry" id="term-node"><dt>Node</dt><dd><p class="definition">One thing in a graph, with its own record and a permanent identifier: a polymer family, a structure, a source.</p><p class="example"><span>In this project</span> The polylactide family, <code>wop-000217</code>.</p><p class="see-also">Related: <a href="#term-edge">edge</a>, <a href="#term-identifier">identifier</a></p></dd></div>
+          <div class="entry" id="term-edge"><dt>Edge</dt><dd><p class="definition">A labelled link between two nodes that says how they relate. Here every edge is also a claim, with its own evidence and status.</p><p class="example"><span>In this project</span> Poly(L-lactide) → <em class="rel">broader</em> → polylactide family.</p><p class="see-also">Related: <a href="#term-predicate">predicate</a>, <a href="#term-claim">claim</a>, <a href="#term-node">node</a></p></dd></div>
+          <div class="entry" id="term-predicate"><dt>Predicate</dt><dd><p class="definition">The label on an edge: the verb of the relationship, chosen from the ontology's fixed list.</p><p class="example"><span>In this project</span> <em class="rel">narrower</em>: a more specific member of the family; <em class="rel">hasStructure</em>: drawn with this repeat unit; <em class="rel">hasFacet</em>: carries this tag; <em class="rel">hasProcess</em>: made by this route; <em class="rel">evidence</em>: the source behind a claim.</p><p class="see-also">Related: <a href="#term-edge">edge</a>, <a href="#term-ontology">ontology</a></p></dd></div>
+          <div class="entry" id="term-identifier"><dt>Identifier</dt><dd><p class="definition">A permanent name that a computer can rely on, even when the names people use vary.</p><p class="example"><span>In this project</span> PLA, polylactide and poly(lactic acid) all lead to <code>wop-000217</code>.</p><p class="see-also">Related: <a href="#term-node">node</a></p></dd></div>
+          <div class="entry" id="term-claim"><dt>Claim</dt><dd><p class="definition">A single assertion that can be checked: a subject, a predicate and an object, together with its evidence and its status.</p><p class="example"><span>In this project</span> “The polylactide family <em class="rel">hasStructure</em> the poly-L-lactide unit”, with ChEBI entry 53408 as its evidence.</p><p class="see-also">Related: <a href="#term-edge">edge</a>, <a href="#term-provenance">provenance</a>, <a href="#term-imported-draft">imported draft</a></p></dd></div>
+          <div class="entry" id="term-polymer-family"><dt>Polymer family</dt><dd><p class="definition">A group of polymers that share a chemistry or repeat unit. A family is an idea, not a product you can buy.</p><p class="example"><span>In this project</span> The polylactide family, which includes poly(L-lactide).</p><p class="see-also">Related: <a href="#term-material">material</a>, <a href="#term-specimen">specimen</a></p></dd></div>
+          <div class="entry" id="term-material"><dt>Material</dt><dd><p class="definition">A particular product or grade of a polymer. Grades of one family can differ in molecular weight, additives and stereochemistry, and so in their properties.</p><p class="example"><span>In this project</span> NatureWorks 3100HP, a commercial PLA grade.</p><p class="see-also">Related: <a href="#term-polymer-family">polymer family</a>, <a href="#term-specimen">specimen</a></p></dd></div>
+          <div class="entry" id="term-specimen"><dt>Specimen</dt><dd><p class="definition">The physical piece that was actually measured, such as a moulded bar, a film or a printed disc. How it was made affects what is measured.</p><p class="example"><span>In this project</span> An injection-moulded bar, made with the mould at 110 °C.</p><p class="see-also">Related: <a href="#term-material">material</a>, <a href="#term-conditions">conditions</a></p></dd></div>
+          <div class="entry" id="term-repeat-unit"><dt>Repeat unit</dt><dd><p class="definition">The small chemical unit that repeats along a polymer chain, drawn in square brackets with a subscript <i>n</i>.</p><p class="example"><span>In this project</span> The lactide unit in Figure 6, drawn from the seed's own structure file.</p><p class="see-also">Related: <a href="#term-polymer-family">polymer family</a></p></dd></div>
+          <div class="entry" id="term-facet"><dt>Facet</dt><dd><p class="definition">A tag that sorts polymers along one axis, such as origin or behaviour. A polymer can carry many.</p><p class="example"><span>In this project</span> Polylactide is bio based, biodegradable and thermoplastic.</p><p class="see-also">Related: <a href="#term-node">node</a>, <a href="#term-predicate">predicate</a></p></dd></div>
+          <div class="entry" id="term-seed"><dt>Seed</dt><dd><p class="definition">The starting content of the knowledge graph, imported from the Wiki of Open Polymer Data.</p><p class="example"><span>In this project</span> 274 polymer families, 245 structures and 27,559 records.</p><p class="see-also">Related: <a href="#term-imported-draft">imported draft</a>, <a href="#term-knowledge-graph">knowledge graph</a></p></dd></div>
+          <div class="entry" id="term-imported-draft"><dt>Imported draft</dt><dd><p class="definition">The label for seed content: it came with sources, but this project has not checked it.</p><p class="example"><span>In this project</span> Every claim in the seed.</p><p class="see-also">Related: <a href="#term-seed">seed</a>, <a href="#term-reviewed">reviewed</a></p></dd></div>
+        </dl>
+      </div>
+
+      <div class="glossary-group">
+        <h3>Evidence</h3>
+        <dl>
+          <div class="entry" id="term-finding"><dt>Finding</dt><dd><p class="definition">One value read from one source, saved with everything needed to check it: the material, the property, the value and unit, the conditions, and where in the source it appears.</p><p class="example"><span>In this project</span> A glass transition of 58.5 °C for one PLA grade, from Table 3 of an open-access article (Figure 3).</p><p class="see-also">Related: <a href="#term-source">source</a>, <a href="#term-locator">locator</a>, <a href="#term-conditions">conditions</a></p></dd></div>
+          <div class="entry" id="term-source"><dt>Source</dt><dd><p class="definition">The document a fact comes from: a journal article, handbook, standard, datasheet or reference database.</p><p class="example"><span>In this project</span> An open-access article in <i>Polymers</i>, or the ChEBI chemical database.</p><p class="see-also">Related: <a href="#term-citation">citation</a>, <a href="#term-locator">locator</a></p></dd></div>
+          <div class="entry" id="term-citation"><dt>Citation</dt><dd><p class="definition">A pointer from a statement to the finding or source that supports it, so a reader can go and check.</p><p class="example"><span>In this project</span> The small numbered link after a sentence in an answer.</p><p class="see-also">Related: <a href="#term-source">source</a>, <a href="#term-finding">finding</a></p></dd></div>
+          <div class="entry" id="term-locator"><dt>Locator</dt><dd><p class="definition">Where in a source a value appears, precisely enough to find it again.</p><p class="example"><span>In this project</span> “Table 3, PLA 60 s row”.</p><p class="see-also">Related: <a href="#term-excerpt">excerpt</a>, <a href="#term-source">source</a></p></dd></div>
+          <div class="entry" id="term-excerpt"><dt>Excerpt</dt><dd><p class="definition">A short verbatim quote, under about 25 words, that shows a value with its label. It is kept privately so the value can be checked, and is not republished.</p><p class="example"><span>In this project</span> Shown as a striped bar in Figure 3.</p><p class="see-also">Related: <a href="#term-locator">locator</a>, <a href="#term-reviewer">reviewer</a></p></dd></div>
+          <div class="entry" id="term-conditions"><dt>Conditions</dt><dd><p class="definition">How a value was measured: the method, temperature, rate and sample preparation. A glass transition temperature without its heating rate is half a fact.</p><p class="example"><span>In this project</span> DSC, first heating scan at 10 °C/min, under nitrogen.</p><p class="see-also">Related: <a href="#term-specimen">specimen</a>, <a href="#term-dsc">DSC</a></p></dd></div>
+          <div class="entry" id="term-glass-transition"><dt>Glass transition temperature</dt><dd><p class="definition">The temperature range over which the amorphous part of a polymer changes from hard and glassy to soft and rubbery, written T<sub>g</sub>. The measured value depends on the method and the heating rate.</p><p class="example"><span>In this project</span> About 58 °C for the PLA grade in Figure 3.</p><p class="see-also">Related: <a href="#term-dsc">DSC</a>, <a href="#term-conditions">conditions</a></p></dd></div>
+          <div class="entry" id="term-dsc"><dt>DSC</dt><dd><p class="definition">Differential scanning calorimetry. A sample and an empty reference pan are heated at a set rate, and the difference in heat flow shows where the polymer softens, crystallises or melts.</p><p class="example"><span>In this project</span> The values in Figure 3 were measured this way.</p><p class="see-also">Related: <a href="#term-glass-transition">glass transition temperature</a>, <a href="#term-conditions">conditions</a></p></dd></div>
+          <div class="entry" id="term-provenance"><dt>Provenance</dt><dd><p class="definition">The record of where a fact came from and who has checked it: a chain of custody for information.</p><p class="example"><span>In this project</span> Every finding's source, locator and label.</p><p class="see-also">Related: <a href="#term-citation">citation</a>, <a href="#term-reviewed">reviewed</a>, <a href="#term-claim">claim</a></p></dd></div>
+          <div class="entry" id="term-source-note"><dt>Source note</dt><dd><p class="definition">A short record of a source the research agent read, including one that turned out not to contain what it was looking for.</p><p class="example"><span>In this project</span> It saves a later question from reading the same document for nothing.</p><p class="see-also">Related: <a href="#term-source">source</a>, <a href="#term-finding">finding</a></p></dd></div>
+        </dl>
+      </div>
+
+      <div class="glossary-group">
+        <h3>The loop</h3>
+        <dl>
+          <div class="entry" id="term-question"><dt>Question</dt><dd><p class="definition">What you ask, in plain language. One question usually leads to several queries.</p><p class="example"><span>In this project</span> “How does annealing affect the crystallinity of PLA films?”</p><p class="see-also">Related: <a href="#term-query">query</a>, <a href="#term-depth">depth</a></p></dd></div>
+          <div class="entry" id="term-query"><dt>Query</dt><dd><p class="definition">A request to search stored information. The research agent turns your question into queries.</p><p class="example"><span>In this project</span> A knowledge search for “PLA glass transition”.</p><p class="see-also">Related: <a href="#term-knowledge-search">knowledge search</a>, <a href="#term-question">question</a></p></dd></div>
+          <div class="entry" id="term-research-agent"><dt>Research agent</dt><dd><p class="definition">An AI model working to fixed instructions. It searches saved knowledge and the web, reads sources, writes the answer and saves what it found.</p><p class="example"><span>In this project</span> It runs on Codex or Claude Code.</p><p class="see-also">Related: <a href="#term-engine">engine</a>, <a href="#term-reviewer">reviewer</a></p></dd></div>
+          <div class="entry" id="term-engine"><dt>Engine</dt><dd><p class="definition">The AI service that runs the research agent and the reviewer, through your own subscription.</p><p class="example"><span>In this project</span> OpenAI's Codex or Anthropic's Claude Code.</p><p class="see-also">Related: <a href="#term-research-agent">research agent</a></p></dd></div>
+          <div class="entry" id="term-depth"><dt>Depth</dt><dd><p class="definition">How much time and searching an answer may use.</p><p class="example"><span>In this project</span> Quick (5 minutes), Standard (10) or Thorough (20).</p><p class="see-also">Related: <a href="#term-question">question</a>, <a href="#term-web-search">web search</a></p></dd></div>
+          <div class="entry" id="term-knowledge-search"><dt>Knowledge search</dt><dd><p class="definition">The research agent's first step: finding the saved findings most relevant to the question.</p><p class="example"><span>In this project</span> Results come back grouped: reviewed, then added, then needing checking.</p><p class="see-also">Related: <a href="#term-query">query</a>, <a href="#term-cumulative">cumulative</a></p></dd></div>
+          <div class="entry" id="term-web-search"><dt>Web search</dt><dd><p class="definition">Searching open sources online. The research agent uses it only for what saved knowledge does not cover.</p><p class="example"><span>In this project</span> About ten searches at Standard depth.</p><p class="see-also">Related: <a href="#term-source">source</a>, <a href="#term-depth">depth</a></p></dd></div>
+          <div class="entry" id="term-interpretation"><dt>Interpretation</dt><dd><p class="definition">A statement that is the research agent's own reasoning, such as a comparison or a calculation. It is labelled, cites its premises, and is never attributed to a paper.</p><p class="example"><span>In this project</span> “Interpretation: the two values differ because the heating rates differ.”</p><p class="see-also">Related: <a href="#term-background">background</a>, <a href="#term-citation">citation</a></p></dd></div>
+          <div class="entry" id="term-background"><dt>Background</dt><dd><p class="definition">Textbook knowledge in an answer, labelled as such and given without a citation.</p><p class="example"><span>In this project</span> “Background: PLA is an aliphatic polyester.”</p><p class="see-also">Related: <a href="#term-interpretation">interpretation</a></p></dd></div>
+          <div class="entry" id="term-reviewer"><dt>Reviewer</dt><dd><p class="definition">A separate AI session that opens a finding's cited source and decides whether the source supports it. It did not write the answer: it runs in a fresh session of the engine that did, which can open the sources that engine read.</p><p class="example"><span>In this project</span> It checks figure readings, conversions and combined values, and a sample of added ones, and returns supported, unsupported or uncertain with one sentence of reason.</p><p class="see-also">Related: <a href="#term-reviewed">reviewed</a>, <a href="#term-spot-check">spot check</a></p></dd></div>
+          <div class="entry" id="term-reviewed"><dt>Reviewed</dt><dd><p class="definition">A reviewer found that the source supports the finding.</p><p class="example"><span>In this project</span> Shown with a green badge.</p><p class="see-also">Related: <a href="#term-reviewer">reviewer</a>, <a href="#term-added">added</a></p></dd></div>
+          <div class="entry" id="term-added"><dt>Added</dt><dd><p class="definition">Saved on the research agent's own judgement, because it read the value directly in the source. Later questions use it, but no one else has checked it.</p><p class="example"><span>In this project</span> Shown with a grey badge. One in five is spot-checked.</p><p class="see-also">Related: <a href="#term-reviewed">reviewed</a>, <a href="#term-spot-check">spot check</a></p></dd></div>
+          <div class="entry" id="term-needs-checking"><dt>Needs checking</dt><dd><p class="definition">Waiting for a reviewer, or a reviewer could not confirm it. Treat it as a lead, not a fact.</p><p class="example"><span>In this project</span> Shown with an amber badge.</p><p class="see-also">Related: <a href="#term-reviewer">reviewer</a>, <a href="#term-rejected">rejected</a></p></dd></div>
+          <div class="entry" id="term-rejected"><dt>Rejected</dt><dd><p class="definition">A reviewer found that the source does not support the finding. It is hidden from searches but kept, with the reason.</p><p class="example"><span>In this project</span> Shown with a red badge.</p><p class="see-also">Related: <a href="#term-reviewer">reviewer</a>, <a href="#term-needs-checking">needs checking</a></p></dd></div>
+          <div class="entry" id="term-spot-check"><dt>Spot check</dt><dd><p class="definition">A random sample of added findings that the reviewer also checks, to measure how often the research agent's judgement holds.</p><p class="example"><span>In this project</span> One in five by default; adjustable in Settings.</p><p class="see-also">Related: <a href="#term-added">added</a>, <a href="#term-reviewer">reviewer</a></p></dd></div>
+          <div class="entry" id="term-cumulative"><dt>Cumulative</dt><dd><p class="definition">Building up over time: each answer leaves the knowledge base better supplied for the next.</p><p class="example"><span>In this project</span> Figure 2 shows the mechanism.</p><p class="see-also">Related: <a href="#term-knowledge-search">knowledge search</a>, <a href="#term-finding">finding</a></p></dd></div>
+          <div class="entry" id="term-research-queue"><dt>Research queue</dt><dd><p class="definition">Questions waiting to be researched in the background: the open questions from your answers, once background research is switched on. The loop asks them itself, within a weekly limit.</p><p class="example"><span>In this project</span> Off by default; set how many questions a week in Settings.</p><p class="see-also">Related: <a href="#term-question">question</a>, <a href="#term-cumulative">cumulative</a></p></dd></div>
+          <div class="entry" id="term-parity-set"><dt>Parity set</dt><dd><p class="definition">Eight fixed questions, answered by a plain session and by the research agent and judged by one checker, to track quality and cost.</p><p class="example"><span>In this project</span> Run on demand, for example after a change to the research agent's instructions.</p><p class="see-also">Related: <a href="#term-plain-session">plain session</a>, <a href="#term-guardrail">guardrail</a></p></dd></div>
+          <div class="entry" id="term-plain-session"><dt>Plain session</dt><dd><p class="definition">An AI with web search but none of this project's saved knowledge or instructions: the point of comparison.</p><p class="example"><span>In this project</span> The same engine, asked the same question.</p><p class="see-also">Related: <a href="#term-parity-set">parity set</a></p></dd></div>
+          <div class="entry" id="term-guardrail"><dt>Guardrail</dt><dd><p class="definition">A limit that warns when something gets worse, rather than a target to optimise.</p><p class="example"><span>In this project</span> At most one more statement contradicted by its source and one fewer complete answer than the plain session, at no more than about one and a half times its cost.</p><p class="see-also">Related: <a href="#term-parity-set">parity set</a>, <a href="#term-plain-session">plain session</a></p></dd></div>
+        </dl>
+      </div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="about-footer column">
+    <p>For developers: the loop is described in <code>docs/core-loop.md</code> and the data model in <code>docs/model.md</code> in the repository.</p>
+    <noscript><p>The figures and pop-up definitions need JavaScript; the glossary above works without it.</p></noscript>
+  </footer>
+</body>
+</html>

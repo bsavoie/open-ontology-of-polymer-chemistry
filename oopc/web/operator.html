@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>OOPC · Developer inspector</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/vendor/cytoscape.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to workspace</a>
+  <header class="masthead">
+    <a class="brand" href="/operator.html" aria-label="Developer inspector home">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M10 10 29 10 34 28 17 35 5 24Z M10 10 17 35 M29 10 5 24"/><circle cx="10" cy="10" r="3"/><circle cx="29" cy="10" r="3"/><circle cx="34" cy="28" r="3"/><circle cx="17" cy="35" r="3"/><circle cx="5" cy="24" r="3"/></svg>
+      <span><strong>Open Ontology</strong><span class="brand-subtitle">OF POLYMER CHEMISTRY</span></span>
+    </a>
+    <div class="masthead-right"><button id="loop-health-button" class="secondary-button" title="Parity runs and this week's loop numbers">Loop health</button><a class="primary-button" href="/">Researcher app</a><span class="local-badge"><span class="status-dot"></span> Local workspace</span><button id="theme-toggle" class="icon-button" aria-label="Switch to dark theme" title="Switch theme">◐</button></div>
+  </header>
+  <nav class="main-nav" aria-label="Inspector views">
+    <div class="mode-tabs"><button data-mode="graph" aria-current="page"><span class="nav-number">01</span>Knowledge graph</button><button data-mode="ontology"><span class="nav-number">02</span>Ontology</button><button data-mode="replay"><span class="nav-number">03</span>Task replay</button></div>
+    <button id="release-button" class="release-button" title="Inspect release and compare versions"><span class="status-dot"></span><span id="release-label">Loading release…</span><span aria-hidden="true">↗</span></button>
+  </nav>
+  <div id="error-banner" class="error-banner" role="alert" hidden><span id="error-message"></span><button id="error-dismiss" aria-label="Dismiss error">×</button></div>
+  <main id="workspace" class="workspace" tabindex="-1">
+    <aside class="sidebar" aria-label="Find records">
+      <div class="sidebar-heading"><span class="eyebrow" id="sidebar-eyebrow">Explore the collection</span><span class="small-count" id="collection-count"></span></div>
+      <label class="search-box"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input id="search" type="search" placeholder="Find a polymer, source, or concept" autocomplete="off" aria-label="Search records"><kbd>/</kbd></label>
+      <div id="graph-filters" class="filter-area">
+        <div class="filter-row"><label>Record type<select id="type-filter"><option value="">All types</option></select></label><label>Evidence status<select id="status-filter"><option value="">Default visible</option><option value="seed">Seed assertion</option><option value="agent-validated">Agent-validated</option><option value="candidate">Candidate</option><option value="disputed">Disputed</option><option value="experimental">Experimental</option><option value="superseded">Superseded</option><option value="all">All statuses</option></select></label></div>
+        <details class="advanced-filters"><summary>Relationship &amp; context filters <span id="filter-count"></span></summary><label>Relationship<select id="predicate-filter"><option value="">All relationships</option></select></label><div class="filter-row"><label>Property<input id="property-filter" placeholder="Name or identifier"></label><label>Process<input id="process-filter" placeholder="Name or identifier"></label></div><div class="filter-row"><label>Application<input id="application-filter" placeholder="Name or identifier"></label><label>Environment<input id="environment-filter" placeholder="Name or identifier"></label></div><label>Source<input id="source-filter" placeholder="Title, DOI, or identifier"></label><button id="clear-filters" class="text-button">Clear filters</button></details>
+      </div>
+      <div id="ontology-filters" class="filter-area" hidden><label>Definition kind<select id="term-kind"><option value="">All definitions</option><option value="class">Entity classes</option><option value="relation">Relationships</option></select></label></div>
+      <div id="replay-filters" class="filter-area" hidden><p class="muted small">Runs are stored locally. Open a run to inspect the evidence it accessed.</p><button id="refresh-runs" class="secondary-button full-width">Refresh runs</button></div>
+      <div class="list-heading"><span id="list-heading">Records</span><span id="result-count" aria-live="polite"></span></div>
+      <div id="result-list" class="result-list" aria-label="Search results"></div>
+      <button id="load-more" class="load-more" hidden>Load more results</button>
+      <footer class="sidebar-footer"><span class="footer-dot"></span><span>Evidence stays attached.<br>Context stays visible.</span><button id="help-button" class="help-button" title="How to use the inspector" aria-label="Inspector help">?</button></footer>
+    </aside>
+    <section class="main-stage" aria-label="Knowledge workspace">
+      <div class="stage-heading"><div><span class="eyebrow" id="stage-eyebrow">Evidence graph</span><h1 id="stage-title">Explore polymer knowledge</h1><p id="stage-subtitle">Select a record to follow its relationships and inspect the supporting evidence.</p></div><div class="view-switch" aria-label="Presentation"><button data-view="graph" aria-pressed="true" title="Graph view">Graph</button><button data-view="table" aria-pressed="false" title="Accessible table view">Table</button></div></div>
+      <div id="graph-toolbar" class="graph-toolbar"><div class="layer-tabs" aria-label="Graph layer"><button data-layer="" aria-pressed="true">All layers</button><button data-layer="science" aria-pressed="false">Scientific</button><button data-layer="provenance" aria-pressed="false">Provenance</button><button data-layer="taxonomy" aria-pressed="false">Taxonomy</button><button data-layer="memory" aria-pressed="false">Research memory</button></div><div class="graph-options"><label><input type="checkbox" id="show-labels" checked>Labels</label><button id="fit-graph" class="tool-button" title="Fit graph to available space">Fit</button></div></div>
+      <div id="run-toolbar" class="run-toolbar" hidden><label>Agent<select id="agent-filter"><option value="">All agents</option></select></label><label>Layer<select id="run-layer-filter"><option value="">All layers</option><option value="science">Scientific</option><option value="provenance">Provenance</option><option value="taxonomy">Taxonomy</option><option value="memory">Memory</option></select></label><label class="check-label"><input id="cumulative" type="checkbox" checked>Cumulative access</label><label class="check-label"><input id="candidate-overlay" type="checkbox">Proposed changes</label><button id="fit-replay" class="tool-button">Fit</button><button id="task-details" class="text-button">Task &amp; deliverables ↗</button></div>
+      <div id="capture-notice" class="capture-notice" hidden></div>
+      <div id="neighborhood-pages" class="neighborhood-pages" hidden><label for="neighborhood-page-select">More connections</label><select id="neighborhood-page-select" aria-label="Neighborhood with more relationships"></select><button id="neighborhood-load-more" class="secondary-button">Load next 150</button></div>
+      <div class="canvas-area">
+        <div id="graph" role="img" aria-label="Interactive knowledge graph. Use Table view for keyboard-accessible records and relationships."></div>
+        <div id="table-view" class="table-view" hidden></div>
+        <div id="empty-stage" class="empty-stage"><svg viewBox="0 0 160 112" aria-hidden="true"><path d="M28 55 75 22 126 50 92 91 28 55 M75 22 92 91 M28 55 126 50"/><circle cx="28" cy="55" r="10"/><circle cx="75" cy="22" r="7"/><circle cx="126" cy="50" r="13"/><circle cx="92" cy="91" r="6"/></svg><h2>A connected view of polymer chemistry</h2><p>Start with a material, an observation, or a source.<br>Every relationship keeps its scientific context.</p></div>
+        <div id="graph-loading" class="graph-loading" hidden><span class="spinner"></span>Loading neighborhood</div>
+        <div id="graph-summary" class="graph-summary" hidden></div>
+        <div id="graph-legend" class="graph-legend" hidden><span><i class="legend-dot material"></i>Material</span><span><i class="legend-dot process"></i>Process / concept</span><span><i class="legend-dot evidence"></i>Evidence</span></div>
+      </div>
+      <section id="timeline" class="timeline" aria-label="Task event timeline" hidden>
+        <div class="timeline-top"><div class="playback-controls"><button id="step-back" aria-label="Previous event" title="Previous event">⏮</button><button id="play-pause" aria-label="Play replay" title="Play replay">▶</button><button id="step-next" aria-label="Next event" title="Next event">⏭</button><select id="replay-speed" aria-label="Replay speed"><option value="2000">0.5×</option><option value="1000" selected>1×</option><option value="500">2×</option><option value="250">4×</option></select></div><div class="event-position"><strong id="event-position">No events</strong><span id="event-clock"></span></div><button id="live-follow" class="live-button" aria-pressed="false"><span class="status-dot"></span>Follow live</button></div>
+        <input id="timeline-scrubber" type="range" min="0" max="0" value="0" aria-label="Selected event">
+        <div id="event-lanes" class="event-lanes"></div>
+        <div class="trajectory-legend"><span><i class="legend-dot returned"></i>Returned</span><span><i class="legend-line traversed"></i>Traversed</span><span><i class="legend-dot cited"></i>Cited</span><span><i class="legend-dot supported"></i>Reviewer-supported</span><span><i class="legend-line candidate"></i>Proposed</span></div>
+      </section>
+      <div class="stage-footer"><span id="stage-status" role="status">Loading local release…</span><span id="stage-hint">Click a record to inspect · Double-click a node to expand</span></div>
+    </section>
+    <aside id="detail-panel" class="detail-panel" aria-label="Evidence and record details"><div class="detail-empty"><span class="eyebrow">Inspect the evidence</span><h2>Follow a connection.<br>See what supports it.</h2><p>Select a node, relationship, definition, or task event to see its source, scope, and history.</p><div class="detail-principle"><span>01</span><p><strong>Scientific context</strong>Material, specimen, test method, and conditions travel with each assertion.</p></div><div class="detail-principle"><span>02</span><p><strong>Traceable evidence</strong>Sources and validation status are one click away.</p></div><div class="detail-principle"><span>03</span><p><strong>Observable access</strong>A task replay shows what was returned and which edges were explicitly followed.</p></div></div></aside>
+  </main>
+  <dialog id="release-dialog"><div class="dialog-heading"><div><span class="eyebrow">Publication history</span><h2>Inspect &amp; compare releases</h2></div><button data-close-dialog class="icon-button" aria-label="Close release dialog">×</button></div><div id="release-details"></div><div class="compare-controls"><label>From<select id="compare-from"></select></label><span aria-hidden="true">→</span><label>To<select id="compare-to"></select></label><button id="compare-releases" class="primary-button">Compare</button></div><div id="diff-results"></div></dialog>
+  <dialog id="loop-health-dialog"><div class="dialog-heading"><div><span class="eyebrow">Measure</span><h2>Loop health</h2></div><button data-close-dialog class="icon-button" aria-label="Close loop health dialog">×</button></div><div id="loop-health"><p class="muted small">Loading…</p></div></dialog>
+  <dialog id="help-dialog"><div class="dialog-heading"><div><span class="eyebrow">Using the inspector</span><h2>Explore, inspect, replay.</h2></div><button data-close-dialog class="icon-button" aria-label="Close help dialog">×</button></div><div class="help-content"><p><strong>Knowledge graph.</strong> Search for a record, then follow its directed relationships. Select a connection to inspect its exact context and sources. Double-click a node to expand its neighborhood. Table view provides the same records with keyboard access.</p><p><strong>Ontology.</strong> Browse definitions to understand what a class or relationship means. “View instances” opens the records that use it.</p><p><strong>Task replay.</strong> Select a run, then step or scrub through its access events. Cumulative mode shows evidence returned up to that moment. “Follow live” polls for new events; pausing never changes the running task.</p><p><strong>What the trace means.</strong> Returned, delivered, traversed, cited, reviewer-supported, and reuse-tested are different observations. An access trace does not reveal private reasoning or prove that older evidence remains in the model’s current context.</p><p><strong>Local by default.</strong> Exploring this inspector does not add agent events. Task traces are excluded from public ontology releases. The application loads its graph library locally.</p><p class="muted">Keyboard: <kbd>/</kbd> focuses search. All graph records and relationships are available in Table view. <kbd>Esc</kbd> closes dialogs.</p></div></dialog>
+  <noscript><p class="error-banner">JavaScript is required for the interactive inspector. The release’s SQLite, JSON-LD, RDF, and Markdown files remain available for offline inspection.</p></noscript>
+</body>
+</html>

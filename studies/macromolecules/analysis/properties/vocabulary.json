@@ -1,0 +1,1412 @@
+{
+ "version": "oopc-study-E3-1",
+ "note": "Study analysis vocabulary for the property map (E3); not ontology vocabulary.",
+ "kinds": [
+  "material-property",
+  "test-condition",
+  "specimen-or-preparation",
+  "method-or-instrument",
+  "composition-or-formulation",
+  "other"
+ ],
+ "categories": [
+  {
+   "id": "thermal-transitions",
+   "label": "Thermal transitions and thermal properties",
+   "kind": "material-property"
+  },
+  {
+   "id": "thermal-stability",
+   "label": "Thermal stability and decomposition",
+   "kind": "material-property"
+  },
+  {
+   "id": "mechanical",
+   "label": "Mechanical (tensile, flexural, compressive, dynamic)",
+   "kind": "material-property"
+  },
+  {
+   "id": "impact-fracture",
+   "label": "Impact, fracture and tear",
+   "kind": "material-property"
+  },
+  {
+   "id": "hardness-elastomer",
+   "label": "Hardness and elastomer behaviour",
+   "kind": "material-property"
+  },
+  {
+   "id": "rheology-cure",
+   "label": "Rheology, melt flow and cure",
+   "kind": "material-property"
+  },
+  {
+   "id": "barrier-transport",
+   "label": "Barrier, sorption and transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "optical",
+   "label": "Optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "electrical",
+   "label": "Electrical, dielectric and electrochemical",
+   "kind": "material-property"
+  },
+  {
+   "id": "morphology",
+   "label": "Morphology and crystallinity",
+   "kind": "material-property"
+  },
+  {
+   "id": "molecular",
+   "label": "Molecular weight, structure and composition",
+   "kind": "material-property"
+  },
+  {
+   "id": "solution",
+   "label": "Solution behaviour",
+   "kind": "material-property"
+  },
+  {
+   "id": "degradation-environment",
+   "label": "Degradation, ageing and environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "density-dimensional",
+   "label": "Density and dimensional",
+   "kind": "material-property"
+  },
+  {
+   "id": "flammability",
+   "label": "Flammability",
+   "kind": "material-property"
+  },
+  {
+   "id": "surface-adhesion",
+   "label": "Surface, adhesion and tribology",
+   "kind": "material-property"
+  },
+  {
+   "id": "biological",
+   "label": "Biological response",
+   "kind": "material-property"
+  },
+  {
+   "id": "other-property",
+   "label": "Other material property",
+   "kind": "material-property"
+  },
+  {
+   "id": "test-conditions",
+   "label": "Test conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "specimen-preparation",
+   "label": "Specimen and preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "method-instrument",
+   "label": "Method and instrument",
+   "kind": "method-or-instrument"
+  },
+  {
+   "id": "composition-formulation",
+   "label": "Composition and formulation",
+   "kind": "composition-or-formulation"
+  },
+  {
+   "id": "other",
+   "label": "Identity, observations and unclassified",
+   "kind": "other"
+  }
+ ],
+ "classes": [
+  {
+   "id": "glass-transition-temperature",
+   "label": "Glass transition temperature (Tg)",
+   "definition": "Temperature of the glass transition by any method (DSC onset, midpoint or inflection; DMA tan δ or E'' peak or E' onset; TMA; dielectric), including the Tg of a soft or hard phase. The method is recorded in the method field, not in the class.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "melting-temperature",
+   "label": "Melting temperature (Tm)",
+   "definition": "Melting peak, onset or end temperature of a crystalline phase measured on heating, including phase-specific and multiple melting peaks. Excludes the extrapolated equilibrium melting temperature.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "equilibrium-melting-temperature",
+   "label": "Equilibrium melting temperature (Tm0)",
+   "definition": "Extrapolated equilibrium melting temperature (Hoffman–Weeks or Gibbs–Thomson).",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "crystallization-temperature",
+   "label": "Crystallization temperature (Tc)",
+   "definition": "Peak or onset temperature of crystallization on cooling from the melt.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "cold-crystallization-temperature",
+   "label": "Cold-crystallization temperature (Tcc)",
+   "definition": "Peak or onset temperature of crystallization on heating from the glass.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "melting-enthalpy",
+   "label": "Melting enthalpy (ΔHm)",
+   "definition": "Enthalpy (heat) of fusion measured on heating, including net ΔHm − ΔHcc. Excludes the reference enthalpy of a 100% crystalline polymer, which is a calculation parameter.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "crystallization-enthalpy",
+   "label": "Crystallization enthalpy (ΔHc, ΔHcc)",
+   "definition": "Enthalpy released by crystallization on cooling or by cold crystallization on heating.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "heat-capacity",
+   "label": "Heat capacity and ΔCp at Tg",
+   "definition": "Specific heat capacity and the heat-capacity step at the glass transition.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "crystallization-kinetics",
+   "label": "Crystallization kinetics",
+   "definition": "Crystallization half-time, Avrami exponent and rate constant, spherulite growth rate, nucleation density and crystallization rate.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "other-transition-temperature",
+   "label": "Other transition or relaxation temperature",
+   "definition": "Secondary (β, γ) relaxations, liquid-crystalline, order–disorder and hard-domain dissociation temperatures, and DSC exotherm peaks not assigned to crystallization or cure.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "heat-deflection-temperature",
+   "label": "Heat deflection temperature (HDT)",
+   "definition": "Heat deflection (distortion) temperature under load (DTUL), at any test stress; the stress is a separate test condition.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "softening-temperature",
+   "label": "Softening temperature (Vicat and other)",
+   "definition": "Vicat softening temperature at any load and other softening points (ring-and-ball, TMA softening).",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "service-temperature",
+   "label": "Service temperature",
+   "definition": "Continuous use or maximum service temperature, relative thermal index (RTI) and continuous heat resistance.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "thermal-expansion",
+   "label": "Thermal expansion (CTE)",
+   "definition": "Linear or volumetric coefficient of thermal expansion.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "thermal-conductivity",
+   "label": "Thermal conductivity and diffusivity",
+   "definition": "Thermal conductivity, thermal diffusivity and thermal effusivity.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "thermal-other",
+   "label": "Other thermal property",
+   "definition": "Other thermal quantities: dependence of Tg on water or composition, changes of a thermal property relative to a reference material (ΔTg, HDT gain), enthalpy relaxation (physical ageing), unassigned DSC enthalpies and thermal-behaviour descriptors.",
+   "category": "thermal-transitions",
+   "kind": "material-property"
+  },
+  {
+   "id": "decomposition-onset-temperature",
+   "label": "Decomposition onset temperature",
+   "definition": "Onset or initial temperature of thermal decomposition (Tonset, IDT, Td) from TGA or other methods.",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "decomposition-temperature-at-mass-loss",
+   "label": "Temperature at specified mass loss (Tx%)",
+   "definition": "Temperature at which a stated fraction of mass is lost in TGA (T1%, T5%, T10%, T50%).",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "max-decomposition-rate-temperature",
+   "label": "Temperature of maximum decomposition rate",
+   "definition": "Temperature of the DTG peak (Tmax, Tp).",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "char-yield",
+   "label": "Char yield and residual mass",
+   "definition": "Residue remaining at a stated temperature in TGA or pyrolysis.",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "thermal-mass-loss",
+   "label": "Mass loss on heating",
+   "definition": "Mass lost on heating: TGA step mass loss, isothermal mass loss, volatile content released by heating.",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "decomposition-activation-energy",
+   "label": "Decomposition activation energy",
+   "definition": "Apparent activation energy of thermal or thermo-oxidative decomposition.",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "oxidation-induction-time",
+   "label": "Oxidation induction time or temperature",
+   "definition": "Oxidation induction time (OIT) or oxidation onset temperature (OOT).",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "thermal-degradation-other",
+   "label": "Other thermal decomposition behaviour",
+   "definition": "Decomposition temperature ranges, pyrolysis products and monomer yield, decomposition mechanism and stage assignments.",
+   "category": "thermal-stability",
+   "kind": "material-property"
+  },
+  {
+   "id": "tensile-strength",
+   "label": "Tensile strength",
+   "definition": "Ultimate tensile strength, tensile stress or strength at break and maximum tensile stress; includes fibre tenacity.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "tensile-yield-strength",
+   "label": "Tensile yield strength",
+   "definition": "Tensile yield stress or strength, including offset yield.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "tensile-modulus",
+   "label": "Tensile (Young's) modulus",
+   "definition": "Tensile, Young's or elastic modulus from a stress–strain test, including secant and initial modulus; an unqualified Young's or elastic modulus is assigned here.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "elongation-at-break",
+   "label": "Elongation at break",
+   "definition": "Elongation or strain at break (ultimate elongation) in tension.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "yield-strain",
+   "label": "Strain at yield",
+   "definition": "Elongation or strain at the tensile yield point.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "stress-at-strain",
+   "label": "Stress at specified strain",
+   "definition": "Tensile stress at a stated elongation (M100, M300, 100% modulus).",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "tensile-toughness",
+   "label": "Tensile toughness",
+   "definition": "Energy to break or area under the tensile stress–strain curve.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "flexural-strength",
+   "label": "Flexural strength",
+   "definition": "Flexural strength or flexural yield strength.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "flexural-modulus",
+   "label": "Flexural modulus",
+   "definition": "Flexural (bending) modulus or stiffness.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "flexural-strain",
+   "label": "Flexural strain",
+   "definition": "Flexural strain at break or failure.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "compressive-strength",
+   "label": "Compressive strength",
+   "definition": "Compressive strength, yield stress or stress at a stated compressive strain.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "compressive-modulus",
+   "label": "Compressive modulus",
+   "definition": "Modulus from a compression test.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "shear-properties",
+   "label": "Shear strength and modulus",
+   "definition": "Bulk shear strength, shear or torsional modulus (not adhesive lap shear).",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "dynamic-mechanical-modulus",
+   "label": "Dynamic storage and loss modulus",
+   "definition": "Storage and loss moduli of solids from DMA (E', E'', G', G'').",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "damping-tan-delta",
+   "label": "Damping (tan δ)",
+   "definition": "Magnitude of the mechanical loss factor tan δ (the temperature of its peak is a Tg).",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "creep-stress-relaxation",
+   "label": "Creep and stress relaxation",
+   "definition": "Creep strain or compliance, creep rupture, stress relaxation and their activation energies.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "fatigue",
+   "label": "Fatigue",
+   "definition": "Fatigue life, cycles to failure and endurance limit.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "poisson-ratio",
+   "label": "Poisson's ratio",
+   "definition": "Poisson's ratio.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "mechanical-other",
+   "label": "Other mechanical property",
+   "definition": "Other mechanical quantities: changes relative to a reference material, burst and puncture strength, cyclic and stress–strain behaviour descriptors, strain-induced crystallization onset, ductility.",
+   "category": "mechanical",
+   "kind": "material-property"
+  },
+  {
+   "id": "notched-izod-impact",
+   "label": "Notched Izod impact strength",
+   "definition": "Notched Izod impact strength or resistance (ASTM D256, ISO 180/A).",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "unnotched-izod-impact",
+   "label": "Unnotched Izod impact strength",
+   "definition": "Unnotched Izod impact strength.",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "notched-charpy-impact",
+   "label": "Notched Charpy impact strength",
+   "definition": "Notched Charpy impact strength (ISO 179/1eA).",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "unnotched-charpy-impact",
+   "label": "Unnotched Charpy impact strength",
+   "definition": "Unnotched Charpy impact strength.",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "impact-strength-other",
+   "label": "Other impact strength",
+   "definition": "Falling-dart, drop, tensile-impact, film-pendulum, Gardner and puncture impact, and impact strength without a stated test geometry.",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "fracture-toughness",
+   "label": "Fracture toughness",
+   "definition": "Critical stress-intensity factor (KIC), critical energy release rate (GIC), J-integral and essential work of fracture.",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "tear-strength",
+   "label": "Tear strength",
+   "definition": "Tear strength or resistance (Elmendorf, trouser, angle).",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "brittleness-temperature",
+   "label": "Brittleness temperature",
+   "definition": "Low-temperature brittleness or ductile–brittle transition temperature.",
+   "category": "impact-fracture",
+   "kind": "material-property"
+  },
+  {
+   "id": "shore-a-hardness",
+   "label": "Shore A hardness",
+   "definition": "Shore A durometer hardness.",
+   "category": "hardness-elastomer",
+   "kind": "material-property"
+  },
+  {
+   "id": "shore-d-hardness",
+   "label": "Shore D hardness",
+   "definition": "Shore D durometer hardness.",
+   "category": "hardness-elastomer",
+   "kind": "material-property"
+  },
+  {
+   "id": "hardness-other",
+   "label": "Other hardness",
+   "definition": "Shore C, 00 and A2, IRHD, Rockwell, Barcol, ball-indentation, pencil, Vickers and nanoindentation hardness, unspecified durometer hardness, and hardness-derived indices.",
+   "category": "hardness-elastomer",
+   "kind": "material-property"
+  },
+  {
+   "id": "compression-set",
+   "label": "Compression set",
+   "definition": "Compression set after a stated deformation, time and temperature, and related recovery measures.",
+   "category": "hardness-elastomer",
+   "kind": "material-property"
+  },
+  {
+   "id": "volume-swell",
+   "label": "Volume swell in fluids",
+   "definition": "Volume or mass change of an elastomer or plastic immersed in oils, fuels or other fluids.",
+   "category": "hardness-elastomer",
+   "kind": "material-property"
+  },
+  {
+   "id": "crosslink-density",
+   "label": "Crosslink density and gel content",
+   "definition": "Crosslink density, molar mass between crosslinks (Mc) and gel (insoluble) fraction.",
+   "category": "hardness-elastomer",
+   "kind": "material-property"
+  },
+  {
+   "id": "resilience-recovery",
+   "label": "Resilience, hysteresis and recovery",
+   "definition": "Rebound resilience, hysteresis energy loss, elastic recovery, shape recovery, tension and permanent set, stress softening.",
+   "category": "hardness-elastomer",
+   "kind": "material-property"
+  },
+  {
+   "id": "melt-flow-rate",
+   "label": "Melt flow rate (MFR/MVR)",
+   "definition": "Melt mass- or volume-flow rate (melt flow index) at a stated temperature and load.",
+   "category": "rheology-cure",
+   "kind": "material-property"
+  },
+  {
+   "id": "melt-viscosity",
+   "label": "Melt viscosity",
+   "definition": "Apparent, complex or zero-shear viscosity of a polymer melt.",
+   "category": "rheology-cure",
+   "kind": "material-property"
+  },
+  {
+   "id": "melt-rheology-other",
+   "label": "Other melt rheology",
+   "definition": "Flow activation energy, relaxation times, power-law and Carreau parameters, melt strength, die swell and crossover points.",
+   "category": "rheology-cure",
+   "kind": "material-property"
+  },
+  {
+   "id": "cure-kinetics",
+   "label": "Cure kinetics and reaction enthalpy",
+   "definition": "Apparent activation energy, reaction order, rate constants, kinetic model parameters, reaction enthalpy and degree of cure of a curing or crosslinking reaction.",
+   "category": "rheology-cure",
+   "kind": "material-property"
+  },
+  {
+   "id": "cure-characteristics",
+   "label": "Cure and gel times",
+   "definition": "Gel time, optimum cure time (t90), scorch time, rheometer torque, cure-rate index and pot life.",
+   "category": "rheology-cure",
+   "kind": "material-property"
+  },
+  {
+   "id": "processability",
+   "label": "Processability",
+   "definition": "Drawability (maximum draw ratio), spinnability, processing window and printability of the material.",
+   "category": "rheology-cure",
+   "kind": "material-property"
+  },
+  {
+   "id": "oxygen-permeability",
+   "label": "Oxygen permeability",
+   "definition": "Thickness-normalized oxygen permeability coefficient (Barrer, cm³·mm/(m²·day·atm), mol·m/(m²·s·Pa)).",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "oxygen-transmission-rate",
+   "label": "Oxygen transmission rate (OTR)",
+   "definition": "Oxygen transmission rate of a film of stated thickness, not normalized for thickness.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "water-vapor-permeability",
+   "label": "Water vapour permeability (WVP)",
+   "definition": "Thickness-normalized water-vapour permeability or permeability coefficient.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "water-vapor-transmission-rate",
+   "label": "Water vapour transmission rate (WVTR)",
+   "definition": "Water-vapour transmission rate of a film of stated thickness, including thickness-normalized WVTR reported under that name.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "co2-permeability",
+   "label": "CO2 permeability",
+   "definition": "CO2 permeability coefficient, permeance or transmission rate.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "gas-permeability-other",
+   "label": "Other gas and vapour permeability",
+   "definition": "Permeability, permeance or transmission of N2, He, H2, Ar, CH4, methanol, organic vapours and unspecified gases.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "gas-selectivity",
+   "label": "Permselectivity",
+   "definition": "Ideal or mixed-gas selectivity.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "diffusion-coefficient",
+   "label": "Diffusion coefficient",
+   "definition": "Diffusion coefficient of water, gases or solvents in the polymer.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "sorption-solubility-coefficient",
+   "label": "Sorption and solubility coefficient",
+   "definition": "Solubility (sorption) coefficient of a penetrant in the polymer and sorption-isotherm parameters (Langmuir, BET or GAB monolayer capacity, clustering).",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "water-absorption",
+   "label": "Water absorption by immersion",
+   "definition": "Water absorption or uptake by immersion (24 h, saturation, equilibrium), including absorption rate and saturation time.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "moisture-sorption",
+   "label": "Moisture content and sorption",
+   "definition": "Equilibrium moisture content, moisture regain and moisture absorption from humid air, and water content of the material.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "swelling-ratio",
+   "label": "Swelling ratio in water or solvents",
+   "definition": "Equilibrium swelling ratio or degree of swelling of gels, networks and membranes in water or solvents.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "membrane-separation",
+   "label": "Membrane separation performance",
+   "definition": "Pure-water flux, rejection and bubble-point pressure of membranes.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "barrier-other",
+   "label": "Other barrier or transport property",
+   "definition": "Permeation and diffusion activation energies, hydrogen retention, water-retention value, barrier improvement factors and other changes in barrier properties relative to a reference.",
+   "category": "barrier-transport",
+   "kind": "material-property"
+  },
+  {
+   "id": "light-transmittance",
+   "label": "Light transmittance",
+   "definition": "Total, luminous or spectral light transmittance and transparency.",
+   "category": "optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "haze",
+   "label": "Haze and opacity",
+   "definition": "Haze, clarity and opacity.",
+   "category": "optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "refractive-index",
+   "label": "Refractive index and birefringence",
+   "definition": "Refractive index, Abbe number and birefringence.",
+   "category": "optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "color-yellowness",
+   "label": "Colour and yellowness",
+   "definition": "Yellowness index, colour coordinates and whiteness.",
+   "category": "optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "gloss",
+   "label": "Gloss",
+   "definition": "Specular gloss.",
+   "category": "optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "optical-absorption-emission",
+   "label": "Optical absorption and emission",
+   "definition": "Absorbance, absorption coefficient, absorption or emission peak, optical band gap, UV cut-off and luminescence.",
+   "category": "optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "optical-other",
+   "label": "Other optical property",
+   "definition": "Other optical quantities.",
+   "category": "optical",
+   "kind": "material-property"
+  },
+  {
+   "id": "dielectric-constant",
+   "label": "Dielectric constant",
+   "definition": "Relative permittivity (dielectric constant).",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "dielectric-loss",
+   "label": "Dielectric loss tangent",
+   "definition": "Dielectric loss tangent or dissipation factor.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "dielectric-strength",
+   "label": "Dielectric strength",
+   "definition": "Dielectric breakdown strength and arc or tracking resistance.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "electrical-conductivity",
+   "label": "Electrical conductivity",
+   "definition": "Electronic conductivity of the material (S/cm).",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "electrical-resistivity",
+   "label": "Electrical resistivity",
+   "definition": "Volume or surface resistivity, sheet and contact resistance.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "ionic-conductivity",
+   "label": "Ionic and proton conductivity",
+   "definition": "Ionic or proton conductivity.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "piezo-ferroelectric",
+   "label": "Piezoelectric and ferroelectric",
+   "definition": "Piezoelectric coefficients (d33), remanent polarization, coercive field and Curie temperature.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "thermoelectric",
+   "label": "Thermoelectric",
+   "definition": "Seebeck coefficient, power factor and figure of merit.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "electrochemical",
+   "label": "Electrochemical",
+   "definition": "Electrochemical capacity, redox potentials and electrochemical stability window.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "electronic-structure",
+   "label": "Electronic structure and charge transport",
+   "definition": "HOMO and LUMO levels, work function and charge-carrier mobility.",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "electrical-other",
+   "label": "Other electrical property",
+   "definition": "Other electrical quantities (annealing effects on conductivity, raw dielectric resonance data).",
+   "category": "electrical",
+   "kind": "material-property"
+  },
+  {
+   "id": "degree-of-crystallinity",
+   "label": "Degree of crystallinity",
+   "definition": "Crystalline fraction by DSC, WAXD/XRD, FTIR or density; includes relative crystallinity.",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "crystal-structure-phase",
+   "label": "Crystal form and phase content",
+   "definition": "Crystal form or polymorph, unit-cell parameters and phase fractions (for example PVDF β or electroactive fraction).",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "crystallite-lamellar-dimensions",
+   "label": "Crystallite and lamellar dimensions",
+   "definition": "Crystallite size, lamellar thickness, long period and spherulite size.",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "orientation",
+   "label": "Orientation",
+   "definition": "Molecular or crystal orientation (Hermans orientation factor, orientation index).",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "phase-morphology",
+   "label": "Phase morphology",
+   "definition": "Phase separation, domain size, dispersed-phase size and microphase structure.",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "porosity-pore-size",
+   "label": "Porosity and pore size",
+   "definition": "Porosity, pore size and specific surface area.",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "particle-fiber-size",
+   "label": "Particle and fibre size",
+   "definition": "Size of the material's own particles, powder or fibres (fibre diameter, linear density, bead size).",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "morphology-other",
+   "label": "Other morphology",
+   "definition": "Surface and cross-section morphology descriptors, changes in crystallinity, scattering correlation lengths and other structural observations.",
+   "category": "morphology",
+   "kind": "material-property"
+  },
+  {
+   "id": "weight-average-molecular-weight",
+   "label": "Weight-average molecular weight (Mw)",
+   "definition": "Weight-average molar mass by GPC/SEC, light scattering or other methods.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "number-average-molecular-weight",
+   "label": "Number-average molecular weight (Mn)",
+   "definition": "Number-average molar mass by GPC/SEC, NMR end-group analysis or osmometry.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "molecular-weight-other",
+   "label": "Other molar mass",
+   "definition": "Viscosity-average, Z-average, peak and nominal or unspecified molecular weight, and degree of polymerization.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "dispersity",
+   "label": "Dispersity (Đ)",
+   "definition": "Dispersity (polydispersity index, Mw/Mn).",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "intrinsic-viscosity",
+   "label": "Intrinsic viscosity and viscosity number",
+   "definition": "Intrinsic viscosity, inherent or reduced viscosity, viscosity number and K-value used as molar-mass indices.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "copolymer-composition",
+   "label": "Copolymer and segment composition",
+   "definition": "Comonomer or segment content of the polymer itself (vinyl acetate, ethylene, acrylonitrile, styrene, HV, hard segment, chlorine content).",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "degree-of-substitution",
+   "label": "Degree of substitution and functionalization",
+   "definition": "Degree of substitution or molar substitution, acetyl and alkoxyl content, degree of deacetylation, hydrolysis, sulfonation or neutralization.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "chain-microstructure",
+   "label": "Chain microstructure",
+   "definition": "Tacticity (diad, triad, pentad), regio- and stereo-defects, cis/trans content, branching and sequence distribution.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "functional-group-content",
+   "label": "Functional-group and end-group content",
+   "definition": "Ion-exchange capacity, equivalent weight, hydroxyl number, epoxy equivalent, end-group and acid content.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "residual-monomer-impurities",
+   "label": "Residual monomer and impurities",
+   "definition": "Residual monomer, oligomer, catalyst residue, ash and extractable content.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "spectroscopic-signature",
+   "label": "Spectroscopic signature",
+   "definition": "IR or Raman band positions and intensities, NMR shifts and XPS features used to characterize the polymer.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "chemical-structure-other",
+   "label": "Other chemical structure",
+   "definition": "Repeat-unit identity, chain architecture and other chemical-structure descriptors.",
+   "category": "molecular",
+   "kind": "material-property"
+  },
+  {
+   "id": "solution-viscosity",
+   "label": "Solution viscosity",
+   "definition": "Dynamic or kinematic viscosity of a polymer solution or dispersion at a stated concentration (for example cellulose-ether grade viscosity).",
+   "category": "solution",
+   "kind": "material-property"
+  },
+  {
+   "id": "cloud-point-lcst",
+   "label": "Cloud point and LCST",
+   "definition": "Cloud point, lower or upper critical solution temperature and solution phase-transition temperature.",
+   "category": "solution",
+   "kind": "material-property"
+  },
+  {
+   "id": "gelation-temperature",
+   "label": "Thermal gelation temperature",
+   "definition": "Sol–gel or thermal gelation temperature of a polymer solution.",
+   "category": "solution",
+   "kind": "material-property"
+  },
+  {
+   "id": "solubility",
+   "label": "Solubility and dissolution",
+   "definition": "Solubility in solvents or water (qualitative or quantitative), film water solubility and dissolution time.",
+   "category": "solution",
+   "kind": "material-property"
+  },
+  {
+   "id": "solution-thermodynamics",
+   "label": "Solution thermodynamics and chain dimensions",
+   "definition": "Flory–Huggins χ, Huggins constant, second virial coefficient, solubility parameters and chain dimensions in solution.",
+   "category": "solution",
+   "kind": "material-property"
+  },
+  {
+   "id": "solution-other",
+   "label": "Other solution property",
+   "definition": "Other solution quantities, including dependences of the cloud point on concentration, heating rate or salt and salt-induced volume transitions.",
+   "category": "solution",
+   "kind": "material-property"
+  },
+  {
+   "id": "hydrolytic-degradation",
+   "label": "Hydrolytic degradation",
+   "definition": "Mass loss, rate or half-life of hydrolysis in water or buffer.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "biodegradation",
+   "label": "Biodegradation and disintegration",
+   "definition": "Biodegradation by CO2 evolution or oxygen demand, mineralization, compost or soil-burial mass loss and disintegration.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "enzymatic-degradation",
+   "label": "Enzymatic degradation",
+   "definition": "Rate or extent of enzyme-catalysed degradation.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "property-retention-after-aging",
+   "label": "Property retention after ageing or exposure",
+   "definition": "Retention or change of a property after thermal, UV, fluid, water or other ageing exposure.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "weathering-photo-oxidation",
+   "label": "Weathering and oxidation",
+   "definition": "Carbonyl index, photo- and thermo-oxidation indicators and UV stability.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "chemical-resistance",
+   "label": "Chemical and stress-crack resistance",
+   "definition": "Resistance to chemicals and solvents and environmental stress-crack resistance.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "molar-mass-loss",
+   "label": "Molar-mass loss on degradation",
+   "definition": "Decrease or retention of molar mass or solution viscosity during degradation.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "emissions-migration",
+   "label": "Emissions and migration",
+   "definition": "Emission of formaldehyde and volatiles, migration, plasticizer exudation and fogging.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "degradation-other",
+   "label": "Other degradation",
+   "definition": "Generic mass loss in degradation tests, degradation mechanism and other degradation quantities.",
+   "category": "degradation-environment",
+   "kind": "material-property"
+  },
+  {
+   "id": "density",
+   "label": "Density",
+   "definition": "Density, specific gravity, bulk density and specific volume.",
+   "category": "density-dimensional",
+   "kind": "material-property"
+  },
+  {
+   "id": "shrinkage",
+   "label": "Shrinkage",
+   "definition": "Mould shrinkage, cure shrinkage and thermal shrinkage of films or fibres.",
+   "category": "density-dimensional",
+   "kind": "material-property"
+  },
+  {
+   "id": "dimensional-stability",
+   "label": "Dimensional change with water or humidity",
+   "definition": "Thickness swelling, length or cross-section change on water or humidity exposure.",
+   "category": "density-dimensional",
+   "kind": "material-property"
+  },
+  {
+   "id": "free-volume",
+   "label": "Free volume",
+   "definition": "Fractional free volume and free-volume hole size.",
+   "category": "density-dimensional",
+   "kind": "material-property"
+  },
+  {
+   "id": "flammability",
+   "label": "Flammability",
+   "definition": "Limiting oxygen index, UL 94 rating, heat release, burning rate and combustion behaviour.",
+   "category": "flammability",
+   "kind": "material-property"
+  },
+  {
+   "id": "contact-angle-surface-energy",
+   "label": "Contact angle and surface energy",
+   "definition": "Water or liquid contact angle and surface free energy.",
+   "category": "surface-adhesion",
+   "kind": "material-property"
+  },
+  {
+   "id": "adhesion-strength",
+   "label": "Adhesion and bond strength",
+   "definition": "Lap-shear, peel, pull-off and other adhesive or interfacial bond strength.",
+   "category": "surface-adhesion",
+   "kind": "material-property"
+  },
+  {
+   "id": "friction-wear",
+   "label": "Friction and wear",
+   "definition": "Coefficient of friction and wear rate.",
+   "category": "surface-adhesion",
+   "kind": "material-property"
+  },
+  {
+   "id": "surface-roughness",
+   "label": "Surface roughness",
+   "definition": "Surface roughness (Ra, Rq).",
+   "category": "surface-adhesion",
+   "kind": "material-property"
+  },
+  {
+   "id": "surface-other",
+   "label": "Other surface property",
+   "definition": "Other surface and interfacial quantities (monolayer isotherms, surface pressure).",
+   "category": "surface-adhesion",
+   "kind": "material-property"
+  },
+  {
+   "id": "biological-response",
+   "label": "Biological response",
+   "definition": "Cytotoxicity, cell viability, antimicrobial activity, protein adsorption and biocompatibility.",
+   "category": "biological",
+   "kind": "material-property"
+  },
+  {
+   "id": "other-material-property",
+   "label": "Other material property",
+   "definition": "A material property that fits no other class.",
+   "category": "other-property",
+   "kind": "material-property"
+  },
+  {
+   "id": "heating-cooling-rate",
+   "label": "Heating or cooling rate",
+   "definition": "Heating, cooling or scan rate in a thermal measurement (DSC, TGA, DMA, HDT, Vicat).",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "thermal-program",
+   "label": "Thermal-analysis temperature program",
+   "definition": "Temperature range, endpoints, hold times, cycles, modulation and the heating run evaluated in DSC, TGA or DMA.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-temperature",
+   "label": "Test temperature",
+   "definition": "Temperature at which a property was measured.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-humidity",
+   "label": "Test relative humidity",
+   "definition": "Relative humidity during a measurement.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-atmosphere",
+   "label": "Test atmosphere and purge gas",
+   "definition": "Atmosphere and purge-gas identity, purity and flow rate during a measurement.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-rate",
+   "label": "Test speed or strain rate",
+   "definition": "Crosshead speed, displacement, strain, extension or loading rate in a mechanical test.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-frequency-amplitude",
+   "label": "Frequency, amplitude and shear rate",
+   "definition": "Frequency, strain or displacement amplitude and shear rate in dynamic mechanical, rheological or dielectric tests.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-load",
+   "label": "Applied load, stress or strain",
+   "definition": "Load, stress, strain, pressure or energy applied in a test (HDT stress, MFR load, compression-set strain, pendulum energy).",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-geometry",
+   "label": "Test-fixture geometry",
+   "definition": "Support span, grip or clamp separation, plate diameter and gap, exposed area and die dimensions of the test fixture.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "exposure-conditions",
+   "label": "Exposure or ageing environment",
+   "definition": "Medium, temperature, pH, concentration, humidity or dose of a degradation, immersion or ageing exposure.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-duration",
+   "label": "Test or exposure duration",
+   "definition": "Duration of a test, immersion, ageing, incubation or hold.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "replicate-count",
+   "label": "Replicate count",
+   "definition": "Number of replicates, specimens or measurements.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "measurement-solution",
+   "label": "Measurement solution",
+   "definition": "Polymer concentration and solvent of a solution used for a measurement.",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "test-condition-other",
+   "label": "Other test parameter",
+   "definition": "Other measurement settings and controls (electrical current, blank or control loadings, sampling and weighing intervals, cycle counts of a test protocol).",
+   "category": "test-conditions",
+   "kind": "test-condition"
+  },
+  {
+   "id": "specimen-thickness",
+   "label": "Specimen thickness",
+   "definition": "Thickness of the specimen, film, sheet, membrane or coating tested.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "specimen-dimensions",
+   "label": "Specimen dimensions and geometry",
+   "definition": "Specimen dimensions, gauge length, shape, type and notch geometry.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "specimen-mass",
+   "label": "Specimen mass",
+   "definition": "Mass of the specimen used in a measurement.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "specimen-preparation",
+   "label": "Specimen form and preparation route",
+   "definition": "How the specimen was made or obtained and its form.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "drying",
+   "label": "Drying",
+   "definition": "Drying temperature, duration and atmosphere before processing or testing.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "conditioning",
+   "label": "Conditioning",
+   "definition": "Pre-test conditioning temperature, relative humidity and duration.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "annealing-thermal-history",
+   "label": "Annealing and thermal history",
+   "definition": "Annealing, heat setting, quenching, isothermal crystallization and erasure of thermal history in specimen preparation.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "melt-processing-conditions",
+   "label": "Melt processing conditions",
+   "definition": "Temperatures, pressures, speeds and durations of moulding, extrusion, compounding, pressing, calendering and printing.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "solution-processing-conditions",
+   "label": "Solution processing conditions",
+   "definition": "Casting, coating, electrospinning and coagulation conditions, including casting-solution concentration and solvent.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "cure-schedule",
+   "label": "Cure schedule",
+   "definition": "Cure, post-cure and vulcanization temperature, duration and pressure.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "drawing-conditions",
+   "label": "Drawing and stretching",
+   "definition": "Draw or stretch ratio and drawing temperature and speed applied in preparation.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "synthesis-conditions",
+   "label": "Synthesis conditions",
+   "definition": "Polymerization or modification method, temperature, time and feed.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "post-treatment",
+   "label": "Post-treatment",
+   "definition": "Irradiation, plasma, sterilization, doping and other treatments applied after forming.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "preparation-other",
+   "label": "Other preparation detail",
+   "definition": "Other preparation details.",
+   "category": "specimen-preparation",
+   "kind": "specimen-or-preparation"
+  },
+  {
+   "id": "instrument",
+   "label": "Instrument and equipment",
+   "definition": "Instrument model, accessories, load cell, pans and crucibles, calibration standards.",
+   "category": "method-instrument",
+   "kind": "method-or-instrument"
+  },
+  {
+   "id": "test-method-standard",
+   "label": "Test method or standard",
+   "definition": "Test standard (ASTM, ISO, DIN, JIS, GB/T), measurement technique, protocol and test mode (for example DMA dual cantilever, DSC Tzero).",
+   "category": "method-instrument",
+   "kind": "method-or-instrument"
+  },
+  {
+   "id": "analysis-criterion",
+   "label": "Analysis criterion or calculation parameter",
+   "definition": "How a value was extracted, calculated or qualified: assignment criteria, definitions, fitting ranges, reference values and constants used in a calculation (reference enthalpy of fusion, solvent molar volume), reported uncertainties and other statistics.",
+   "category": "method-instrument",
+   "kind": "method-or-instrument"
+  },
+  {
+   "id": "filler-reinforcement",
+   "label": "Filler and reinforcement",
+   "definition": "Content, identity and size of fillers and reinforcements (carbon black, silica, glass or carbon fibre, clay, nanoparticles).",
+   "category": "composition-formulation",
+   "kind": "composition-or-formulation"
+  },
+  {
+   "id": "plasticizer",
+   "label": "Plasticizer and oil",
+   "definition": "Content and identity of plasticizers, extender and process oils.",
+   "category": "composition-formulation",
+   "kind": "composition-or-formulation"
+  },
+  {
+   "id": "cure-system",
+   "label": "Cure system",
+   "definition": "Content and identity of curatives, hardeners, accelerators, activators, initiators, catalysts and crosslinkers.",
+   "category": "composition-formulation",
+   "kind": "composition-or-formulation"
+  },
+  {
+   "id": "additive",
+   "label": "Other additive",
+   "definition": "Antioxidants, stabilizers, flame retardants, compatibilizers, nucleating agents, pigments and other additives.",
+   "category": "composition-formulation",
+   "kind": "composition-or-formulation"
+  },
+  {
+   "id": "blend-composition",
+   "label": "Blend or formulation composition",
+   "definition": "Ratio or content of polymers and components in a blend, compound, composite or formulation.",
+   "category": "composition-formulation",
+   "kind": "composition-or-formulation"
+  },
+  {
+   "id": "formulation-other",
+   "label": "Other formulation detail",
+   "definition": "Other composition details.",
+   "category": "composition-formulation",
+   "kind": "composition-or-formulation"
+  },
+  {
+   "id": "material-identity",
+   "label": "Material grade and identity",
+   "definition": "Grade, trade name, supplier or identity of the material tested.",
+   "category": "other",
+   "kind": "other"
+  },
+  {
+   "id": "observation-interpretation",
+   "label": "Observation or interpretation",
+   "definition": "Qualitative observation, comparison between methods, or proposed mechanism that is not a measurable property.",
+   "category": "other",
+   "kind": "other"
+  },
+  {
+   "id": "unclassified",
+   "label": "Unclassified",
+   "definition": "Property string that could not be assigned; here only the empty string (no property recorded).",
+   "category": "other",
+   "kind": "other"
+  }
+ ]
+}
