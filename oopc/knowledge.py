@@ -634,14 +634,18 @@ def polymer_ids(root, name):
         return set()
 
 
-def expand(root, query):
-    """Other names for polymers named in the query, so "PCL" also finds "polycaprolactone"."""
+def expand(root, query, terms=()):
+    """Other names for polymers named in the query, so "PCL" also finds "polycaprolactone", then the other names of the
+    property terms it names (`terms`, from `_property_terms`), so "Tg" also finds "glass transition"."""
     lower = " " + re.sub(r"[^\w()-]+", " ", (query or "").lower()) + " "
     extra = []
     for name, others in polymer_aliases(root).items():
         if " " + name + " " in lower:
             for other in sorted(others):
                 extra.extend(re.findall(r"[\w-]+", other, flags=re.UNICODE))
+    for term in terms:
+        for other in term["others"]:
+            extra.extend(re.findall(r"[\w-]+", other, flags=re.UNICODE))
     generic = {"poly", "family", "polymer", "polymers", "resin", "resins", "copolymer", "copolymers", "grade", "grades",
                "the", "of", "and", "acid", "type", "general"}
     return list(dict.fromkeys(t for t in extra if len(t) > 1 and t.lower() not in generic))
@@ -698,14 +702,45 @@ def _has_word(text, word):
 
 FILL = 10  # Findings that match only the polymer a query names fill a result up to this many.
 SAME_SOURCE = 12  # Other findings from the sources a search returns, so a source already read is not read again.
+LINKED = 6  # Findings from sources linked to those (a supplement, another version, the source of a value or method).
+OVERLAY = ("source_links", "property_terms", "finding_terms")  # Read by search only when a store has them.
 
 
-def _relevant(rows, about, text, subject, polymers, words, limit):
+def _property_terms(db, query, polymers):
+    """The property terms `query` names, each with its names, its other names as written, the query words that name
+    it and the findings annotated to it. A name counts when it is in the query as whole words, longest names first,
+    outside the words a polymer the query names takes ("density" names nothing in "high-density polyethylene"). A
+    one-letter name (E, ρ) never counts, as no one-letter word does elsewhere in search."""
+    lower = _words(query)
+    for p in polymers:
+        lower = re.sub(r"(?<= )" + re.escape(_words(p["name"]).strip()) + r"(?= )", "|", lower)
+    terms = {}
+    for term, names in db.execute("SELECT term, names FROM property_terms ORDER BY term"):
+        names = json.loads(names or "[]")
+        terms[term] = [n for n in (names if isinstance(names, list) else []) if isinstance(n, str)]
+    found = {}
+    for phrase, term in sorted({(_words(n).strip(), t) for t, names in terms.items() for n in names},
+                               key=lambda item: (-len(item[0]), item)):
+        if len(phrase) > 1 and " " + phrase + " " in lower:
+            found.setdefault(term, set()).update(phrase.split())
+            lower = re.sub(r"(?<= )" + re.escape(phrase) + r"(?= )", "|", lower)
+    named = []
+    for term, words in found.items():
+        names = [n for n in terms[term] if len(_words(n).strip()) > 1]
+        annotated = {i for (i,) in db.execute("SELECT finding_id FROM finding_terms WHERE term=?", (term,))}
+        named.append({"term": term, "words": words, "names": {_words(n).strip() for n in names},
+                      "others": [n for n in names if not set(_words(n).split()) <= words], "findings": annotated})
+    return named
+
+
+def _relevant(rows, about, text, subject, polymers, words, limit, terms=()):
     """Rows about a polymer the query names (when it names one), most query words matched first.
 
     `about` is the text that says what a row is about; `text` is everything the query words may match.
     A row matching the polymer but none of the other words ("PNIPAM cloud point" for "PNIPAM LCST") is
-    kept only to fill a short result, since vocabulary differs between questions and sources."""
+    kept only to fill a short result, since vocabulary differs between questions and sources. The query
+    words naming a property term (`terms`) are also matched by a row annotated to the term or mentioning
+    any of its names."""
     matched, polymer_only = [], []
     for position, row in enumerate(rows):
         topic = _words(about(row))
@@ -713,7 +748,9 @@ def _relevant(rows, about, text, subject, polymers, words, limit):
                                 for p in polymers):
             continue
         body = _words(text(row))
-        covered = sum(_has_word(body, w) for w in words) / len(words) if words else 1
+        named = set().union(*(t["words"] for t in terms
+                              if row["id"] in t["findings"] or any(_mentions(body, n) for n in t["names"])))
+        covered = sum(w in named or _has_word(body, w) for w in words) / len(words) if words else 1
         if covered:
             matched.append((-covered, position, row))
         elif polymers:
@@ -728,8 +765,16 @@ def search(root, q, limit=10, compact=False):
     Relevance decides which findings are returned: when the query names a polymer, only findings
     about that polymer (by any of its names or its graph id), ranked by how many of the other
     query words they match. `limit` (at least 10) is the total of these across statuses. Then come up to
-    `SAME_SOURCE` other findings saved from the sources of the findings and notes returned. The result is grouped
-    by status (reviewed, added on a researcher's judgement, awaiting review or inconclusive) only for display."""
+    `SAME_SOURCE` other findings saved from the sources of the findings and notes returned and, when the store has a
+    `source_links` table, up to `LINKED` from the sources linked to those (`_same_source`). The result is grouped by
+    status (reviewed, added on a researcher's judgement, awaiting review or inconclusive) only for display.
+
+    A store may also hold property terms (tables `property_terms` and `finding_terms`), read only when both exist
+    and hold a term. For a term the query names (`_property_terms`), findings written with its other names are found
+    too; the query words naming it count as matched in a finding annotated to it or mentioning any of its names; and
+    when the query names a polymer, the findings annotated to the term and filed under that polymer, its families or
+    its members are candidates too. Notes are searched as without terms. Without these tables, or with them empty,
+    a search returns what it returned before they existed."""
     phrase = _match(q, expand(root, q))
     empty = {"reviewed": [], "added": [], "unreviewed": [], "notes": []}
     if not phrase or not database(root).exists():
@@ -739,8 +784,12 @@ def search(root, q, limit=10, compact=False):
     for polymer in polymers:
         polymer["lineage"] = lineage(root, polymer["ids"])
     with connect(root) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN "
+                                               "(?, ?, ?)", OVERLAY)}
+        terms = _property_terms(db, q, polymers) if {"property_terms", "finding_terms"} <= tables else []
         rows = db.execute("SELECT f.* FROM findings_fts x JOIN findings f ON f.id=x.id WHERE findings_fts MATCH ? "
-                          "AND f.status != ? ORDER BY rank LIMIT 500", (phrase, UNSUPPORTED)).fetchall()
+                          "AND f.status != ? ORDER BY rank LIMIT 500",
+                          (_match(q, expand(root, q, terms)) if terms else phrase, UNSUPPORTED)).fetchall()
         notes = db.execute("SELECT n.* FROM notes_fts x JOIN notes n ON n.id=x.id WHERE notes_fts MATCH ? "
                            "ORDER BY rank LIMIT 200", (phrase,)).fetchall()
         ids = sorted(set().union(*(p["ids"] for p in polymers))) if polymers else []
@@ -748,16 +797,24 @@ def search(root, q, limit=10, compact=False):
             seen = {row["id"] for row in rows}
             rows += [row for row in db.execute("SELECT * FROM findings WHERE status != ? AND subject IN (%s)"
                                                % ",".join("?" * len(ids)), (UNSUPPORTED, *ids)) if row["id"] not in seen]
+        family = sorted(set().union(*(p["lineage"] for p in polymers))) if terms and polymers else []
+        if family:  # Findings annotated to a property term the query names, filed under the polymer's lineage.
+            seen, asked = {row["id"] for row in rows}, [t["term"] for t in terms]
+            marks = lambda items: ",".join("?" * len(items))
+            rows += [row for row in db.execute("SELECT * FROM findings WHERE status != ? AND subject IN (%s) AND id IN "
+                                               "(SELECT finding_id FROM finding_terms WHERE term IN (%s)) ORDER BY rowid"
+                                               % (marks(family), marks(asked)), (UNSUPPORTED, *family, *asked))
+                     if row["id"] not in seen]
         fields = lambda row, keys: " ".join(str(row[k] or "") for k in keys)
         # A finding is about what its statement and material say, not its source's title: a PCL control in a
         # PHBV-blend paper is a PCL finding.
         rows = _relevant(rows, lambda r: fields(r, ("statement", "material")),
                          lambda r: fields(r, ("statement", "material", "property", "conditions", "source_title", "excerpt")),
-                         lambda r: r["subject"], polymers, words, limit)
+                         lambda r: r["subject"], polymers, words, limit, terms)
         notes = _relevant(notes, lambda n: fields(n, ("title", "supports", "conditions")),
                           lambda n: fields(n, ("title", "supports", "conditions", "locator", "excerpts")),
                           lambda n: "", polymers, words, 3 if compact else limit)
-        rows += _same_source(db, rows, notes)
+        rows += _same_source(db, rows, notes, linked="source_links" in tables)
     views, titled = {}, set()
     for row in rows:
         views[row["id"]] = finding_view(row, compact=compact)
@@ -771,19 +828,44 @@ def search(root, q, limit=10, compact=False):
             "notes": [note_view(n, compact=compact) for n in notes]}
 
 
-def _same_source(db, rows, notes):
+def _same_source(db, rows, notes, linked=False):
     """Saved findings from the sources of `rows` and `notes` that `rows` does not already hold, most relevant
-    source first: what a researcher would otherwise reopen the source to read."""
+    source first: what a researcher would otherwise reopen the source to read. At most `SAME_SOURCE` of them.
+
+    With `linked` (the store has a `source_links` table), up to `LINKED` more follow from the other sources linked
+    to these, read in both directions: linked sources in the order the source linking them first appears, each
+    source's findings in the order they were saved."""
     keys = [source_key(r["source_doi"], r["source_url"]) for r in rows] + [source_key(n["doi"], n["url"]) for n in notes]
+    keys = list(dict.fromkeys(k for k in keys if k))
     seen, extra = {r["id"] for r in rows}, []
-    for key in dict.fromkeys(k for k in keys if k):
-        needle = key.split(":", 1)[1]
-        for row in db.execute("SELECT * FROM findings WHERE status != ? AND (instr(lower(source_doi), ?) OR "
-                              "instr(lower(source_url), ?)) ORDER BY rowid", (UNSUPPORTED, needle, needle)):
-            if row["id"] not in seen and source_key(row["source_doi"], row["source_url"]) == key:
-                seen.add(row["id"])
-                extra.append(row)
-    return extra[:SAME_SOURCE]
+    for key in keys:
+        extra += _from_source(db, key, seen)
+    extra = extra[:SAME_SOURCE]
+    if not linked or not keys:
+        return extra
+    partners, marks = {}, ",".join("?" * len(keys))
+    for a, b in db.execute("SELECT a, b FROM source_links WHERE a IN (%s) OR b IN (%s) ORDER BY rowid"
+                           % (marks, marks), keys + keys):
+        partners.setdefault(a, []).append(b)
+        partners.setdefault(b, []).append(a)
+    more = []
+    for key in dict.fromkeys(other for key in keys for other in partners.get(key, ()) if other not in keys):
+        if len(more) >= LINKED:
+            break
+        more += _from_source(db, key, seen)
+    return extra + more[:LINKED]
+
+
+def _from_source(db, key, seen):
+    """The findings saved from the source `key` that are not unsupported and not in `seen` (which they join), in the
+    order they were saved."""
+    needle, found = key.split(":", 1)[1], []
+    for row in db.execute("SELECT * FROM findings WHERE status != ? AND (instr(lower(source_doi), ?) OR "
+                          "instr(lower(source_url), ?)) ORDER BY rowid", (UNSUPPORTED, needle, needle)):
+        if row["id"] not in seen and source_key(row["source_doi"], row["source_url"]) == key:
+            seen.add(row["id"])
+            found.append(row)
+    return found
 
 
 def get(root, identifier):
