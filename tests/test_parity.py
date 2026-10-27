@@ -25,11 +25,23 @@ class Engine:
     """Answers by schema, like a real engine would, and counts calls by kind."""
 
     def __init__(self, *, ontology_passes=True, catch=True):
-        self.calls = {"direct": 0, "ontology": 0, "check": 0, "review": 0}
+        self.calls = {"direct": 0, "ontology": 0, "deposit": 0, "check": 0, "review": 0}
         self.ontology_passes, self.catch = ontology_passes, catch
+        self.turns = []
 
-    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None):
+    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None,
+                 persist=False, resume=None, previous_usage=None, folder=None):
         usage = {"input_tokens": 1000, "cached_input_tokens": 800, "output_tokens": 100}
+        if schema is ANSWER_SCHEMA:
+            self.turns.append({"persist": persist, "resume": resume, "folder": str(folder), "tools": tools is not None,
+                               "web": web})
+        if resume:  # The researcher's second turn: the findings it read, from the cached prefix.
+            self.calls["deposit"] += 1
+            answer = {"answer": "", "citations": [], "findings": [finding(8)], "sources": [], "limitations": [],
+                      "openQuestions": []}
+            return {"engine": engine, "model": "scripted", "sessionId": resume, "answer": answer,
+                    "usage": {"input_tokens": 1000, "cached_input_tokens": 950, "output_tokens": 50},
+                    "observedTools": [], "agentSeconds": 0.5}
         if schema is parity.DIRECT_SCHEMA:
             self.calls["direct"] += 1
             answer = {"answer": "A plain answer with a cited claim [s](https://example.org/x) about the polymer here.",
@@ -40,7 +52,7 @@ class Engine:
             if tools is not None:
                 tools.call("search_knowledge", {"q": "crystallinity"})
             answer = {"answer": "It reached 49% `https://example.org/p9` according to the cited polymer source here.",
-                      "citations": ["https://example.org/p9"], "findings": [finding(8)], "sources": [], "limitations": [],
+                      "citations": ["https://example.org/p9"], "findings": [], "sources": [], "limitations": [],
                       "openQuestions": []}
         elif schema is reviewer.CHECK_SCHEMA:
             self.calls["check"] += 1
@@ -57,8 +69,8 @@ class Engine:
             answer = {"verdicts": [{"id": f["id"], "verdict": ("unsupported" if self.catch else "supported")
                                     if f["id"].startswith("canary") else "supported", "reason": "r"} for f in ids],
                       "notes": ""}
-        return {"engine": engine, "model": "scripted", "sessionId": "s", "answer": answer, "usage": usage,
-                "observedTools": [], "agentSeconds": 1.0}
+        return {"engine": engine, "model": "scripted", "sessionId": "s%d" % len(self.turns) if persist else "s",
+                "answer": answer, "usage": usage, "observedTools": [], "agentSeconds": 1.0}
 
 
 class ParityTests(unittest.TestCase):
@@ -66,6 +78,10 @@ class ParityTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory(prefix="oopc-parity-test-")
         self.addCleanup(folder.cleanup)
         self.root = Path(folder.name).resolve()
+        (self.root / "tmp").mkdir()  # The researcher's session folders.
+        patch = mock.patch.object(tempfile, "tempdir", str(self.root / "tmp"))
+        patch.start()
+        self.addCleanup(patch.stop)
         path = build_release(self.root / "releases/fixture", [{"@id": "wop-000001", "@type": "PolymerConcept",
                              "label": "Polylactide", "status": "seed", "layer": "science"}], get_ontology(), {})
         release_id = json.loads((path / "manifest.json").read_text())["release_id"]
@@ -80,14 +96,18 @@ class ParityTests(unittest.TestCase):
         engine = Engine()
         first = parity.run(self.root, engine="codex", checker="claude-code", runner=engine, canaries=True)
         questions = len(parity.load_set()["questions"])
-        self.assertEqual(engine.calls, {"direct": questions, "ontology": questions, "check": 2 * questions, "review": 1})
+        self.assertEqual(engine.calls, {"direct": questions, "ontology": questions, "deposit": questions,
+                                        "check": 2 * questions, "review": 1})
         self.assertEqual(first["meta"]["prompt"], prompt_version())  # Which instructions the run measured.
         self.assertEqual(first["canaries"]["caught"], 3)
         self.assertEqual(first["summary"]["all"]["checked"], questions)
         self.assertEqual(first["summary"]["all"]["passes"], {"direct": questions, "ontology": questions})
-        self.assertEqual(first["summary"]["all"]["medianTokenRatio"], 0.231)
-        self.assertEqual(first["summary"]["all"]["medianTokens"]["ontology"], 300)
-        self.assertEqual(first["summary"]["all"]["medianTotalTokens"]["ontology"], 1100)
+        # The researcher's tokens are both turns' own: 300 new for the answer and 100 for its findings.
+        self.assertEqual(first["summary"]["all"]["medianTokenRatio"], 0.308)
+        self.assertEqual(first["summary"]["all"]["medianTokens"]["ontology"], 400)
+        self.assertEqual(first["summary"]["all"]["medianTotalTokens"]["ontology"], 2150)
+        self.assertEqual(first["summary"]["all"]["medianSeconds"], {"direct": 1.0, "ontology": 1.0})
+        self.assertEqual(first["summary"]["all"]["medianTotalSeconds"], {"direct": 1.0, "ontology": 1.5})
         self.assertEqual((first["summary"]["covered"]["questions"], first["summary"]["uncovered"]["questions"]), (4, 4))
         self.assertTrue(first["guardrail"]["holds"])
         self.assertEqual(knowledge.summary(self.root)["findings"], {"supported": 3})  # Nothing saved by the run.
@@ -106,6 +126,51 @@ class ParityTests(unittest.TestCase):
         self.assertEqual((compared["contradicted"], compared["passes"], compared["compared"], compared["recommended"]),
                          ((0, questions), (questions, 0), questions, False))
         self.assertTrue(improve.compare(second, first)["recommended"])
+
+    def test_the_researcher_arm_answers_then_writes_its_findings_by_resuming_its_session(self):
+        engine = Engine()
+        baseline = parity.run(self.root, engine="codex", checker="claude-code", runner=engine, only="covered")
+        arm = json.loads((parity.folder(self.root) / "runs" / parity.runs(self.root)[0] / "c1-ontology.json").read_text())
+        first, second = engine.turns[:2]
+        self.assertEqual((first["persist"], first["resume"], second["resume"], second["folder"]),
+                         (True, None, "s1", first["folder"]))
+        self.assertEqual((second["tools"], second["web"]), (first["tools"], first["web"]))
+        metrics = arm["metrics"]
+        self.assertEqual((metrics["seconds"], metrics["depositSeconds"], metrics["totalSeconds"], metrics["newTokens"]),
+                         (1.0, 0.5, 1.5, 400))
+        self.assertEqual(len(arm["answer"]["findings"]), 1)  # Kept with the answer, never saved.
+        self.assertEqual(knowledge.summary(self.root)["findings"], {"supported": 3})
+        self.assertEqual(list((self.root / "tmp").iterdir()), [])  # Each session's folder is deleted after its turns.
+
+        # A second turn that fails is recorded beside the answer, which is still checked.
+        class NoFindings(Engine):
+            def __call__(self, engine, prompt, schema, **options):
+                if options.get("resume"):
+                    raise engines.EngineError("timeout", "slow", seconds=7.0, usage={
+                        "input_tokens": 10, "cached_input_tokens": 0, "output_tokens": 5})
+                return super().__call__(engine, prompt, schema, **options)
+        row = parity.run(self.root, engine="codex", checker="claude-code", runner=NoFindings(),
+                         only="covered")["rows"][0]["arms"]["ontology"]
+        self.assertEqual((row["depositError"]["reason"], row["verdict"]), ("timeout", "pass"))
+        self.assertEqual((row["metrics"]["totalSeconds"], row["metrics"]["newTokens"], row["metrics"]["depositFailed"]),
+                         (8.0, 315, True))
+        self.assertEqual(list((self.root / "tmp").iterdir()), [])
+
+        # One that reported no usage keeps the answer's tokens, with the deposit's unmeasured: not compared on tokens.
+        class Unmeasured(Engine):
+            def __call__(self, engine, prompt, schema, **options):
+                if options.get("resume"):
+                    raise engines.EngineError("crashed", "exit 1")
+                return super().__call__(engine, prompt, schema, **options)
+        value = parity.run(self.root, engine="codex", checker="claude-code", runner=Unmeasured(), only="covered")
+        metrics = value["rows"][0]["arms"]["ontology"]["metrics"]
+        self.assertEqual((metrics["newTokens"], metrics["answerNewTokens"], metrics["depositNewTokens"],
+                          metrics["depositFailed"]), (300, 300, None, True))
+        self.assertIsNone(value["rows"][0]["tokenRatio"])
+        compared = improve.compare(baseline, value)
+        self.assertEqual((compared["failedDeposits"], compared["tokensCompared"], compared["recommended"]),
+                         ((0, 4), 0, False))
+        self.assertIn("failed deposit", compared["notice"])
 
     def test_direct_answers_are_frozen_per_engine_and_model(self):
         # 2026-10-11: Codex moved from gpt-6-astra to gpt-6.1-sol; the plain baseline moves with it.
@@ -166,7 +231,7 @@ class ParityTests(unittest.TestCase):
         class Reading(Engine):
             def __call__(self, engine, prompt, schema, **options):
                 value = super().__call__(engine, prompt, schema, **options)
-                if schema is ANSWER_SCHEMA:
+                if schema is ANSWER_SCHEMA and not options.get("resume"):
                     value["observedTools"] = [
                         {"type": "web_search", "action": "open", "url": "https://publisher.example/p", "outcome": "refused"},
                         {"type": "mcp_tool_call", "tool": "search_knowledge"}]
@@ -200,7 +265,7 @@ class ParityTests(unittest.TestCase):
         engine = Engine()
         filled = parity.recheck(self.root, checker="claude-code", runner=engine)
         questions = len(parity.load_set()["questions"])
-        self.assertEqual(engine.calls, {"direct": 0, "ontology": 0, "check": 2 * questions, "review": 1})
+        self.assertEqual(engine.calls, {"direct": 0, "ontology": 0, "deposit": 0, "check": 2 * questions, "review": 1})
         self.assertEqual(filled["summary"]["all"]["checked"], questions)
         self.assertTrue(filled["guardrail"]["holds"])
         self.assertEqual(filled["canaries"]["caught"], 3)

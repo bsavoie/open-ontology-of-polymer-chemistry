@@ -16,7 +16,15 @@ text or local paths. Text fields (excerpts, flag reasons, note `supports`) are r
 
 Ran as `.oopc/study/analysis/loop/build.py`; moved to the repository on 2026-10-13 unchanged except imports and paths.
 It still writes to `.oopc/study/analysis/loop/`, not beside this file; the frozen worktree is now common.CODE.
+
+    python3 -B build.py --kf [--out DIR]   # experiment A1: the same build on KF, into loop-kf
+
+`--kf` (2026-10-18) reads the frozen copy of KF (`kf.store()`) instead of K3, writes to `.oopc/study/analysis/loop-kf/`
+(or `--out`) and puts KF's pins (`kf.meta`) in every output. The trajectory's excerpt measures read each excerpt as the
+researcher saved it (`kf.as_written`): the 2026-10-14/16 cleanup filled or replaced 3,888 excerpts, which says nothing
+about what a prompt version produced. On K3 this is the stored excerpt, so the K3 build is unchanged.
 """
+import argparse
 import bisect
 import collections
 import datetime as dt
@@ -32,8 +40,18 @@ from pathlib import Path
 sys.dont_write_bytecode = True  # never leave __pycache__ in the frozen worktree
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # studies/macromolecules, for common
 from common import CODE, ROOT, analysis_dir  # noqa: E402  (common puts CODE first on sys.path)
+from analysis import kf  # noqa: E402  (KF's pins, frozen copy and as-written excerpts)
 
-OUT = analysis_dir("loop")  # the private folder it ran in and writes to
+
+def arguments():
+    parser = argparse.ArgumentParser(description="Records-only data behind Fig. 4b, 4d and 4e.")
+    parser.add_argument("--kf", action="store_true", help="read KF's frozen copy and write to loop-kf")
+    parser.add_argument("--out", type=Path, help="write the outputs here instead")
+    return parser.parse_args()
+
+
+ARGS = arguments() if __name__ == "__main__" else argparse.Namespace(kf=False, out=None)
+OUT = ARGS.out or analysis_dir("loop-kf" if ARGS.kf else "loop")  # the private folder it ran in and writes to
 OOPC = ROOT / ".oopc"
 FREEZE = CODE
 from oopc.calls import new_tokens  # noqa: E402  (pure)
@@ -43,6 +61,8 @@ QUESTIONS = OOPC / "loop" / "questions"
 RUNS = OOPC / "runs"
 HARNESS = OOPC / "loop" / "harness"
 K3 = HARNESS / "2026-10-ablation" / "workspaces" / "K3" / ".oopc" / "loop" / "knowledge.sqlite"
+STORE_NAME = "KF" if ARGS.kf else "K3"
+STORE = kf.store() if ARGS.kf else K3
 CAMPAIGN = HARNESS / "2026-10-campaign"
 RUN200 = HARNESS / "2026-10-03-200"
 LEDGER = CAMPAIGN / "workspace" / ".oopc" / "loop" / "calls"
@@ -219,26 +239,27 @@ for a in history:
     if a.get("knowledgeLookups") is not None and a["knowledgeLookups"] != len(found):
         trace_problems["lookupsDifferFromTrace"] += 1
 
-db = ro(K3)
+db = ro(STORE)
 findings = {}
 for row in db.execute("SELECT id, question_id, status, subject, created_at, excerpt, value, unit, source_url, "
                       "source_doi, detail FROM findings"):
     fid, qid, status, subject, created, excerpt, value, unit, url, doi, detail = row
-    findings[fid] = dict(question=qid, status=status, subject=subject or "", created=created, excerpt=excerpt or "",
-                         value=value or "", unit=unit or "", url=url or "", doi=doi or "",
-                         detail=json.loads(detail or "{}"))
+    detail = json.loads(detail or "{}")
+    findings[fid] = dict(question=qid, status=status, subject=subject or "", created=created,
+                         excerpt=kf.as_written(excerpt or "", detail), value=value or "", unit=unit or "",
+                         url=url or "", doi=doi or "", detail=detail)
 notes = [dict(id=r[0], question=r[1], supports=r[2] or "", url=r[3] or "", doi=r[4] or "", readUrl=r[5] or "")
          for r in db.execute("SELECT id, question_id, supports, url, doi, read_url FROM notes")]
 deposit_counts = dict(db.execute("SELECT question_id, findings FROM deposits"))
 db.close()
 
-K3_HASH = file_hash(K3)
-META = dict(generatedBy="build.py (records only; no engine calls)",
-            generatedAt=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-            freezeRevision=freeze_revision(), k3Sha256Prefix=K3_HASH,
-            k3Snapshot="oopc-knowledge-0f0a0104a3f9e15a08b94bf7 (id given in the study plan)",
-            k3Findings=len(findings), k3Notes=len(notes), answers=N,
-            answersByStage=dict(collections.Counter(a["stage"] for a in history)))
+COUNTS = dict(answers=N, answersByStage=dict(collections.Counter(a["stage"] for a in history)))
+META = dict(kf.meta("loop_build.py (records only; no engine calls)"), **COUNTS) if ARGS.kf else dict(
+    generatedBy="build.py (records only; no engine calls)",
+    generatedAt=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+    freezeRevision=freeze_revision(), k3Sha256Prefix=file_hash(K3),
+    k3Snapshot="oopc-knowledge-0f0a0104a3f9e15a08b94bf7 (id given in the study plan)",
+    k3Findings=len(findings), k3Notes=len(notes), **COUNTS)
 
 
 def deposit_rank(created):
@@ -401,8 +422,8 @@ def build_reuse():
                   "number of answers submitted before its created_at; lagAnswers = rank of the reusing answer - "
                   "depositRank (1 = the next answer); lagHours runs from created_at to the search event (returns) or "
                   "to the citing answer's finishedAt (citations). Legacy imports carry a date-only created_at.",
-            status="Status is the finding's status in the frozen K3 store; returnedShownAs is the group it was shown "
-                   "in at each return (its status at that time).")),
+            status="Status is the finding's status in the frozen %s store; returnedShownAs is the group it was shown "
+                   "in at each return (its status at that time)." % STORE_NAME)),
         integrity=dict(traceProblems=dict(trace_problems), orderingProblems=dict(problems),
                        searchesInTraces=sum(len(v) for v in searches.values()),
                        sessionsWithSearches=sum(bool(v) for v in searches.values())),
@@ -505,8 +526,8 @@ def build_revisits():
                "count cached input too.",
         web="web calls = web searches + pages read + unclassified web calls (task_progress.effort with the "
             "answer's progress record), as report.py counts them.",
-        parentFindings="findings in K3 deposited by the parent answer before the revisit was submitted; "
-                       "parentFindingsReturned = those whose ids appear in the revisit's search payloads.",
+        parentFindings="findings in %s deposited by the parent answer before the revisit was submitted; "
+                       "parentFindingsReturned = those whose ids appear in the revisit's search payloads." % STORE_NAME,
         medians="medians of per-pair ratios; pairs with a zero-web parent have no web ratio.")),
         summary=dict(campaignByType=by_type, campaignAll=summarize_pairs(camp), campaignByWave=by_wave,
                      campaignByWaveAndParent=by_parent, run200Repeats=run200),
@@ -769,13 +790,14 @@ def build_trajectory(revisits):
     return dict(meta=dict(META, definitions=dict(
         researcherFlagged="findings the researcher itself set needsReview on (the automatic flag 'The excerpt does not "
                           "show the reported value', applied by the store to an unflagged finding, is counted "
-                          "separately); shares are of the stage's findings in K3.",
+                          "separately); shares are of the stage's findings in %s." % STORE_NAME,
         flagReasons="the researcher's reviewFlag text, first matching category in the order excerpt or quotation, "
                     "figure, conversion or calculation, conflicting reports, unit or value doubt, source access or "
                     "transcription, other (keyword rules in build.py; approximate).",
         bareExcerpt="bareExact: the excerpt equals the value string; bareValueOrValueUnit: after removing case, "
                     "spaces and punctuation the excerpt equals the value or the value with its unit; noWordExcerpt: "
-                    "the excerpt holds no word of two or more letters. No excerpt text is written.",
+                    "the excerpt holds no word of two or more letters. No excerpt text is written. Excerpts as the "
+                    "researcher saved them (an excerpt the 2026-10-14/16 cleanup filled or replaced counts as it was).",
         quotationLimitAnswers="answers whose answer text, limitations, findings or sources contain 'quotation limit' "
                               "(case-insensitive); anywhere = any of these.",
         unopenedSources="source notes whose supports text says the source could not be opened or loaded (failure "
@@ -836,8 +858,8 @@ def build_curve():
                 "= the main store before 2026-10-03 (legacy = imported 0.11 records, ask = asked in the app, "
                 "research = research queue), run200 = the 200-task run, wave1-3 = the campaign. Legacy answers come "
                 "from the retired 0.11 scaffold and have no search traces.",
-        findingsInStoreAtStart="findings of the frozen K3 store created before the block's first answer was "
-                               "submitted (K3 keeps rejected findings; duplicates were never saved).")),
+        findingsInStoreAtStart="findings of the frozen %s store created before the block's first answer was "
+                               "submitted (it keeps rejected findings; duplicates were never saved)." % STORE_NAME)),
         campaign=dict(blocks=blocks, matchesReportJson=not mismatches and len(blocks) == len(reference),
                       mismatchedBlocks=mismatches),
         history=dict(blocks=hist))
@@ -850,6 +872,7 @@ def main():
     revisits = build_revisits()
     trajectory = build_trajectory(revisits)
     curve = build_curve()
+    OUT.mkdir(parents=True, exist_ok=True)
     write("reuse.json", reuse)
     write("revisits.json", revisits)
     write("trajectory.json", trajectory)

@@ -67,7 +67,9 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
                 "checkedAt": summary.get("checkedAt"), **({"reason": summary["reason"]} if summary.get("reason") else {})}
 
     def running_question():
-        return any(item.get("status") == "running" for item in questions.list()["tasks"])
+        # A delivered answer whose findings are still being saved has an engine session running too.
+        return any(item.get("status") == "running" or (item.get("depositState") or {}).get("status") == "saving"
+                   for item in questions.list()["tasks"])
 
     def connect_account():
         if running_question():

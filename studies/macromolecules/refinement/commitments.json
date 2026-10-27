@@ -1,0 +1,68 @@
+{
+ "caseQuestions": {
+  "case-hashes.json": "f271e26f49f1b946db45be1f2a1aa6e9488eaa586c5d6b6c9a7bac6baaf6a18e",
+  "files": {
+   "C.json": "01c6711a9f48b80ae39425c4f144f41d6af584330ae1b14406c41d7ae9085450"
+  }
+ },
+ "format": "oopc-refinement-commitments-v1",
+ "overlay": {
+  "files": {
+   "edits.json": "fa032b06a7c4727772f1ee8ece6c848fc4ed462200b4f59ab817ca98aaaa1a43",
+   "excluded.json": "432d20ec571c8faa6a200b58a38eee7a1d5c13356c8a3126e6acd01073a57827",
+   "graph-overlay.json": "ecba731f89f07462dc414f895481c6b94edee772818095eb39f01422e3307470",
+   "store-overlay.json": "a8821284692cf8b01e9e84b9c6e47a927e560113a035a2c6cddec2f04ebbc102"
+  },
+  "releases": {
+   "refined": "oopc-a06531b666d3ae5f2905637f",
+   "seed": "oopc-6ad56d8b354d053bcc3cf3a1"
+  },
+  "stores": {
+   "K0": {
+    "findings": 150,
+    "notes": 160,
+    "sha256": "dbd2c9d6f3dd7fc5",
+    "tables": null
+   },
+   "K0-refined": {
+    "findings": 150,
+    "notes": 160,
+    "sha256": "fa1dd7f95bba16cf",
+    "tables": {
+     "finding_terms": 6,
+     "property_terms": 9,
+     "sha256": "69977f1008758984",
+     "source_links": 0
+    }
+   },
+   "KF": {
+    "findings": 8899,
+    "notes": 2195,
+    "sha256": "efdf88117f1073b8",
+    "tables": null
+   },
+   "KF-refined": {
+    "findings": 8899,
+    "notes": 2195,
+    "sha256": "c4cc9b63c3fdea13",
+    "tables": {
+     "finding_terms": 649,
+     "property_terms": 9,
+     "sha256": "82931cf033f3a0ba",
+     "source_links": 0
+    }
+   }
+  }
+ },
+ "pool": {
+  "mine/pool.json": "a8c4cb6d0c12afe80d6f5cfe7845fda2551bc2fa495ce2324bef9d74e4720e95"
+ },
+ "questions": {
+  "files": {
+   "H.json": "1ef04428ac613c51070c8d646dba656ebda24a4ccfcc6020e3265087747938db",
+   "L.json": "f1a1fbc62bc3432074349e1da58f879fe5a3c150327f617cdca1f872cd8fd3ee",
+   "N.json": "d0ceb087ba3513ae7f83c642678c8a6a13539d32dacf6d5e8eb7d4f95bffe69f"
+  },
+  "hashes.json": "2d66bc6d18e2fcd99bf6fb8c2f5efdea6bfa5a1485a646805fd794057d4dbb9f"
+ }
+}

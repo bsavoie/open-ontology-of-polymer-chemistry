@@ -7,8 +7,11 @@ This is a guardrail, not a gate. Each run answers the questions in
   Code or Codex yourself. Its answers are frozen per engine and model, because
   the scaffold changes, not the plain session; a new model gets a new plain
   baseline.
-- **ontology**: the real researcher prompt and tools. Its findings are *not*
-  saved, so rerunning the set never changes the knowledge it measures.
+- **ontology**: the real researcher prompt and tools, in both turns (the answer,
+  then the findings and sources by resuming the session). Its findings are *not*
+  saved, so rerunning the set never changes the knowledge it measures. It
+  records the seconds to the answer, the deposit's seconds and the new tokens of
+  both turns.
 
 Every run checks both arms again, one right after the other, with the same
 checker, so a difference never comes from a source that opened one day and not
@@ -64,19 +67,36 @@ def _call(root, phase, owner, runner, engine, prompt, schema, **options):
         try:
             return calls.invoke(root, phase, owner, runner, engine, prompt, schema, **options)
         except engines.EngineError as error:
+            if options.get("persist"):
+                engines.discard_session(engine, error.session_id)  # A failed first turn is never resumed.
             if attempt == 2 or not error.retryable:
                 raise
 
 
-def _metrics(result):
+def _metrics(result, deposit=None, deposit_failed=False):
+    """An arm's time, tokens and lookups. For the researcher, `deposit` is its second turn (a result, or a failed turn's
+    usage and seconds): `seconds` is then the time to the answer, `totalSeconds` adds the deposit, and `newTokens` are
+    both turns' own. A failed deposit keeps the answer's tokens (its own, when unreported, are unmeasured) and marks the
+    arm `depositFailed`: `improve.compare` does not compare such an arm on tokens, and says so."""
     from .task_progress import effort
-    value = effort(result)
-    usage = result.get("usage") or {}
-    total = (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
-    new = calls.new_tokens(usage)
-    return {"seconds": result.get("agentSeconds"), "tokens": total or None, "newTokens": new,
-            "webCalls": (value.get("webSearches") or 0) + (value.get("pagesRead") or 0),
-            "knowledgeLookups": value.get("knowledgeLookups") or 0, "graphLookups": value.get("graphLookups") or 0}
+    turns = [result] + ([deposit] if deposit is not None else [])
+    value = effort(dict(result, observedTools=[t for turn in turns for t in turn.get("observedTools") or []]))
+    usages = [turn.get("usage") or {} for turn in turns]
+    total = sum((usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0) for usage in usages)
+    new = [calls.new_tokens(usage) for usage in usages]
+    metrics = {"seconds": result.get("agentSeconds"), "tokens": total or None,
+               "newTokens": None if None in new else sum(new),
+               "webCalls": (value.get("webSearches") or 0) + (value.get("pagesRead") or 0),
+               "knowledgeLookups": value.get("knowledgeLookups") or 0, "graphLookups": value.get("graphLookups") or 0}
+    if deposit is not None:
+        metrics.update(answerNewTokens=new[0], depositNewTokens=new[1], depositFailed=bool(deposit_failed),
+                       depositSeconds=deposit.get("agentSeconds"))
+        if new[1] is None:
+            metrics["newTokens"] = new[0]
+        metrics["totalSeconds"] = (round(result["agentSeconds"] + deposit["agentSeconds"], 2)
+                                   if result.get("agentSeconds") is not None and deposit.get("agentSeconds") is not None
+                                   else None)
+    return metrics
 
 
 def web_actions(result):
@@ -95,23 +115,49 @@ def answer_direct(root, question, engine, *, runner, timeout):
             "webActions": web_actions(result)}
 
 
-def answer_ontology(root, question, engine, *, runner, timeout, depth):
-    from .ask import ANSWER_SCHEMA, researcher_prompt
+def answer_ontology(root, question, engine, *, runner, timeout, depth, web=True,
+                    phases=("parity-ontology", "parity-deposit"), title=None, task=None, owner=None):
+    """Both turns, as a question runs them: the answer, then the findings and sources by resuming the session (not
+    saved). A failed second turn is recorded beside the answer, which is still checked. `phases` name the two turns in
+    the call ledger and `owner` their owner there (default: the trace's run id); the Macromolecules study's researcher
+    arm uses its own, with its own trace `title` and `task`."""
+    from .ask import ANSWER_SCHEMA, deposit_turn, researcher_prompt, saved_session
     from .trace import TraceStore
     release = resolve_release(root)
-    run = TraceStore(root).create(release, "Parity · " + question["id"] + " · " + question["question"][:60],
-                                  capabilities={"external_source_access": True},
-                                  task={"parity": question["id"], "notice": "Parity arm; findings are not saved."})
+    run = TraceStore(root).create(release, title or "Parity · " + question["id"] + " · " + question["question"][:60],
+                                  capabilities={"external_source_access": web},
+                                  task=task or {"parity": question["id"], "notice": "Parity arm; findings are not saved."})
     tools = knowledge.research_tools(root, release, run.path.name, "researcher")
     prompt = researcher_prompt(question["question"], depth)
+    work, result, deposit, failed = engines.session_folder(run.path.name), None, None, None
+    owner = owner or run.path.name
     try:
-        result = _call(root, "parity-ontology", run.path.name, runner, engine, prompt, ANSWER_SCHEMA, tools=tools, web=True, timeout=timeout)
-    except engines.EngineError:
-        run.finish("failed")
-        raise
+        try:
+            result = _call(root, phases[0], owner, runner, engine, prompt, ANSWER_SCHEMA, tools=tools,
+                           web=web, timeout=timeout, persist=True, folder=work)
+        except engines.EngineError:
+            run.finish("failed")
+            raise
+        try:
+            deposit = deposit_turn(root, phases[1], owner, runner, saved_session(result, work),
+                                   tools=tools, timeout=timeout, web=web)
+        except engines.EngineError as error:
+            failed = error
+    finally:
+        engines.discard_session(engine, (result or {}).get("sessionId"), work)
+        if deposit and deposit.get("sessionId") not in (None, (result or {}).get("sessionId")):
+            engines.discard_session(engine, deposit["sessionId"])
     run.finish("completed")
-    return {"answer": result["answer"], "metrics": _metrics(result), "engine": result["engine"], "at": now(),
-            "runId": run.path.name, "webActions": web_actions(result)}
+    answer = dict(result["answer"])
+    if deposit:  # What the second turn wrote, kept with the answer; nothing is saved to the knowledge base.
+        answer.update({key: deposit["answer"].get(key) or [] for key in ("findings", "sources")})
+    second = deposit or {"usage": failed.usage, "agentSeconds": failed.seconds}
+    entry = {"answer": answer, "metrics": _metrics(result, second, failed is not None), "engine": result["engine"],
+             "model": result.get("model"), "callId": result.get("callId"), "at": now(), "runId": run.path.name,
+             "webActions": web_actions(result) + web_actions(deposit or {})}
+    if failed is not None:
+        entry["depositError"] = failed.summary()
+    return entry
 
 
 def resolve_sources(root, citations):
@@ -448,6 +494,7 @@ def report(root, name=None):
             if path.exists():
                 value = read_json(path)
                 arms[arm] = {"error": value.get("error"), "metrics": value.get("metrics"),
+                             "depositError": value.get("depositError"),
                              "measures": reviewer.measures(value.get("check")),
                              "verdict": (value.get("check") or {}).get("verdict"),
                              "resultGiven": (value.get("check") or {}).get("resultGiven"),
@@ -460,7 +507,7 @@ def report(root, name=None):
         if arms:
             ratio = None
             direct, onto = (arms.get("direct") or {}).get("metrics") or {}, (arms.get("ontology") or {}).get("metrics") or {}
-            if direct.get("newTokens") and onto.get("newTokens") is not None:
+            if direct.get("newTokens") and onto.get("newTokens") is not None and not onto.get("depositFailed"):
                 ratio = round(onto["newTokens"] / direct["newTokens"], 3)
             rows.append({"id": question["id"], "covered": question["covered"], "question": question["question"],
                          "arms": arms, "tokenRatio": ratio})
@@ -498,6 +545,8 @@ def _summarize(rows):
     metric = lambda arm, key: [(r["arms"].get(arm) or {}).get("metrics", {}).get(key) for r in rows
                                if ((r["arms"].get(arm) or {}).get("metrics") or {}).get(key) is not None]
     measure = lambda arm, key: [(r["arms"][arm].get("measures") or {}).get(key) for r in checked]
+    totals = lambda arm: [t for t in (total_seconds((r["arms"].get(arm) or {}).get("metrics")) for r in rows)
+                          if t is not None]
     # Checks before 2026-10-14 did not say whether an answer gave the result: unmeasured, not none given.
     given = lambda values: sum(v is True for v in values) if any(isinstance(v, bool) for v in values) else None
     return {"questions": len(rows), "checked": len(checked),
@@ -518,7 +567,16 @@ def _summarize(rows):
             "medianNewTokens": {a: median(metric(a, "newTokens")) for a in ("direct", "ontology")},
             "medianWebCalls": {a: median(metric(a, "webCalls")) for a in ("direct", "ontology")},
             "medianSeconds": {a: median(metric(a, "seconds")) for a in ("direct", "ontology")},
+            # The researcher's answer comes first and its findings after; runs before 2026-10-25 had one turn.
+            "medianTotalSeconds": {a: median(totals(a)) for a in ("direct", "ontology")},
             "failures": {a: sum(1 for r in rows if (r["arms"].get(a) or {}).get("error")) for a in ("direct", "ontology")}}
+
+
+def total_seconds(metrics):
+    """An arm's seconds in total: the researcher's answer and its deposit, or the one turn of a plain session or of a
+    run made before the researcher answered first."""
+    metrics = metrics or {}
+    return metrics["totalSeconds"] if metrics.get("totalSeconds") is not None else metrics.get("seconds")
 
 
 def last_run_at(root):

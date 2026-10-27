@@ -15,11 +15,18 @@ writes:
 
 Standard library only; no engine calls, no network. Usage:
   python build.py [path/to/knowledge.sqlite]
+  python build.py --kf [--out DIR]   # experiment A1: KF's frozen copy, into properties-kf
 
 Ran as `.oopc/study/analysis/properties/build.py`; moved to the repository on 2026-10-13 unchanged except imports
 and paths. Its inputs (rules.py, vocabulary.json, manual.json) are tracked beside it; it still writes its outputs to
 `.oopc/study/analysis/properties/`, not beside this file.
+
+`--kf` (2026-10-18) reads the frozen copy of KF (`kf.store()`) and the polymer classes of `dataset-kf/coverage.json`,
+writes to `.oopc/study/analysis/properties-kf/` (or `--out`), and adds meta.json: KF's pins (`kf.meta`), the strings
+neither the rules nor a stored assignment cover, and the strings new since K3's map. A new string is assigned by the
+rules or the stored assignments only; one they do not cover stays unclassified (no model call).
 """
+import argparse
 import collections
 import csv
 import json
@@ -98,6 +105,7 @@ FILES = [
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(HERE))
 import rules  # noqa: E402
+from analysis import kf  # noqa: E402  (KF's pins and frozen copy)
 
 
 def load_findings(store):
@@ -125,12 +133,30 @@ def assign(strings, manual):
     return out
 
 
+def method_group(in_string, in_conditions):
+    """DSC, DMA, other or none: a finding's method for the Tg split here and in Fig. 3d, from the methods named in its
+    property string and in its conditions (rules.method labels; DSC wins when both are named)."""
+    both = (in_string or "") + " " + (in_conditions or "")
+    return "DSC" if "DSC" in both else "DMA" if "DMA" in both else "other" if both.strip() else "none"
+
+
 def pct(a, b):
     return "%.1f%%" % (100.0 * a / b) if b else "n/a"
 
 
 def main(argv):
-    store = Path(argv[1]) if len(argv) > 1 else DEFAULT_STORE
+    global OUT, COVERAGE
+    parser = argparse.ArgumentParser(description="Build the E3 property map from a store, read-only.")
+    parser.add_argument("store", nargs="?", type=Path, default=DEFAULT_STORE)
+    parser.add_argument("--kf", action="store_true", help="read KF's frozen copy and write to properties-kf")
+    parser.add_argument("--out", type=Path, help="write the outputs here instead")
+    args = parser.parse_args(argv[1:])
+    store, name = args.store, "K3"
+    if args.kf:
+        store, name, OUT = kf.store(), "KF", analysis_dir("properties-kf")
+        COVERAGE = analysis_dir("dataset-kf") / "coverage.json"
+    OUT = args.out or OUT
+    OUT.mkdir(parents=True, exist_ok=True)
     vocab = json.loads((HERE / "vocabulary.json").read_text())
     classes = {c["id"]: c for c in vocab["classes"]}
     cats = {c["id"]: c for c in vocab["categories"]}
@@ -234,10 +260,10 @@ def main(argv):
 
     # ---- top200.md
     L = ["# Top 200 property strings and their class", "",
-         "The 200 most frequent normalized `property` strings in K3 (%d findings, %d strings), with the class "
+         "The 200 most frequent normalized `property` strings in %s (%d findings, %d strings), with the class "
          "assigned in map.json. `by`: rule = rules.py, model = stored manual assignment. Kind abbreviations: "
          "prop = material property, cond = test condition, spec = specimen or preparation, meth = method or "
-         "instrument, comp = composition or formulation." % (total, len(strings)), "",
+         "instrument, comp = composition or formulation." % (name, total, len(strings)), "",
          "| # | findings | string | class | category | kind | method | by |",
          "| ---: | ---: | --- | --- | --- | --- | --- | --- |"]
     KA = {"material-property": "prop", "test-condition": "cond", "specimen-or-preparation": "spec",
@@ -303,8 +329,7 @@ def main(argv):
         if cls == "glass-transition-temperature":
             tg_meth[m or "(none in string)"] += len(finds[s])
             for f in finds[s]:
-                both = (m or "") + " " + (cond_method[f[0]] or "")
-                tg_any["DSC" if "DSC" in both else "DMA" if "DMA" in both else "other" if both.strip() else "none"] += 1
+                tg_any[method_group(m, cond_method[f[0]])] += 1
         if cls == "melting-temperature":
             tm_meth[m or "(none in string)"] += len(finds[s])
 
@@ -312,9 +337,9 @@ def main(argv):
     w = S.append
     w("# E3 property map: summary")
     w("")
-    w("Built by `build.py` from the frozen K3 store (`%s`, opened read-only). Study analysis table, not ontology "
+    w("Built by `build.py` from the frozen %s store (`%s`, opened read-only). Study analysis table, not ontology "
       "vocabulary. Inputs: `vocabulary.json` (classes), `rules.py` (normalization, ordered rules, method field), "
-      "`manual.json` (stored manual assignments, which take precedence over rules)." % store.relative_to(ROOT)
+      "`manual.json` (stored manual assignments, which take precedence over rules)." % (name, store.relative_to(ROOT))
       if store.is_relative_to(ROOT) else "Built by `build.py` from `%s`." % store)
     w("")
     w("## Strings")
@@ -464,6 +489,19 @@ def main(argv):
         w("- `%s`: %s" % (f, d))
     w("")
     (OUT / "SUMMARY.md").write_text("\n".join(S) + "\n")
+    if args.kf:  # the pins, and what neither the rules nor a stored assignment covers
+        previous = analysis_dir("properties") / "map.json"  # K3's map, as built on 2026-10-13
+        before = json.loads(previous.read_text()) if previous.exists() else None
+        new = [s for s in strings if before is not None and s not in before]
+
+        def count(group):
+            return {"strings": len(group), "findings": sum(len(finds[s]) for s in group)}
+        (OUT / "meta.json").write_text(json.dumps({
+            "meta": kf.meta("properties/build.py"),
+            "unassigned": dict(count(unclassified), nonEmpty=count([s for s in unclassified if s])),
+            "newSinceK3": before and dict(count(new), **{by: count([s for s in new if assigned[s][2] == by])
+                                                         for by in ("rule", "model", "none")}),
+        }, ensure_ascii=False, indent=1) + "\n")
     print("strings %d, findings %d, rule %d/%d, model %d/%d, unclassified %d/%d" % (
         len(strings), total, str_by["rule"], by_by["rule"], str_by["model"], by_by["model"],
         len(unclassified), nunc))

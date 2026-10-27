@@ -3,9 +3,16 @@
 Every study script imports this module before any `oopc` import. It puts CODE first on sys.path and names the private
 folder each script reads and writes. Records never live in the repository: they stay under `.oopc/` (git-ignored).
 
-- ROOT: the repository root, for data (the live store, releases, `.oopc/` records, the plans).
+- ROOT: the repository root, for data (the live store, releases, `.oopc/` records, the plans): $OOPC_STUDY_ROOT if set
+  (so a git worktree of the study code can read the main checkout's private records), else this file's repository.
 - CODE: the oopc code to import: $OOPC_STUDY_CODE if set, else the study freeze worktree `.oopc/study/freeze` (tag
   `study-freeze`) if it exists, else ROOT.
+- FLOOR: the Codex quota floor (percent of the weekly window) below which a Guard starts no session and stops a running
+  one at FLOOR + BUFFER: $OOPC_STUDY_CODEX_FLOOR if set, else 10. The owner allowed Codex to be maxed out for the
+  2026-10-18 runs, which set it to 0.
+- CLAUDE_FLOOR: the Claude Code quota (percent) at or below which a Guard starts no Claude session:
+  $OOPC_STUDY_CLAUDE_FLOOR if set, else 0. E8's researcher arms run with a higher floor, so they cannot use up the
+  Claude window that Part B's improver and the blind scoring need.
 - run_dir(name): ROOT/.oopc/loop/harness/<name>, an experiment's private folder.
 - analysis_dir(name): ROOT/.oopc/study/analysis/<name>, a records analysis's private outputs.
 - Guard and emit: moved from the campaign driver (`.oopc/loop/harness/2026-10-campaign/campaign.py`), unchanged except
@@ -16,7 +23,8 @@ import json, os, sys, threading, time
 from pathlib import Path
 
 STUDY = Path(__file__).resolve().parent
-ROOT = STUDY.parents[1]
+ROOT = (Path(os.environ["OOPC_STUDY_ROOT"]).resolve() if os.environ.get("OOPC_STUDY_ROOT")
+        else STUDY.parents[1])
 FREEZE = ROOT / ".oopc/study/freeze"
 CODE = (Path(os.environ["OOPC_STUDY_CODE"]).resolve() if os.environ.get("OOPC_STUDY_CODE")
         else FREEZE if FREEZE.exists() else ROOT)
@@ -24,7 +32,8 @@ sys.path[:] = [str(CODE)] + [p for p in sys.path if p != str(CODE)]
 from oopc import engines  # noqa: E402
 from oopc.util import now  # noqa: E402
 
-FLOOR, BUFFER = 10, 2
+FLOOR, BUFFER = int(os.environ.get("OOPC_STUDY_CODEX_FLOOR", "10")), 2
+CLAUDE_FLOOR = int(os.environ.get("OOPC_STUDY_CLAUDE_FLOOR", "0"))
 CLAUDE_COOLDOWN = 1800
 
 
@@ -89,7 +98,7 @@ class Guard:
         if remaining is not None and remaining <= 0:
             self.claude_failed_at = time.time()
             return False
-        return True
+        return remaining is None or remaining > CLAUDE_FLOOR
 
     def choose(self, preferred, avoid=None):
         """The preferred engine if eligible, else the other; `avoid` only when nothing else is eligible."""

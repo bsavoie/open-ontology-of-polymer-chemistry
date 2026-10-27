@@ -46,6 +46,42 @@ The distribution CI exercises Linux, macOS, and Windows. The current local
 release check was run on macOS; adding Windows CI is not a claim that a Windows
 run has already passed.
 
+## Use the Mac app (prototype)
+
+`OOPC-VERSION-arm64.dmg` holds an app for Apple Silicon Macs (macOS 11 or
+later) that needs no Python or terminal. Drag **OOPC** to Applications and open
+it; the researcher app opens in the default browser. Clicking the Dock icon
+opens it again; quitting OOPC stops the server and any running question. The
+app's menu also shows the data folder and the log.
+
+The prototype is signed ad hoc, not by an Apple developer, so macOS blocks the
+first open: open System Settings → Privacy & Security and choose **Open
+Anyway** for OOPC. Questions, findings and traces are kept in
+`~/Library/Application Support/OOPC` (the workspace: `releases/` and the
+private `.oopc/`, with the app's log at `.oopc/app.log`); replacing the app
+keeps them. A newer app copies its release there the first time it runs and
+makes it the current one.
+
+The app looks for Claude Code and Codex on the login shell's `PATH` (Finder
+starts apps with a bare one), in `~/.local/bin`, Homebrew's folders and inside
+the Claude, ChatGPT and Codex desktop apps. Sign in under Settings as usual.
+
+To build it on a Mac with the Xcode command-line tools:
+
+```sh
+python3 tools/build_macos_app.py --release releases/RELEASE_ID   # -> build/macos/OOPC.app and the .dmg
+```
+
+The script downloads a pinned [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+Python and checks its digest, installs the package files the wheel ships into
+it, copies and verifies one release, compiles `packaging/macos/OOPC.swift`, signs
+everything ad hoc and makes a compressed disk image. The bundle is a real Python
+interpreter rather than a frozen program because engine sessions start
+`sys.executable` for the knowledge tools and the hourly loop job. Nothing under
+`.oopc/` enters the bundle. Build locally: macOS CI runners cost ten times the
+minutes. Distributing beyond a few testers needs a Developer ID signature and
+notarization instead of the ad hoc one.
+
 ## Install the library or wheel
 
 The package can also be installed into a virtual environment:

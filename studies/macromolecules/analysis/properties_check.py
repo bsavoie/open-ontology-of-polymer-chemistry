@@ -18,15 +18,23 @@ class agreement among strings the map calls material properties.
 
     python properties_check.py           # recompute and compare with the recorded agreement.json
     python properties_check.py --write   # write agreement.json to the private folder
+    python properties_check.py --kf      # experiment A1: KF's map, into properties-check-kf
+
+`--kf` (2026-10-18) recomputes the agreement on the map built from KF (`properties-kf/map.json`) for the checked
+strings that still exist in KF, weighting each by its findings in KF, and writes `properties-check-kf/agreement.json`
+with KF's pins and the coverage: how many of the 600 strings, and what share of KF's findings, the blind check covers.
+The blind classifications themselves were made on K3's strings and are not redone.
 """
 import argparse, collections, json, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # studies/macromolecules, for common
 from common import STUDY, analysis_dir  # noqa: E402
+from analysis import kf  # noqa: E402  (KF's pins)
 
 CHECK = analysis_dir("properties-check")
 MAP = analysis_dir("properties") / "map.json"
+KF_MAP, KF_OUT = analysis_dir("properties-kf") / "map.json", analysis_dir("properties-check-kf")
 VOCABULARY = STUDY / "analysis" / "properties" / "vocabulary.json"
 PROPERTY = "material-property"
 
@@ -46,14 +54,16 @@ def agreement(rows, classes):
     return value
 
 
-def build():
+def build(path=MAP, recount=False):
+    """The agreement of the map at `path` with the blind classification, over the checked strings the map holds;
+    `recount` weights each string by its findings in that map rather than those it had when it was checked."""
     given = json.loads((CHECK / "input.json").read_text())
     blind = {item["n"]: item for item in json.loads((CHECK / "blind.json").read_text())["items"]}
-    mapped = json.loads(MAP.read_text())
+    mapped = json.loads(Path(path).read_text())
     classes = {c["id"]: c for c in json.loads(VOCABULARY.read_text())["classes"]}
-    rows = [{"n": s["n"], "string": s["string"], "findings": s["findings"], "stratum": s["stratum"],
-             "map": mapped[s["string"]]["class"], "blind": blind[s["n"]]["class"],
-             "confident": blind[s["n"]]["confident"]} for s in given["strings"]]
+    rows = [{"n": s["n"], "string": s["string"], "findings": mapped[s["string"]]["findings"] if recount else s["findings"],
+             "stratum": s["stratum"], "map": mapped[s["string"]]["class"], "blind": blind[s["n"]]["class"],
+             "confident": blind[s["n"]]["confident"]} for s in given["strings"] if s["string"] in mapped]
     groups = {"all": rows,
               "top300": [r for r in rows if r["stratum"] == "top300"],
               "random300": [r for r in rows if r["stratum"] == "random300"],
@@ -70,10 +80,29 @@ def build():
     return value
 
 
+def coverage(path):
+    """How many of the checked strings the map at `path` holds, and the share of its findings they carry."""
+    given = json.loads((CHECK / "input.json").read_text())["strings"]
+    mapped = json.loads(Path(path).read_text())
+    held = [s for s in given if s["string"] in mapped]
+    total, covered = sum(m["findings"] for m in mapped.values()), sum(mapped[s["string"]]["findings"] for s in held)
+    return {"checkedStrings": len(given), "stringsInMap": len(held),
+            "findingsWhenChecked": sum(s["findings"] for s in given),
+            "findingsWhenCheckedOfStringsInMap": sum(s["findings"] for s in held),
+            "findingsInMap": covered, "mapFindings": total, "shareOfMapFindings": round(covered / total, 3)}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--write", action="store_true", help="write agreement.json to %s" % CHECK.name)
+    parser.add_argument("--kf", action="store_true", help="KF's map, written to %s" % KF_OUT.name)
     args = parser.parse_args()
+    if args.kf:
+        KF_OUT.mkdir(parents=True, exist_ok=True)
+        value = {"meta": kf.meta("properties_check.py"), "coverage": coverage(KF_MAP), **build(KF_MAP, recount=True)}
+        (KF_OUT / "agreement.json").write_text(json.dumps(value, indent=1, ensure_ascii=False))
+        print(json.dumps(value["coverage"]), "\nwrote", KF_OUT.name + "/agreement.json")
+        return 0
     text = json.dumps(build(), indent=1, ensure_ascii=False)
     recorded = CHECK / "agreement.json"
     if args.write:

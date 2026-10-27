@@ -15,7 +15,9 @@ def new_tokens(usage):
 
 
 def invoke(root, phase, owner, runner, engine, prompt, schema, **options):
-    """Run one engine session and record the attempt, its outcome and its usage. Sessions on one engine take turns."""
+    """Run one engine session and record the attempt, its outcome and its usage. Sessions on one engine take turns,
+    background ones (an answer's findings, its review) included: a question asked right after another, often a follow-up,
+    then reads the findings the last answer saved (2026-10-26: letting it start sooner made that a race)."""
     identifier = uuid.uuid4().hex
     path = Path(root) / ".oopc" / "loop" / "calls" / (identifier + ".json")
     item = {"callId": identifier, "phase": phase, "owner": owner, "engine": engine, "pid": os.getpid(),

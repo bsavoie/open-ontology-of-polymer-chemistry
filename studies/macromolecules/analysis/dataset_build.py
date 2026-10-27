@@ -17,6 +17,14 @@ excerpts or local paths.
 
 Ran as `.oopc/study/analysis/dataset/build.py`; moved to the repository on 2026-10-13 unchanged except imports and
 paths. It still writes its outputs and Crossref cache to `.oopc/study/analysis/dataset/`, not beside this file.
+
+    python build.py --kf [--offline] [--out DIR]   # experiment A1: the same build on KF, into dataset-kf
+
+`--kf` (2026-10-18) reads the frozen copy of KF (`kf.store()`) and KF's graph release instead, writes to
+`.oopc/study/analysis/dataset-kf/` (or `--out`), puts KF's pins (`kf.meta`) in every output, and checks the counts
+against the snapshot's. The Crossref cache stays the one in `dataset/`. Deposits the 2026-10-14 cleanup wrote for
+questions it re-reviewed (origin `upkeep`, no findings or notes of their own) are not answers: their questions' findings
+stay with the import at point 0, as in K3.
 """
 from __future__ import annotations
 
@@ -53,8 +61,10 @@ CAMPAIGN = run_dir("2026-10-campaign")
 RUN200 = run_dir("2026-10-03-200")
 CACHE = OUT / "cache" / "crossref"
 SNAPSHOT_ID = "oopc-knowledge-0f0a0104a3f9e15a08b94bf7"
+STORE_NAME = "K3"  # main(--kf) sets these module names to KF's
 
 from oopc.knowledge import source_key  # noqa: E402  (frozen worktree at tag study-freeze)
+from analysis import kf  # noqa: E402  (KF's pins and frozen copy)
 
 STATUS = {"supported": "Reviewed", "accepted": "Added", "uncertain": "Needs checking", "unsupported": "Rejected"}
 STATUS_ORDER = ["Reviewed", "Added", "Needs checking", "Rejected"]
@@ -94,7 +104,8 @@ def load_store():
     notes = [dict(r) for r in db.execute("SELECT id, question_id, origin, title, url, doi, read_url, created_at FROM notes ORDER BY id")]
     for n in notes:
         n["key"] = source_key(n["doi"], n["url"])
-    deposits = [dict(r) for r in db.execute("SELECT * FROM deposits ORDER BY deposited_at, question_id")]
+    deposits = [dict(r) for r in db.execute("SELECT * FROM deposits WHERE origin IS NOT 'upkeep' "
+                                            "ORDER BY deposited_at, question_id")]
     reviews = [dict(r) for r in db.execute("SELECT id, question_id, engine, status FROM reviews")]
     db.close()
     return findings, notes, deposits, reviews
@@ -511,6 +522,23 @@ RUN_ORDER = ["imported (0.11 records)", "before the 200-task run", "200-task run
 
 # ----------------------------------------------------------------------------------------------- sources
 
+def query_key(doi, url):
+    """`source_key` with the URL's query string kept. The store's key drops it, which joins documents told apart only
+    by their query (CiteSeerX papers by `doi=`, Ensinger data sheets, EPA NEPIS documents); the count it gives is
+    reported beside the store's own (2026-10-18), not used for anything else."""
+    key = source_key(doi, url)
+    if not key.startswith("url:"):
+        return key
+    return "url:" + re.sub(r"^https?://(www\.)?", "", (url or "").strip().lower()).split("#")[0].rstrip("/")
+
+
+def keeping_query(findings, notes):
+    """Distinct sources, with and without findings, when a URL's query string tells documents apart."""
+    with_findings = {query_key(f["source_doi"], f["source_url"]) for f in findings} - {""}
+    every = with_findings | ({query_key(n["doi"], n["url"]) for n in notes} - {""})
+    return {"sources": len(every), "yieldedFindings": len(with_findings), "readWithoutFindings": len(every - with_findings)}
+
+
 def gather_sources(findings, notes):
     src = {}
 
@@ -635,12 +663,16 @@ def build_sources(findings, notes):
         "yearRange": [min(years), max(years)] if years else None, "medianYear": median([r["year"] for r in rows if r["year"]]),
         "sourcesWithYear": sum(years.values()),
         "doiTitleCheck": dict(collections.Counter(r["doiTitleCheck"] for r in rows if r["hasDoi"]).most_common()),
+        "keepingQueryString": dict(keeping_query(findings, notes), about=(
+            "sources, yieldedFindings and readWithoutFindings above use the store's source key "
+            "(oopc.knowledge.source_key), which drops a URL's query string and fragment; these counts keep the query "
+            "string, which tells apart documents served from one script address")),
     }
     out = {
         "about": "One row per distinct source key (a DOI and its doi.org URL are one source) over findings and source notes "
-                 "of K3. Types from the rules in SUMMARY.md; Crossref metadata for DOIs; openAccess is a rough indicator "
+                 "of %s. Types from the rules in SUMMARY.md; Crossref metadata for DOIs; openAccess is a rough indicator "
                  "(PubMed Central copy, open-access publisher, Creative Commons licence on the version of record, or "
-                 "preprint server).",
+                 "preprint server)." % STORE_NAME,
         "summary": summary,
         "byType": by_type,
         "byTypeRule": by_rule,
@@ -747,10 +779,15 @@ def build_growth(findings, notes, deposits, member, runs, qmeta):
                        "promptVersions": dict(collections.Counter(p["promptVersion"] or "unversioned" for p in sel if p["questionId"])),
                        "endState": {k: sel[-1][k] for k in ("findings", "notes", "sources", "sourcesWithDoi", "polymers")}})
     return {
-        "about": "Answers in deposit order (deposits.deposited_at of K3). Point 0 holds the findings and notes imported "
+        "about": "Answers in deposit order (deposits.deposited_at of %s). Point 0 holds the findings and notes imported "
                  "once from the retired 0.11 records. After each answer: cumulative findings by their final status, "
                  "source notes, distinct sources (source key over findings and notes), sources with a DOI, and graph "
-                 "polymers with at least one finding (final polymer id).",
+                 "polymers with at least one finding (final polymer id)." % STORE_NAME,
+        "answers": {"withDepositRow": len(points) - 1,
+                    "savedFindingOrNote": sum(1 for p in points[1:] if p["newFindings"] or p["newNotes"]),
+                    "savedFinding": sum(1 for p in points[1:] if p["newFindings"]),
+                    "about": "withDepositRow: research and ask questions with a deposit row (one point each); the "
+                             "others count those whose findings or notes are in the store"},
         "runs": {k: v for k, v in runs.items()},
         "byRun": by_run,
         "markers": markers,
@@ -814,10 +851,11 @@ def build_coverage(findings, notes, polymers):
         "top40ShareOfFindingsWithId": share(sum(top_share[:40]), with_id),
     }
     return {
-        "about": "All graph polymers of release %s with findings filed under them in K3 (findings.subject). Class is the "
+        "about": "All graph polymers of release %s with findings filed under them in %s (findings.subject). Class is the "
                  "graph's primaryClass facet (one per polymer; marked browsingOnly in the graph). sources: distinct "
                  "source keys of the polymer's findings; notes: source notes whose source is one of those; questions: "
-                 "distinct questions that saved a finding on the polymer. Sorted by class, then findings." % RELEASE_ID,
+                 "distinct questions that saved a finding on the polymer. Sorted by class, then findings." % (
+                     RELEASE_ID, STORE_NAME),
         "classAxis": "primaryClass", "classOrder": CLASS_ORDER,
         "summary": summary, "classes": classes,
         "withoutPolymerId": {"findings": len(no_id), "byStatus": by_status(no_id),
@@ -929,8 +967,8 @@ def build_completeness(findings, label):
             examples.append({"status": status, "category": reason_category(text), "reason": text})
             picked += 1
     return {
-        "about": "Field presence over the findings of K3 (presence only; no excerpt text). numericValue: the value contains a "
-                 "digit; singleNumberValue: the value is one number. Spot checks: findings the researcher did not flag and "
+        "about": "Field presence over the findings of " + STORE_NAME + " (presence only; no excerpt text). numericValue: "
+                 "the value contains a digit; singleNumberValue: the value is one number. Spot checks: findings the researcher did not flag and "
                  "the reviewer sampled (detail.spotCheck), by final status. Flagged: detail.needsReview true, either by the researcher "
                  "or by the save step's automatic excerpt check (reviewFlag 'The excerpt does not show the reported value', "
                  "removed after the campaign). Campaign = "
@@ -1057,22 +1095,27 @@ def write_summary(growth, coverage, sources, completeness, findings, notes, depo
     w = L.append
     w("# Figure 3 dataset: the knowledge base as a polymer dataset")
     w("")
-    w("Built by `build.py` (standard library only) on %s from the frozen store K3 (knowledge snapshot `%s`), graph "
+    w("Built by `build.py` (standard library only) on %s from the frozen store %s (knowledge snapshot `%s`), graph "
       "release `%s`, the question records, and the records of the 200-task run and the campaign. All inputs were "
       "opened read-only; the only network use was Crossref's public REST API, one request per DOI, no contact "
-      "details sent, cached under `cache/crossref/`." % (dt.date.today().isoformat(), SNAPSHOT_ID, RELEASE_ID))
+      "details sent, cached under `cache/crossref/`." % (dt.date.today().isoformat(), STORE_NAME, SNAPSHOT_ID, RELEASE_ID))
     w("")
     w("## Headline numbers")
     w("")
-    w("- **%s findings** from **%s answers with deposits** (plus %d findings and %d notes imported once from the 0.11 "
-      "records): %s Reviewed, %s Added, %s Needs checking, %s Rejected." % (
-          fmt(len(findings)), fmt(len(deposits)), growth["points"][0]["newFindings"], growth["points"][0]["newNotes"],
+    w("- **%s findings** from **%s answers with deposits** (%s of them saved a finding or note; plus %d findings and %d "
+      "notes imported once from the 0.11 records): %s Reviewed, %s Added, %s Needs checking, %s Rejected." % (
+          fmt(len(findings)), fmt(len(deposits)), fmt(growth["answers"]["savedFindingOrNote"]),
+          growth["points"][0]["newFindings"], growth["points"][0]["newNotes"],
           fmt(status["Reviewed"]), fmt(status["Added"]), fmt(status["Needs checking"]), fmt(status["Rejected"])))
     w("- **%s source notes**, **%s distinct sources** (%s with a DOI, %s URL only); %s yielded findings and %s were read "
       "without yielding any (known only from a source note); %s." % (
           fmt(len(notes)), fmt(ss["sources"]), fmt(ss["withDoi"]), fmt(ss["withoutDoi"]), fmt(ss["yieldedFindings"]),
           fmt(ss["readWithoutFindings"]), "every source with findings also has a source note"
           if not ss["yieldedFindingsWithoutNote"] else "%s sources with findings have no source note" % fmt(ss["yieldedFindingsWithoutNote"])))
+    kq = ss["keepingQueryString"]
+    w("- Sources are counted by the store's source key, which drops a URL's query string; keeping it gives %s sources "
+      "(%s yielded findings, %s read without)." % (fmt(kq["sources"]), fmt(kq["yieldedFindings"]),
+                                                   fmt(kq["readWithoutFindings"])))
     w("- Hosts: %s distinct hosts in the cited URLs (%s without doi.org); %s distinct primary hosts, one per source." % (
         fmt(ss["hostsOfCitedUrls"]), fmt(ss["hostsOfCitedUrlsExcludingDoiOrg"]), fmt(ss["primaryHosts"])))
     w("- **%s of %s graph polymers** have findings; %s have ≥ 10 and %s ≥ 50 (%s ≥ 100). %s findings (%s) have no "
@@ -1138,16 +1181,17 @@ def write_summary(growth, coverage, sources, completeness, findings, notes, depo
           ss["findingsPerSource"]["medianOfYielding"], ss["findingsPerSource"]["mean"], ss["findingsPerSource"]["max"]))
     dp = sources["doiProblems"]["rows"]
     w("")
+    mismatched = [r for r in dp if r["doiTitleCheck"] == "mismatch"]
     w("DOI checks: %s. %d DOIs are unknown to Crossref (%s of them under Crossref-member prefixes 10.1021 or 10.3390, so "
       "probably wrong DOIs in the record: %s; the rest are registered elsewhere, e.g. CNKI, DataCite or JaLC), and %d "
-      "recorded titles do not match Crossref's title for their DOI (%s; all on sources with notes only, no findings)." % (
+      "recorded titles do not match Crossref's title for their DOI (%s; %s)." % (
           ", ".join("%s %s" % kv for kv in ss["doiTitleCheck"].items()),
           sum(1 for r in dp if r["doiTitleCheck"] == "DOI not in Crossref"),
           sum(1 for r in dp if r["doiTitleCheck"] == "DOI not in Crossref" and r["doi"].split("/")[0] in ("10.1021", "10.3390")),
           ", ".join("%s (%d findings)" % (r["doi"], r["findings"]) for r in dp
                     if r["doiTitleCheck"] == "DOI not in Crossref" and r["doi"].split("/")[0] in ("10.1021", "10.3390")),
-          sum(1 for r in dp if r["doiTitleCheck"] == "mismatch"),
-          ", ".join(r["doi"] for r in dp if r["doiTitleCheck"] == "mismatch")))
+          len(mismatched), ", ".join(r["doi"] for r in mismatched) or "none",
+          "%d of them on sources with findings" % sum(1 for r in mismatched if r["findings"])))
     if failed:
         w("")
         w("Crossref: %d DOIs could not be fetched on the last run (timeouts or server errors); rerun to retry them." % len(failed))
@@ -1194,9 +1238,12 @@ def write_summary(growth, coverage, sources, completeness, findings, notes, depo
     w("")
     w("## Notes and surprises")
     w("")
-    w("- Every expected total is reproduced exactly (table below), including the snapshot cut sizes used by the "
-      "scaling run (store after the import and after each segment: %s findings)." % ", ".join(fmt(r["endState"]["findings"]["total"])
-                                                                       for r in growth["byRun"]))
+    sanity = sanity_rows(growth, coverage, sources, completeness, findings, notes, deposits, reviews)
+    differ = sum(not ok for _, _, _, ok, _ in sanity)
+    w("- %s (table below). Store after the import and after each segment (the snapshot cuts of the scaling run): %s "
+      "findings." % ("Every expected total is reproduced exactly" if not differ else
+                     "%d of %d expected totals differ" % (differ, len(sanity)),
+                     ", ".join(fmt(r["endState"]["findings"]["total"]) for r in growth["byRun"])))
     new = {r["run"]: r["newFindings"] for r in growth["byRun"]}
     w("- The campaign plan's results table gives 2,922 and 3,813 new findings for waves 2 and 3; the records (and the "
       "campaign's own report.json) give %s and %s (same total, %s), so the plan's table moves 71 findings between "
@@ -1225,10 +1272,9 @@ def write_summary(growth, coverage, sources, completeness, findings, notes, depo
     w("")
     w("## Sanity check against the expected numbers")
     w("")
-    rows = sanity_rows(growth, coverage, sources, completeness, findings, notes, deposits, reviews)
     w("| Quantity | Expected | Computed | | Note |")
     w("| --- | --- | --- | --- | --- |")
-    for name, expected, got, ok, note in rows:
+    for name, expected, got, ok, note in sanity:
         w("| %s | %s | %s | %s | %s |" % (name, expected, got, "match" if ok else "**differs**", note))
     w("")
     w("## Files")
@@ -1258,6 +1304,17 @@ def sanity_rows(growth, coverage, sources, completeness, findings, notes, deposi
         ok = abs(got - expected) <= tolerance if isinstance(expected, (int, float)) else expected == got
         rows.append((name, fmt(expected) if not isinstance(expected, float) else pct(expected, 0),
                      fmt(got) if not isinstance(got, float) else pct(got, 1), ok, note_ok if ok else note_bad))
+    if STORE_NAME == "KF":  # the snapshot manifest's counts; answers as in K3 (the cleanup added none)
+        e = kf.COUNTS
+        add("Findings", e["findings"], len(findings))
+        for s in STATUS_ORDER:
+            add("  " + s, e[s], status[s])
+        add("Source notes", e["notes"], len(notes))
+        add("Answers with deposits (as K3)", 1063, len(deposits))
+        add("Graph polymers", e["graphPolymers"], cs["polymers"])
+        add("Polymers with ≥ 1 finding", e["polymers"], cs["withFindings"])
+        add("Distinct sources", e["sources"], ss["sources"])
+        return rows
     add("Findings", 8905, len(findings))
     for s, e in (("Added", 5537), ("Reviewed", 2932), ("Needs checking", 429), ("Rejected", 7)):
         add("  " + s, e, status[s])
@@ -1295,10 +1352,18 @@ def sanity_rows(growth, coverage, sources, completeness, findings, notes, deposi
 # ----------------------------------------------------------------------------------------------- main
 
 def main():
+    global OUT, STORE, RELEASE_ID, RELEASE, SNAPSHOT_ID, STORE_NAME
     parser = argparse.ArgumentParser(description="Build the Figure 3 dataset from K3 (read-only).")
     parser.add_argument("--offline", action="store_true", help="use cached Crossref records only")
     parser.add_argument("--fetch-only", action="store_true", help="only fill the Crossref cache")
+    parser.add_argument("--kf", action="store_true", help="build from KF's frozen copy into dataset-kf")
+    parser.add_argument("--out", type=Path, help="write the outputs here instead")
     args = parser.parse_args()
+    if args.kf:
+        STORE, STORE_NAME, SNAPSHOT_ID, RELEASE_ID = kf.store(), "KF", kf.SNAPSHOT_ID, kf.RELEASE_ID
+        RELEASE, OUT = ROOT / "releases" / RELEASE_ID, analysis_dir("dataset-kf")
+    OUT = args.out or OUT
+    OUT.mkdir(parents=True, exist_ok=True)
     findings, notes, deposits, reviews = load_store()
     dois = {k[4:] for k in [f["key"] for f in findings] + [n["key"] for n in notes] if k.startswith("doi:")}
     failed = [] if args.offline else fetch_crossref(dois, log=lambda s: print(s, flush=True))
@@ -1312,8 +1377,9 @@ def main():
     coverage = build_coverage(findings, notes, polymers)
     sources = build_sources(findings, notes)
     completeness = build_completeness(findings, label)
-    meta = {"store": "K3", "knowledgeSnapshot": SNAPSHOT_ID, "graphRelease": RELEASE_ID,
-            "builtAt": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "builder": "build.py"}
+    meta = kf.meta("dataset_build.py") if args.kf else {
+        "store": "K3", "knowledgeSnapshot": SNAPSHOT_ID, "graphRelease": RELEASE_ID,
+        "builtAt": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "builder": "build.py"}
     for name, data in (("growth.json", growth), ("coverage.json", coverage), ("sources.json", sources),
                        ("completeness.json", completeness)):
         write_json(name, {"meta": meta, **data})

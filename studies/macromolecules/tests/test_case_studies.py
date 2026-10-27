@@ -17,7 +17,17 @@ class Engine:
     def __init__(self):
         self.calls = []
 
-    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None):
+    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None,
+                 **session):
+        if session.get("resume"):  # The researcher's second turn (2026-10-25 on): the source it read, nothing new.
+            self.calls.append("deposit")
+            answer = {"answer": "", "citations": [], "findings": [], "limitations": [], "openQuestions": [],
+                      "sources": [{"title": "Fiber handbook", "url": "https://example.org/fiber", "doi": "",
+                                   "locator": "Table 2", "excerpts": [], "supports": "lacks oxygen permeability",
+                                   "conditions": "", "readUrl": ""}]}
+            return {"engine": engine, "model": "scripted", "sessionId": session["resume"], "answer": answer,
+                    "usage": {"input_tokens": 1000, "cached_input_tokens": 900, "output_tokens": 10},
+                    "observedTools": [], "agentSeconds": 1.0}
         if schema is parity.DIRECT_SCHEMA:
             kind = "plain"
             answer = {"answer": "Not found in open sources.", "citations": [], "limitations": []}

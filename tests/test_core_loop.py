@@ -1,16 +1,21 @@
 """The core loop end to end with a scripted engine: ask, deposit, review, reuse."""
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
+import uuid
 
-from oopc import engines, knowledge, loop, reviewer, sources
-from oopc.ask import ANSWER_SCHEMA, Questions, reuse_stats
+from oopc import calls, engines, knowledge, loop, reviewer, sources
+from oopc.ask import ANSWER_SCHEMA, DEPOSIT, Questions, reuse_stats
 from oopc.release import build_release
 from oopc.trace import TraceStore
-from oopc.util import atomic_json
+from oopc.util import atomic_json, locked
 from oopc.vocabulary import get_ontology
 
 FINDING = {"statement": "PLA film annealed at 100 °C for 1 h reached 45% crystallinity by DSC.",
@@ -25,21 +30,76 @@ def answer(text, citations, findings=(), sources=()):
             "limitations": [], "openQuestions": ["How does annealing time change crystallinity?"]}
 
 
+def save_session(engine, folder):
+    """What an engine saves for a session it can resume: a Codex rollout under $CODEX_HOME (a Claude Code transcript
+    under $CLAUDE_CONFIG_DIR), with its id recorded in the session's working folder as `engines.run_session` does."""
+    identifier = str(uuid.uuid4())
+    if engine == "codex":
+        path = Path(os.environ["CODEX_HOME"]) / "sessions/2026/10/25" / ("rollout-2026-10-25T00-00-00-%s.jsonl" % identifier)
+    else:
+        path = Path(os.environ["CLAUDE_CONFIG_DIR"]) / "projects/-scripted" / (identifier + ".jsonl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}\n")
+    engines._record_session(folder, engine, identifier)
+    return identifier
+
+
 class ScriptedEngine:
-    """Returns scripted answers in order; calls tools the way a researcher would."""
+    """Returns scripted answers in order; calls tools the way a researcher would.
 
-    def __init__(self, *steps):
-        self.steps, self.calls = list(steps), []
+    Like a real engine, a research session saved for a second turn (`persist`) can be resumed: the second turn returns
+    the findings and sources its scripted answer held (the first turn returns them empty), or the next of `deposits`
+    (an answer, an exception, or a callable whose answer, if any, replaces the held one). Resuming a session that is no
+    longer saved fails. Each call's own usage is 1000 input and 100 output tokens."""
 
-    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None):
-        self.calls.append({"engine": engine, "schema": schema, "tools": tools is not None, "prompt": prompt})
+    def __init__(self, *steps, deposits=()):
+        self.steps, self.deposits, self.calls, self.held = list(steps), list(deposits), [], {}
+
+    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None,
+                 persist=False, resume=None, previous_usage=None, folder=None):
+        self.calls.append({"engine": engine, "schema": schema, "tools": tools is not None, "prompt": prompt, "web": web,
+                           "persist": persist, "resume": resume, "folder": folder, "previousUsage": previous_usage,
+                           "toolNames": [t["name"] for t in tools.tools()["tools"]] if tools is not None else []})
+        if resume:
+            if not engines.saved_session_exists(engine, resume):
+                raise engines.EngineError("crashed", "No saved session " + resume)
+            step = self.deposits.pop(0) if self.deposits else None
+            if isinstance(step, Exception):
+                raise step
+            value = (step(tools) if callable(step) else step) or self.held[resume]
+            value = dict(answer("", []), openQuestions=[], findings=value.get("findings", []),
+                         sources=value.get("sources", []))
+            return self.result(engine, resume, value)
         step = self.steps.pop(0)
+        session = save_session(engine, folder) if persist else None
         if isinstance(step, Exception):
+            step.session_id = session
             raise step
         value = step(tools) if callable(step) else step
-        return {"engine": engine, "model": "scripted", "sessionId": "s%d" % len(self.calls), "answer": value,
-                "usage": {"input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100},
-                "observedTools": [], "agentSeconds": 1.0}
+        if persist and schema is ANSWER_SCHEMA:
+            self.held[session] = value
+            value = dict(value, findings=[], sources=[])
+        return self.result(engine, session or "s%d" % len(self.calls), value)
+
+    @staticmethod
+    def result(engine, session, value):
+        usage = {"input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100}
+        return {"engine": engine, "model": "scripted", "sessionId": session, "answer": value, "usage": usage,
+                "sessionUsage": usage, "observedTools": [], "agentSeconds": 1.0}
+
+
+def dead_pid():
+    """The id of a process that has ended."""
+    process = subprocess.Popen([sys.executable, "-c", "pass"])
+    process.wait()
+    return process.pid
+
+
+def saved_sessions(root):
+    """Every session an engine still has saved, and every session working folder left."""
+    return ([str(p) for p in Path(os.environ["CODEX_HOME"]).rglob("*.jsonl")]
+            + [str(p) for p in Path(os.environ["CLAUDE_CONFIG_DIR"]).rglob("*.jsonl")]
+            + [str(p) for p in (Path(root) / "tmp").glob("oopc-session-*")])
 
 
 class CoreLoopTests(unittest.TestCase):
@@ -55,11 +115,20 @@ class CoreLoopTests(unittest.TestCase):
         release_id = json.loads((self.root / "releases/fixture/manifest.json").read_text())["release_id"]
         (self.root / "releases/fixture").rename(self.root / "releases" / release_id)
         loop.update_settings(self.root, {"spotCheckRate": 0})
+        # Saved sessions and their working folders stay inside the test's folder.
+        (self.root / "tmp").mkdir()
+        for patch in (mock.patch.dict(os.environ, {"CODEX_HOME": str(self.root / "codex-home"),
+                                                   "CLAUDE_CONFIG_DIR": str(self.root / "claude-home"),
+                                                   "OOPC_TEST_ENGINE_HOMES": "1"}),
+                      mock.patch.object(tempfile, "tempdir", str(self.root / "tmp"))):
+            patch.start()
+            self.addCleanup(patch.stop)
 
     def ask(self, service, question):
         view = service.submit({"question": question, "budgetSeconds": 300, "authorizeSubscription": True,
                                "runtime": "codex"})
-        service.wait(10, reviews=True)  # A background review must not outlive the test's folder.
+        service.wait(10, reviews=True)  # A background deposit or review must not outlive the test's folder.
+        self.assertEqual(saved_sessions(self.root), [])  # Whatever happened, no saved session is left behind.
         return service.get(view["id"])
 
     def test_answer_deposit_review_and_reuse(self):
@@ -151,27 +220,31 @@ class CoreLoopTests(unittest.TestCase):
             time.sleep(0.05)
         self.assertEqual(service._read(first["id"])["status"], "completed")
         self.assertEqual(service._read(late[0]["id"])["status"], "completed")
-        service.wait(10)
+        service.wait(10, reviews=True)
 
     def test_manual_retry_and_interrupted_recovery(self):
         service = Questions(self.root, runner=ScriptedEngine(engines.EngineError("timeout", "limit"), answer("ok", [])))
         failed = self.ask(service, "A question that times out first")
         service.retry(failed["id"])
-        service.wait(10)
+        service.wait(10, reviews=True)
         self.assertEqual(service.get(failed["id"])["status"], "completed")
         with self.assertRaises(ValueError):
             service.retry(failed["id"])
-        # A question left running by a stopped app is interrupted and retried once.
+        # A question left running by a stopped app is interrupted and retried once; what its session saved is deleted.
         path = self.root / ".oopc/loop/questions" / failed["id"]
         stuck = Questions(self.root, runner=ScriptedEngine(answer("recovered", [])))
         item = json.loads((path / "question.json").read_text())
-        item["status"] = "running"
+        work = engines.session_folder(failed["id"])
+        save_session("codex", work)
+        item.update(status="running", session={"engine": "codex", "folder": str(work)})  # Stopped before its id came back.
         atomic_json(path / "question.json", item)
+        self.assertEqual(len(saved_sessions(self.root)), 2)
         stuck.recover()
-        stuck.wait(10)
+        stuck.wait(10, reviews=True)
         view = stuck.get(failed["id"])
         self.assertEqual(view["status"], "completed")
         self.assertEqual(view["result"]["answer"], "recovered")
+        self.assertEqual(saved_sessions(self.root), [])
 
     def test_failed_review_is_retried_once_then_left_failed(self):
         service = Questions(self.root, runner=ScriptedEngine(answer("x", [], [FINDING])))
@@ -182,6 +255,211 @@ class CoreLoopTests(unittest.TestCase):
             self.assertEqual(result["reviews"][0]["status"], expected)
         self.assertEqual(loop.tick(self.root, runner=ScriptedEngine(), engine="codex")["reviews"], [])
         self.assertEqual(knowledge.deposit_summary(self.root, done["id"])["reviewStatus"], "failed")
+
+    def test_the_answer_is_shown_first_and_its_findings_are_saved_by_resuming_its_session(self):
+        # 2026-10-25: writing the findings was about two-thirds of the researcher's output; the answer no longer waits.
+        note = {"title": "Annealing of PLA films", "url": "https://example.org/pla-annealing", "doi": "",
+                "locator": "Table 2", "excerpts": ["45%"], "supports": "crystallinity", "conditions": "100 °C",
+                "readUrl": ""}
+        text = "Crystallinity reached 45% `https://example.org/pla-annealing`."
+        seen = {}
+
+        def during(tools):  # Turn 2 runs after the answer was delivered.
+            [path] = (self.root / ".oopc/loop/questions").glob("*/question.json")
+            view = service.get(path.parent.name)
+            seen.update(status=view["status"], depositState=view["depositState"], answer=view["result"]["answer"],
+                        deposit=view.get("deposit"))
+        engine = ScriptedEngine(answer(text, ["https://example.org/pla-annealing"], [dict(FINDING, derivation="read")],
+                                       [note]), deposits=[during])
+        service = Questions(self.root, runner=engine)
+        done = self.ask(service, "How does annealing change PLA crystallinity?")
+        self.assertEqual(seen, {"status": "completed", "depositState": {"status": "saving"}, "answer": text,
+                                "deposit": None})
+        # Both turns of one saved session, with the same schema, tools and web settings (the engine's cached prefix).
+        first, second = engine.calls
+        [session] = engine.held
+        self.assertEqual((first["persist"], first["resume"], second["persist"], second["resume"]),
+                         (True, None, False, session))
+        self.assertTrue(first["schema"] is second["schema"] is ANSWER_SCHEMA)
+        self.assertEqual((first["toolNames"], first["web"]), (["search_knowledge"], True))
+        self.assertEqual((second["toolNames"], second["web"], str(second["folder"])),
+                         (first["toolNames"], first["web"], str(first["folder"])))
+        self.assertEqual(second["previousUsage"], {"input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100})
+        # The deposit rules moved to the second turn's instructions.
+        self.assertIn("leave both empty", first["prompt"])
+        self.assertNotIn("One value per finding", first["prompt"])
+        self.assertEqual(second["prompt"], DEPOSIT)
+        self.assertIn("One value per finding", DEPOSIT)
+        # The deposit lands as it did when one turn wrote everything.
+        self.assertEqual(done["depositState"], {"status": "saved"})
+        self.assertEqual((done["deposit"]["findings"], done["deposit"]["notes"]), (1, 1))
+        self.assertEqual([f["status"] for f in done["findings"]], ["accepted"])
+        self.assertEqual(done["result"]["answer"], text)
+        folder = self.root / ".oopc/loop/questions" / done["id"]
+        stored = json.loads((folder / "result.json").read_text())
+        self.assertEqual((len(stored["answer"]["findings"]), stored["depositTurn"]["usage"]["output_tokens"]), (1, 100))
+        self.assertNotIn("session", json.loads((folder / "question.json").read_text()))
+        # Each turn's own usage is in the ledger once.
+        self.assertEqual([(r["phase"], r["newTokens"]) for r in calls.records(self.root)],
+                         [("research", 1100), ("deposit", 1100)])
+        self.assertEqual(TraceStore(self.root).run(done["runId"]).meta()["status"], "completed")
+
+    def test_a_failed_second_turn_is_retried_once_then_the_answer_stands_without_its_findings(self):
+        crash = engines.EngineError("crashed", "exit 1")
+        engine = ScriptedEngine(answer("It reached 45%.", [], [FINDING]), deposits=[crash, crash])
+        done = self.ask(Questions(self.root, runner=engine), "What crystallinity does annealed PLA reach?")
+        self.assertEqual([c["resume"] is not None for c in engine.calls], [False, True, True])
+        self.assertEqual((done["status"], done["result"]["answer"]), ("completed", "It reached 45%."))
+        self.assertEqual(done["depositState"], {"status": "failed", "reason": "crashed", "message": "exit 1"})
+        self.assertNotIn("deposit", done)
+        self.assertEqual((done["findings"], knowledge.review_queue(self.root)), ([], []))
+        # One transient failure is tried again; a timeout is not.
+        again = ScriptedEngine(answer("x", [], [dict(FINDING, derivation="read")]), deposits=[crash])
+        self.assertEqual(self.ask(Questions(self.root, runner=again), "Another PLA annealing question")["depositState"],
+                         {"status": "saved"})
+        slow = ScriptedEngine(answer("x", [], [FINDING]), deposits=[engines.EngineError("timeout", "limit")])
+        stopped = self.ask(Questions(self.root, runner=slow), "A third PLA annealing question")
+        self.assertEqual((stopped["status"], stopped["depositState"]["reason"], len(slow.calls)),
+                         ("completed", "timeout", 2))
+
+    def stopped_after_the_answer(self, engine, question):
+        """A question whose process stopped as its answer was delivered: completed, its deposit saving, its session
+        saved, its owner gone."""
+        service = Questions(self.root, runner=engine)
+        with mock.patch.object(Questions, "_deposit_in_background"):
+            view = service.submit({"question": question, "depth": "quick", "authorizeSubscription": True,
+                                   "runtime": "codex"})
+            service.wait(10)
+        item = service._read(view["id"])
+        self.assertEqual((item["status"], item["depositState"]["status"], item["depositState"]["pid"]),
+                         ("completed", "saving", os.getpid()))
+        item["depositState"]["pid"] = dead_pid()
+        service._write(item)
+        return item
+
+    def restart(self, engine):
+        service = Questions(self.root, runner=engine, reviews=False)
+        service.recover()
+        service.wait(10, reviews=True)
+        return service
+
+    def test_a_deposit_left_saving_by_a_stopped_app_is_settled_at_the_next_start(self):
+        engine = ScriptedEngine(*[answer("x", [], [dict(FINDING, derivation="read", value=str(n),
+                                                        statement="PLA reached %d%% crystallinity." % n)])
+                                  for n in (41, 42, 43)])
+        # The engine still has the session: its second turn is tried once more.
+        item = self.stopped_after_the_answer(engine, "What crystallinity does annealed PLA reach?")
+        self.assertEqual(len(saved_sessions(self.root)), 2)  # The saved session and its working folder.
+        view = self.restart(engine).get(item["id"])
+        self.assertEqual((view["depositState"], view["deposit"]["findings"]), ({"status": "saved"}, 1))
+        self.assertEqual(saved_sessions(self.root), [])
+        # The session is gone: the findings are not saved, as interrupted, and its folder is deleted.
+        item = self.stopped_after_the_answer(engine, "What crystallinity does PLA reach after annealing?")
+        for path in Path(os.environ["CODEX_HOME"]).rglob("*.jsonl"):
+            path.unlink()
+        view = self.restart(engine).get(item["id"])
+        self.assertEqual(view["depositState"], {"status": "failed", "reason": "interrupted",
+                                                "message": "The app stopped while the findings were being saved"})
+        self.assertEqual(saved_sessions(self.root), [])
+        self.assertFalse([c for c in engine.calls if c["resume"] == item["session"]["id"]])
+        # A settlement is the one more try: a transient failure then is final.
+        item = self.stopped_after_the_answer(engine, "Does annealing raise PLA crystallinity?")
+        engine.deposits = [engines.EngineError("crashed", "exit 1")]
+        view = self.restart(engine).get(item["id"])
+        self.assertEqual((view["depositState"]["reason"], [c["resume"] for c in engine.calls].count(item["session"]["id"])),
+                         ("crashed", 1))
+        self.assertEqual(saved_sessions(self.root), [])
+
+    def test_a_stale_deposit_is_settled_without_a_restart_and_a_live_one_is_left_alone(self):
+        # An interrupted `oopc ask` or a killed tick left it saving; the running app lists it, or the next tick runs.
+        engine = ScriptedEngine(*[answer("x", [], [dict(FINDING, derivation="read", value=str(n),
+                                                        statement="PLA reached %d%% crystallinity." % n)])
+                                  for n in (51, 52)])
+        item = self.stopped_after_the_answer(engine, "What crystallinity does annealed PLA reach?")
+        path = self.root / ".oopc/loop/questions" / item["id"] / "question.json"
+        live = json.loads(path.read_text())
+        live["depositState"]["pid"] = os.getppid()  # A process that is still running: not this one's to settle.
+        atomic_json(path, live)
+        service = Questions(self.root, runner=engine, reviews=False)
+        self.assertEqual((service.settle_stale(), service.get(item["id"])["depositState"]), ([], {"status": "saving"}))
+        atomic_json(path, item)  # Its owner gone: the task list settles it.
+        service.list()
+        service.wait(10, reviews=True)
+        self.assertEqual(service.get(item["id"])["depositState"], {"status": "saved"})
+        self.assertEqual(json.loads(path.read_text()).get("session"), None)
+        # The loop's tick settles one too, before it ends.
+        other = self.stopped_after_the_answer(engine, "Does annealing raise PLA crystallinity?")
+        tick = loop.tick(self.root, runner=engine, engine="codex")
+        self.assertEqual((tick["deposits"], service.get(other["id"])["depositState"]), ([other["id"]], {"status": "saved"}))
+        self.assertEqual(saved_sessions(self.root), [])
+
+    def test_a_settlement_never_races_a_live_deposit(self):
+        engine = ScriptedEngine(answer("x", [], [dict(FINDING, derivation="read")]))
+        item = self.stopped_after_the_answer(engine, "What crystallinity does annealed PLA reach?")
+        lock = self.root / ".oopc/loop/questions" / item["id"] / "deposit.lock"
+        with locked(lock):  # Another process is saving them (its pid is gone from this one's view, its lock is not).
+            service = self.restart(engine)
+            self.assertEqual(service.get(item["id"])["depositState"], {"status": "saving"})
+        self.assertFalse([c for c in engine.calls if c["resume"]])
+        service.list()
+        service.wait(10, reviews=True)
+        self.assertEqual(service.get(item["id"])["depositState"], {"status": "saved"})
+
+    def test_a_deposit_whose_second_turn_had_finished_is_saved_from_its_result(self):
+        # The process stopped after turn 2 wrote its findings into the result but before they were deposited.
+        engine = ScriptedEngine(answer("x", [], [dict(FINDING, derivation="read")]))
+        item = self.stopped_after_the_answer(engine, "What crystallinity does annealed PLA reach?")
+        result_path = self.root / ".oopc/loop/questions" / item["id"] / "result.json"
+        stored = json.loads(result_path.read_text())
+        stored["answer"]["findings"] = [dict(FINDING, derivation="read")]
+        stored["depositTurn"] = {"callId": "c", "usage": {}, "agentSeconds": 1.0, "observedTools": []}
+        atomic_json(result_path, stored)
+        view = self.restart(engine).get(item["id"])
+        self.assertEqual((view["depositState"], view["deposit"]["findings"]), ({"status": "saved"}, 1))
+        self.assertFalse([c for c in engine.calls if c["resume"]])  # Not asked again.
+        self.assertEqual(saved_sessions(self.root), [])
+
+    def test_a_deposit_that_cannot_start_leaves_the_answer_and_no_saved_session(self):
+        class NoThreads(threading.Thread):
+            def start(self):
+                if self.name == "oopc-deposit":
+                    raise RuntimeError("can't start new thread")
+                super().start()
+        with mock.patch("oopc.ask.threading.Thread", NoThreads):
+            done = self.ask(Questions(self.root, runner=ScriptedEngine(answer("It reached 45%.", [], [FINDING]))),
+                            "What crystallinity does annealed PLA reach?")
+        self.assertEqual((done["status"], done["result"]["answer"]), ("completed", "It reached 45%."))
+        self.assertEqual((done["depositState"]["status"], done["depositState"]["reason"]), ("failed", "crashed"))
+
+    def test_a_failed_deposit_still_captures_the_answers_cited_sources(self):
+        captured = []
+        engine = ScriptedEngine(answer("It reached 45% `https://example.org/pla-annealing`.",
+                                       ["https://example.org/pla-annealing"], [FINDING]),
+                                deposits=[engines.EngineError("timeout", "limit")])
+        with mock.patch.object(sources, "network_allowed", return_value=True), \
+                mock.patch("oopc.ask.after_answer", lambda root, qid, answer: captured.append(answer["citations"])):
+            done = self.ask(Questions(self.root, runner=engine), "What crystallinity does annealed PLA reach?")
+        self.assertEqual((done["depositState"]["reason"], captured), ("timeout", [["https://example.org/pla-annealing"]]))
+
+    def test_a_retried_second_turn_starts_from_the_usage_the_failed_attempt_reported(self):
+        # Codex reports a resumed session's usage from its start: a failed attempt's turn is in the next report too.
+        reported = {"input_tokens": 2600, "cached_input_tokens": 900, "output_tokens": 180}
+        engine = ScriptedEngine(answer("x", [], [dict(FINDING, derivation="read")]), deposits=[
+            engines.EngineError("invalid-output", "no answer", usage={"input_tokens": 1600}, session_usage=reported)])
+        done = self.ask(Questions(self.root, runner=engine), "What crystallinity does annealed PLA reach?")
+        first, second = [c["previousUsage"] for c in engine.calls if c["resume"]]
+        self.assertEqual((first, second), (ScriptedEngine.result("codex", "s", {})["usage"], reported))
+        self.assertEqual(done["depositState"], {"status": "saved"})
+
+    def test_oopc_ask_says_what_happened_to_the_findings(self):
+        from oopc.cli import deposit_outcome
+        self.assertEqual(deposit_outcome({"depositState": {"status": "saved"},
+                                          "deposit": {"findings": 3, "notes": 2, "duplicates": 1}}),
+                         "Findings saved: 3 findings and 2 source notes (1 already known).")
+        self.assertEqual(deposit_outcome({"depositState": {"status": "failed", "reason": "timeout",
+                                                           "message": "Stopped at the 300-second limit"}}),
+                         "Findings not saved (timeout): Stopped at the 300-second limit. The answer stands.")
+        self.assertEqual(deposit_outcome({"depositState": {"status": "saving"}}), "Findings are still being saved.")
 
     def test_a_failed_review_is_retried_on_another_engine(self):
         # The 200-task run: two reviews stalled twice on the same engine.
@@ -331,7 +609,7 @@ class CoreLoopTests(unittest.TestCase):
     def ask_with(self, service, extra):
         view = service.submit(dict({"question": "A question about PLA depth " + str(extra), "authorizeSubscription": True,
                                     "runtime": "codex"}, **extra))
-        service.wait(10)
+        service.wait(10, reviews=True)
         return service.get(view["id"])
 
     def test_the_researcher_has_only_the_knowledge_tools(self):
@@ -347,6 +625,22 @@ class CoreLoopTests(unittest.TestCase):
         events = TraceStore(self.root).run(done["runId"]).events()["events"]
         self.assertEqual([(e["operation"], e["status"]) for e in events if e["kind"] == "access" or e["status"] == "error"],
                          [("knowledge.search_knowledge", "error")])
+
+    def test_a_question_retried_by_hand_gets_a_new_trace_its_searches_are_recorded_in(self):
+        # Before 2026-10-26 a retried question kept its failed trace, which refused the researcher's searches.
+        def researcher(tools):
+            tools.call("search_knowledge", {"q": "PLA crystallinity"})
+            return answer("ok", [])
+        service = Questions(self.root, runner=ScriptedEngine(engines.EngineError("timeout", "limit"), researcher))
+        failed = self.ask(service, "What crystallinity does annealed PLA reach?")
+        service.retry(failed["id"])
+        service.wait(10, reviews=True)
+        done = service.get(failed["id"])
+        self.assertEqual(done["status"], "completed")
+        self.assertNotEqual(done["runId"], failed["runId"])
+        self.assertEqual(TraceStore(self.root).run(failed["runId"]).meta()["status"], "failed")
+        events = TraceStore(self.root).run(done["runId"]).events()["events"]
+        self.assertEqual([(e["agent_id"], e["status"]) for e in events if e["kind"] == "access"], [("researcher", "ok")])
 
     def test_repeated_facts_are_not_saved_twice(self):
         confident = dict(FINDING, needsReview=False, reviewFlag="")
@@ -401,9 +695,10 @@ class CoreLoopTests(unittest.TestCase):
         seen["id"] = view["id"]
         service.wait(10, reviews=True)
         self.assertEqual(seen["statusDuringReview"], "completed")  # The answer was delivered first.
-        self.assertEqual(len(engine.calls), 2)  # One review call for the flagged and the sampled findings.
+        # The answer, its findings, then one review call for the flagged and the sampled findings.
+        self.assertEqual([c["resume"] is not None for c in engine.calls], [False, True, False])
         for statement in (confident["statement"], skipped["statement"], unsure["statement"]):
-            self.assertIn(statement, engine.calls[1]["prompt"])
+            self.assertIn(statement, engine.calls[2]["prompt"])
         findings = service.get(view["id"])["findings"]
         # A sampled finding the reviewer skipped stays added on the researcher's judgement.
         self.assertEqual([f["status"] for f in findings], ["unsupported", "accepted", "supported"])
@@ -423,7 +718,7 @@ class CoreLoopTests(unittest.TestCase):
             return {"verdicts": [{"id": "finding:%s-1" % asked[:12], "verdict": "supported", "reason": "Table 2."}], "notes": ""}
         engine = ScriptedEngine(answer("x", [], [confident]), review)
         self.assertEqual(loop.research_stage(self.root, runner=engine, engine="claude-code")["outcome"], "completed")
-        self.assertEqual(len(engine.calls), 2)
+        self.assertEqual(len(engine.calls), 3)  # The answer, its findings and their review, all before the tick ends.
         self.assertEqual(knowledge.review_queue(self.root), [])
 
     def test_missed_reviews_run_in_the_loop_and_the_rate_is_a_setting(self):

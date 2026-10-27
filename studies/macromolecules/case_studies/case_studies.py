@@ -12,6 +12,9 @@ pre-publication plan's phase 4), each researcher arm on a copy of the main store
     python -B case_studies.py prepare    # plans and workspaces, fixed once written
     python -B case_studies.py run        # resumable; a STOP file in a study's folder stops it at a boundary
     python -B case_studies.py report
+
+They ran once, on 2026-10-16, in `2026-10-case-studies` (BASE). Part A's replicates (`part_a/part_a.py prepare A5`) run
+the same studies in their own folders, passed as `base`, each with fresh copies of the store.
 """
 import argparse, hashlib, json, subprocess, sys, time
 from pathlib import Path
@@ -87,13 +90,13 @@ def arms_for(folder, names):
     return arms
 
 
-def prepare():
-    tag = frozen()
+def prepare(base=None):
+    tag, base = frozen(), Path(base or BASE)
     for name, study in STUDIES.items():
-        folder = BASE / name
+        folder = base / name
         driver.prepare(folder, name, [{"id": i, "question": q} for i, q in study["questions"]],
                        arms_for(folder, study["arms"]))
-    first = BASE / "cs4-first"
+    first = base / "cs4-first"
     first.mkdir(parents=True, exist_ok=True, mode=0o700)
     loop_ws = driver.workspace(first, "W", releases=ROOT, store=ROOT)
     plan = {"name": "cs4-first", "tag": tag, "promptVersion": ask.prompt_version(), "createdAt": now(),
@@ -101,25 +104,59 @@ def prepare():
             "checker": engines.CODEX}
     if not (first / "plan.json").exists():
         atomic_json(first / "plan.json", plan, private=True)
-    atomic_json(BASE / "prepared.json", {"tag": tag, "at": now()}, private=True)
+    atomic_json(base / "prepared.json", {"tag": tag, "at": now()}, private=True)
 
 
-def first_asks(guard):
-    """cs4's first askings through the normal loop: answered, saved and reviewed in the copy W, then checked."""
-    first = BASE / "cs4-first"
+TRANSIENT = ("quota", "rate-limited", "not-signed-in", "interrupted")  # a call failed this way stays to do
+
+
+def guard(deadline, base, home):
+    """driver.Guard for sessions recorded in `base` that also stops at the STOP file of `home`, the replicate's folder,
+    so one STOP there stops whichever of its studies is running (as `recursive/restart.py`'s Guard does)."""
+    value = driver.Guard(deadline, base=base)
+    own = value.boundary
+    value.boundary = lambda: "owner-stop" if (Path(home) / "STOP").exists() else own()
+    return value
+
+
+def final(item):
+    """A cs4 first asking's record needs nothing more: checked, or its question or check failed for good (for a reason
+    that is not transient; a check after its second attempt)."""
+    if "check" in item:
+        return True
+    if "checkError" in item:
+        return item["checkError"]["reason"] not in TRANSIENT and item.get("checkAttempts", 1) >= 2
+    return item.get("state") == "failed" and (item.get("error") or {}).get("reason") not in TRANSIENT
+
+
+def first_asks(guard, base=None):
+    """cs4's first askings through the normal loop: answered, saved and reviewed (on Codex, as pinned) in the copy W,
+    then checked. A first asking left running by a stopped process is recovered; one that failed for a transient reason
+    is asked again on a fresh trace run, as `recursive/restart.py`'s `retry` does (the app's retry would reuse the
+    failed attempt's finished run); one that failed for another reason is recorded with its reason and is final, and so
+    is a check that failed twice for a reason that is not transient. True when every first asking is final."""
+    first = Path(base or BASE) / "cs4-first"
     plan, ws = read_json(first / "plan.json"), first / "workspaces" / "W"
-    service = ask.Questions(ws, runner=guard, reviews=True)
+    service = ask.Questions(ws, runner=guard, reviews=True, review_engine=engines.CODEX)
+    service.recover()
     ids = {q["id"]: hashlib.md5(("oopc-cs4-" + q["id"]).encode()).hexdigest() for q in plan["questions"]}
     for q in plan["questions"]:
         path = ask.folder(ws) / ids[q["id"]] / "question.json"
-        if not path.exists() or read_json(path).get("status") not in ("completed", "failed"):
+        state = read_json(path) if path.exists() else None
+        if state is None:
             service.submit(dict(question=q["question"], depth="standard", runtime=engines.CODEX, origin="research",
                                 taskId=ids[q["id"]], authorizeSubscription=True))
+        elif state.get("status") == "failed" and (state.get("error") or {}).get("reason") in TRANSIENT:
+            if state.get("runId"):
+                state.setdefault("failedRuns", []).append(state.pop("runId"))
+                atomic_json(path, state, private=True)
+            service.retry(ids[q["id"]])
     service.wait(reviews=True)
     arm = {"name": "W", "root": str(ws), "engine": engines.CODEX}
     for q in plan["questions"]:
         out = first / "items" / (q["id"] + ".json")
-        if out.exists() and "check" in read_json(out):
+        old = read_json(out) if out.exists() else {}
+        if final(old):
             continue
         state = read_json(ask.folder(ws) / ids[q["id"]] / "question.json")
         if state.get("status") != "completed":
@@ -128,39 +165,68 @@ def first_asks(guard):
         result = read_json(ask.folder(ws) / ids[q["id"]] / "result.json")
         answered = {"answer": result["answer"], "runId": state.get("runId"), "metrics": parity._metrics(result),
                     "webActions": parity.web_actions(result)}
-        checked = driver.check(plan, arm, q, answered, guard)
-        atomic_json(out, {"question": q, "answer": answered, "check": checked, "deposit": knowledge.deposit_summary(
-            ws, ids[q["id"]]), "at": now()}, private=True)
-    return all("check" in read_json(first / "items" / (q["id"] + ".json")) for q in plan["questions"])
+        value = {"question": q, "answer": answered, "deposit": knowledge.deposit_summary(ws, ids[q["id"]]), "at": now()}
+        try:
+            value["check"] = driver.check(plan, arm, q, answered, guard)
+        except engines.EngineError as error:
+            counted = error.reason not in TRANSIENT
+            value.update(checkError=error.summary(), checkAttempts=old.get("checkAttempts", 0) + counted)
+        atomic_json(out, value, private=True)
+    return all(final(read_json(first / "items" / (q["id"] + ".json"))) for q in plan["questions"])
 
 
-def run(hours=36):
+def settled(base=None):
+    """Every item of the replicate in `base` is done or failed for good, so its blind scoring may start: each driver
+    item answered and checked, or failed after its retry as the driver reports it, and each first asking final."""
+    base = Path(base or BASE)
+    for name in list(STUDIES) + ["cs4-repeat"]:
+        if not study_settled(base / name):
+            return False
+    first = base / "cs4-first"
+    return all((first / "items" / (q["id"] + ".json")).exists() and final(read_json(first / "items" / (q["id"] + ".json")))
+               for q in read_json(first / "plan.json")["questions"])
+
+
+def study_settled(folder):
+    """Every (question, arm) item of a driver folder has an answer that failed, or an answer and a check (done or
+    failed); the driver writes a failure there only after its retry."""
+    if not (Path(folder) / "plan.json").exists():
+        return False
+    plan = read_json(Path(folder) / "plan.json")
+    items = [driver._item(folder, i, q, a["name"]) for i, q in enumerate(plan["questions"]) for a in plan["arms"]]
+    return all(i.get("answer") and ("error" in i["answer"] or i.get("check")) for i in items)
+
+
+def run(hours=36, base=None):
+    """The replicate in `base` to its end, resumably. A STOP file in `base` or in a study's folder stops it."""
     frozen()
+    base = Path(base or BASE)
+    deadline = time.time() + hours * 3600
     for name in STUDIES:
-        state = driver.run(BASE / name, hours=hours)
+        state = driver.run(base / name, runner=guard(deadline, base / name, base))
         if state["status"] != "completed":
             return state
-    first = BASE / "cs4-first"
-    guard = driver.Guard(time.time() + hours * 3600, base=first)
-    if not first_asks(guard):
-        return {"status": "stopped", "stopReason": "cs4 first askings incomplete"}
-    repeat = BASE / "cs4-repeat"
+    first = base / "cs4-first"
+    if not first_asks(guard(deadline, first, base), base):
+        return {"status": "stopped", "stopReason": "owner-stop" if (base / "STOP").exists() else
+                "cs4 first askings incomplete"}
+    repeat = base / "cs4-repeat"
     arms = [researcher(repeat, "R", first / "workspaces" / "W"), {"name": "P", "kind": "plain"}]
     driver.prepare(repeat, "cs4-repeat", [{"id": i, "question": again} for i, _, again in UNANSWERABLE], arms)
-    return driver.run(repeat, hours=hours)
+    return driver.run(repeat, runner=guard(deadline, repeat, base))
 
 
-def report():
-    value = {}
+def report(base=None):
+    value, base = {}, Path(base or BASE)
     for name in list(STUDIES) + ["cs4-repeat"]:
-        if (BASE / name / "plan.json").exists():
-            value[name] = driver.report(BASE / name)
-    items = sorted((BASE / "cs4-first" / "items").glob("*.json")) if (BASE / "cs4-first" / "items").exists() else []
+        if (base / name / "plan.json").exists():
+            value[name] = driver.report(base / name)
+    items = sorted((base / "cs4-first" / "items").glob("*.json")) if (base / "cs4-first" / "items").exists() else []
     value["cs4-first"] = [{"id": read_json(p)["question"]["id"], "metrics": (read_json(p).get("answer") or {}).get("metrics"),
                            "verdict": (read_json(p).get("check") or {}).get("verdict"),
                            "resultGiven": (read_json(p).get("check") or {}).get("resultGiven"),
                            "deposit": read_json(p).get("deposit")} for p in items]
-    atomic_json(BASE / "report.json", value, private=True)
+    atomic_json(base / "report.json", value, private=True)
     return value
 
 

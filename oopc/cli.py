@@ -16,6 +16,18 @@ def emit(value):
     print(json.dumps(value, ensure_ascii=False, indent=2))
 
 
+def deposit_outcome(task):
+    """One line on what happened to an answer's findings, for `oopc ask`."""
+    state, deposit = task.get("depositState") or {}, task.get("deposit") or {}
+    if state.get("status") == "saved":
+        return "Findings saved: %d findings and %d source notes (%d already known)." % (
+            deposit.get("findings") or 0, deposit.get("notes") or 0, deposit.get("duplicates") or 0)
+    if state.get("status") == "failed":
+        return "Findings not saved (%s): %s. The answer stands." % (
+            state.get("reason"), (state.get("message") or "no detail").rstrip(". "))
+    return "Findings are still being saved."
+
+
 def publish_records(root, records, ontology, metadata):
     from .release import build_release, verify_release
     releases = Path(root) / "releases"
@@ -237,9 +249,14 @@ def main(argv=None):
             view = service.submit({"question": args.question, "budgetSeconds": args.seconds, "authorizeSubscription": True,
                                    **({"runtime": args.engine} if args.engine else {})})
             service.wait()
-            emit(service.get(view["id"]))
+            answered = service.get(view["id"])
+            emit(answered)
             sys.stdout.flush()
-            service.wait(reviews=True)  # The answer is already out; let its review finish.
+            if (answered.get("depositState") or {}).get("status") == "saving":
+                print("Saving the findings and source notes this answer read…", file=sys.stderr, flush=True)
+            service.wait(reviews=True)  # The answer is already out; let its findings be saved and reviewed.
+            if answered.get("depositState"):
+                print(deposit_outcome(service.get(view["id"])), file=sys.stderr, flush=True)
             return
         if command == "questions":
             from .ask import Questions

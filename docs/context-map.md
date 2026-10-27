@@ -7,7 +7,7 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 
 | Concern | Files |
 | --- | --- |
-| Questions: queue, the researcher prompt (the only one) and schema, retries, background review | `oopc/ask.py` |
+| Questions: queue, the researcher prompt (the only one, in two parts: the answer, then its findings) and schema, retries, the background deposit turn and review | `oopc/ask.py` |
 | Findings, notes, search, the review queue, the researcher's knowledge tools and the public knowledge snapshot | `oopc/knowledge.py` |
 | The reviewer prompt, the review of an answer's findings, whole-answer checks and their measures | `oopc/reviewer.py` |
 | Captured source text (fetched once after an answer) and Crossref metadata for DOIs | `oopc/sources.py` |
@@ -22,7 +22,7 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 
 | Concern | Files |
 | --- | --- |
-| Running a Codex or Claude Code session, failure reasons, MCP hosting, quota, Claude sign-in | `oopc/engines.py` |
+| Running a Codex or Claude Code session, saving, resuming and deleting one, failure reasons, MCP hosting, quota, Claude sign-in | `oopc/engines.py` |
 | Codex (ChatGPT) sign-in through the app server | `oopc/openai_account.py` |
 | Live progress counts for a running question | `oopc/task_progress.py` |
 | Docs | [claude-connection](claude-connection.md), [openai-connection](openai-connection.md) |
@@ -45,6 +45,10 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 | About page (`/about.html`, linked from the top bar): the knowledge base and the loop for newcomers, with a glossary that every underlined term opens | `about.html`, `about.js`, `about.css`, `about/*.svg` (drawn by `tools/draw_about_figures.py` from the public seed) | Students and new researchers |
 | Developer inspector (`/operator.html`, unlinked from the app): graph, ontology, task replay, loop health | `operator.html`, `app.js`, `style.css` | Maintainers |
 | Bundled libraries | `vendor/cytoscape.*`, `vendor/openchemlib.*` | — |
+
+The Mac app (a prototype) wraps the same server: the launcher
+`packaging/macos/OOPC.swift` and its build, `tools/build_macos_app.py` (see
+[installation](installation.md)).
 
 `oopc/server.py` serves both on loopback only. Writes (asking, retrying, the
 research queue, loop runs, sign-in, engine choice) need the same origin and the

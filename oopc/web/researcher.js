@@ -115,6 +115,13 @@
     const reusedCount = (reused.supported || 0) + (reused.added || 0);
     const reusedText = reusedCount > 0 ? ` It reused ${plural(reusedCount, "saved finding")}.` : "";
     if (task.origin === "legacy") return {label: "Earlier answer", tone: "neutral", note: "Answered before the current loop. Its reviewed findings were imported; the answer itself was not re-checked."};
+    // The answer comes first; the research agent then writes the findings it read, in the background.
+    const saving = task.depositState;
+    if (saving?.status === "saving") return {label: "Saving findings…", tone: "neutral", note: "The answer is ready. The findings and source notes behind it are being saved for later questions." + reusedText};
+    if (saving?.status === "failed") {
+      const why = DEPOSIT_FAILURES[saving.reason] || ["did not finish", "saving them did not finish"];
+      return {label: `Findings not saved: ${why[0]}`, tone: "warn", note: `The answer stands, but the findings and source notes it read were not saved: ${why[1]}. Later questions will not reuse them.` + reusedText};
+    }
     const known = deposit?.duplicates ? ` ${plural(deposit.duplicates, "finding")} ${deposit.duplicates === 1 ? "was" : "were"} already known and not saved again.` : "";
     if (!deposit || !deposit.findings) return {label: "Nothing new saved", tone: "neutral", note: "This answer cites its sources but found nothing new to save." + known + reusedText};
     const added = counts.accepted || 0, flagged = counts.unreviewed || 0, waiting = deposit.waitingReview || 0;
@@ -129,7 +136,21 @@
     return {label: added && !checked.length ? "Findings added" : "Findings saved", tone: counts.unsupported ? "warn" : "good", note: note + known + reusedText};
   }
 
+  /** Why an answer's findings were not saved, in researcher language: a short label and the reason in the note. */
+  const DEPOSIT_FAILURES = {
+    timeout: ["out of time", "writing them reached its time limit"],
+    quota: ["usage limit reached", "your subscription reached its usage limit"],
+    "rate-limited": ["engine busy", "the engine was receiving too many requests"],
+    "not-signed-in": ["not signed in", "the engine was not signed in"],
+    rejected: ["request rejected", "the provider rejected the request"],
+    "invalid-output": ["no usable reply", "the engine finished without a usable list of findings, twice"],
+    crashed: ["session stopped", "the session stopped unexpectedly"],
+    interrupted: ["app stopped", "the app stopped while they were being saved"],
+  };
   const reviewPending = task => !!task?.deposit?.waitingReview;
+  const savingFindings = task => task?.depositState?.status === "saving";
+  /** What, once changed, redraws an answer whose findings are being saved or reviewed. */
+  const depositKey = task => JSON.stringify([task?.depositState || null, task?.deposit || null]);
 
   /** Question progress for the answer view and history list. */
   function taskState(task) {
@@ -319,7 +340,7 @@
   }
   const runtimeLabel = runtime => RUNTIME_LABELS[runtime] || RUNTIME_LABELS.codex;
 
-  const api = {progressDetail, formatClock, effortStats, failureMessage, quotaHint, loginLink, runtimeLabel, croppedViewBox, sectionTitle, escapeHTML, safeURL, sentenceCase, recordReference, formatDuration, formatCount, renderInline, renderMarkdown, recordStatus, provenanceSummary, reviewPending, taskState, knowledgeSummary, parseMolfile, fitTransform, bracketGeometry};
+  const api = {progressDetail, formatClock, effortStats, failureMessage, quotaHint, loginLink, runtimeLabel, croppedViewBox, sectionTitle, escapeHTML, safeURL, sentenceCase, recordReference, formatDuration, formatCount, renderInline, renderMarkdown, recordStatus, provenanceSummary, reviewPending, savingFindings, depositKey, taskState, knowledgeSummary, parseMolfile, fitTransform, bracketGeometry};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof document === "undefined") return;
 
@@ -395,7 +416,7 @@
   // Pre-submit hint only; the engine enforces its own limits.
   function quotaHint(quota, reserve, label) {
     if (!quota) return "";
-    if (typeof quota.remainingPercent !== "number") return quota.reason === "unrecognized-report" ? `${label} usage could not be read (its usage report changed format).` : "";
+    if (typeof quota.remainingPercent !== "number") return quota.reason === "unrecognized-report" ? `${label} usage could not be read (its usage report changed format).` : quota.reason === "not-reported" ? `${label} does not report its usage limits to this app.` : "";
     const left = `${label} has ${Math.round(quota.remainingPercent)}% of its usage window left`;
     return typeof reserve === "number" && quota.remainingPercent < reserve ? `${left}; background review waits until it is above ${reserve}%.` : `${left}.`;
   }
@@ -487,11 +508,12 @@
   function taskRow(task) {
     const status = taskState(task);
     const origin = task.origin === "research" ? `<span class="tag">Research queue</span>` : task.origin === "legacy" ? `<span class="tag">Earlier</span>` : "";
-    return `<a class="task-row" href="#/ask/${encodeURIComponent(task.taskId)}"><span class="task-question">${escapeHTML(task.question)}</span><span class="task-meta">${origin}${badge(status)}${reviewPending(task) ? `<span class="tag">Review pending</span>` : ""}<time>${escapeHTML(dateLabel(task.submittedAt))}</time></span></a>`;
+    return `<a class="task-row" href="#/ask/${encodeURIComponent(task.taskId)}"><span class="task-question">${escapeHTML(task.question)}</span><span class="task-meta">${origin}${badge(status)}${savingFindings(task) ? `<span class="tag">Saving findings</span>` : reviewPending(task) ? `<span class="tag">Review pending</span>` : ""}<time>${escapeHTML(dateLabel(task.submittedAt))}</time></span></a>`;
   }
 
-  async function renderAnswer(taskId, token) {
-    view.innerHTML = `<a class="back-link" href="#/ask">← Ask another question</a><article class="answer"><p class="muted">Loading…</p></article>`;
+  /** With `quiet`, redraw the answer in place (its findings were saved or reviewed) without the loading placeholder. */
+  async function renderAnswer(taskId, token, quiet = false) {
+    if (!quiet || !view.querySelector(".answer")) view.innerHTML = `<a class="back-link" href="#/ask">← Ask another question</a><article class="answer"><p class="muted">Loading…</p></article>`;
     const [task, polymers] = await Promise.all([get(`/api/tasks/${encodeURIComponent(taskId)}`), loadPolymers().catch(() => [])]);
     if (token !== state.routeToken) return;
     const names = new Map(polymers.map(p => [p.id, p.name])), record = code => recordReference(code, names);
@@ -520,8 +542,7 @@
         ${openQuestions.length && task.origin !== "legacy" ? `<section class="open-questions" aria-labelledby="open-title"><h2 id="open-title">Worth researching later</h2><ul>${openQuestions.map((q, i) => `<li><span>${escapeHTML(q)}</span> ${list(task.queuedResearch).includes(q) ? `<span class="tag">In the research queue</span>` : `<button type="button" class="text-button" data-research="${i}">Add to research queue</button>`}</li>`).join("")}</ul><p id="research-status" class="muted small" role="status">${list(task.queuedResearch).length ? `Added to the <a href="#/knowledge">research queue</a> automatically.` : ""}</p></section>` : ""}
         <section class="how-found" aria-labelledby="how-title"><h2 id="how-title">How this answer was found</h2><div id="how-found">${howFound(task, citations)}</div></section>` : ""}`;
     if (status.busy) watchActivity(task, taskId, token);
-    else if (reviewPending(task)) later(token, () => renderAnswer(taskId, token), 10000);
-    else if (reviewPending(task)) later(token, () => renderAnswer(taskId, token), 15000);
+    else if (savingFindings(task) || reviewPending(task)) watchDeposit(task, taskId, token);
     article.querySelector("[data-reask]")?.addEventListener("click", () => { state.prefill = {question: task.question}; location.hash = "#/ask"; });
     article.querySelector("[data-retry]")?.addEventListener("click", async event => {
       event.target.disabled = true;
@@ -569,6 +590,19 @@
       ${live.action ? `<p class="progress-now">${escapeHTML(live.action)}</p>` : ""}
       <div class="meters">${meter(live.counts.knowledge + live.counts.lookups, 0, "knowledge lookups")}${meter(live.counts.searches, live.budget?.searches, "web searches")}${meter(live.counts.sources, live.budget?.sources, "sources")}</div>
       ${live.sites.length ? `<p class="sites">${live.sites.map(site => `<span class="site">${escapeHTML(site)}</span>`).join("")}</p>` : ""}`;
+  }
+  /** While an answer's findings are saved or reviewed, poll quietly; redraw in place only when they change. */
+  function watchDeposit(task, taskId, token) {
+    const shown = depositKey(task), every = savingFindings(task) ? 5000 : 10000;
+    const poll = async () => {
+      try {
+        const next = await get(`/api/tasks/${encodeURIComponent(taskId)}`);
+        if (token !== state.routeToken) return;
+        if (depositKey(next) !== shown) { renderAnswer(taskId, token, true); return; }
+      } catch { /* Try again on the next poll. */ }
+      later(token, poll, every);
+    };
+    later(token, poll, every);
   }
   /** While a question runs, refresh only its progress card: the clock each second, the rest every 3 s. */
   function watchActivity(task, taskId, token) {
@@ -618,7 +652,7 @@
     if (token !== state.routeToken) return;
     $("#history-list").innerHTML = listing.tasks.length ? listing.tasks.map(taskRow).join("") + (listing.omitted ? `<p class="muted small">${formatCount(listing.omitted)} older questions are not shown.</p>` : "")
       : `<p class="muted">You haven’t asked anything yet. <a href="#/ask">Ask a question</a>.</p>`;
-    if (listing.tasks.some(task => taskState(task).busy || reviewPending(task))) later(token, () => renderHistory(token), 5000);
+    if (listing.tasks.some(task => taskState(task).busy || savingFindings(task) || reviewPending(task))) later(token, () => renderHistory(token), 5000);
   }
 
   // ----- Polymers -----

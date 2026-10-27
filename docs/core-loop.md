@@ -5,8 +5,8 @@ Ask → answer → save → review → reuse, with an occasional measurement.
 | Step | What happens | Module |
 | --- | --- | --- |
 | Ask | A question is queued and run by one background worker, oldest first. | `oopc/ask.py` |
-| Answer | One researcher session with two knowledge tools and web search. | `oopc/ask.py`, `oopc/engines.py` |
-| Save | Findings read in a source are added; figure readings, conversions and combined values wait for review; source notes are stored. | `oopc/knowledge.py` |
+| Answer | One researcher session with two knowledge tools and web search; its first turn answers. | `oopc/ask.py`, `oopc/engines.py` |
+| Save | Its second turn writes what it read. Findings read in a source are added; figure readings, conversions and combined values wait for review; source notes are stored. | `oopc/ask.py`, `oopc/knowledge.py` |
 | Review | After the answer, its sources are captured and one reviewer session checks its waiting findings and a sample of its added ones. | `oopc/reviewer.py`, `oopc/sources.py` |
 | Reuse | `search_knowledge` returns the most relevant saved findings; an answer cites them by id. | `oopc/knowledge.py` |
 | Measure | On demand, the parity set compares the researcher with a plain session. | `oopc/parity.py`, `oopc/improve.py` |
@@ -18,8 +18,9 @@ unrelated polymers (PEI, PFA or PPO) is not queued: the app asks which one you
 mean and adds its full name to the question. Research-queue questions have no
 one to ask, so the researcher states its reading.
 
-The researcher's instructions are `RESEARCHER` in `oopc/ask.py`, the only
-prompt. It has one tool, traced with its exact results:
+The researcher's instructions are `RESEARCHER` (the answer) and `DEPOSIT` (the
+findings) in `oopc/ask.py`, one prompt in two parts. It has one tool, traced
+with its exact results:
 
 - `search_knowledge`: the most relevant saved findings for a query, then up to
   three source notes. When the query names a polymer (by any name the graph
@@ -59,22 +60,44 @@ The answer has three kinds of statement:
 Conflicting sources are reported side by side with the reading given as an
 Interpretation. The answer is read on its own: it gives each thing the question
 asks for, or says it was not found, and never points to findings "below". The
-answer also returns its citations, new **findings** (values
+answer also returns its citations, limitations and up to three open questions.
+Notes on how it looked (a page that would not open, the copy it read) go in the
+limitations, not the answer. A number seen only in a search snippet is not
+reported as a result.
+
+The session has two turns, so the answer does not wait for what is saved from
+it (2026-10-25: writing the findings was about two-thirds of the researcher's
+output, and its answers took 2.3 times as long as a plain session's). The first
+turn returns the answer, and the question is marked answered and shown. Then,
+in the background, a second turn resumes the same session, with the same
+schema, tool and web settings so the engine reuses its cached prompt, and
+without searching or reading anything more. It returns new **findings** (values
 it read itself, one value each: a one-sentence statement, material, property by
 its full name and abbreviation, value, unit, conditions as the source states
 them, source, exact locator, the shortest verbatim span that shows the value
 with its label or unit (under about 25 words, kept private), and how it got
 the value: read in the text or a table, read off a figure, converted or
-calculated, or combined from more than one place), one **source note** per source
-read, including one that lacked what it looked for or could not be opened (with
-the URL it actually read, when that differs), limitations and up to three open
-questions. Notes on how it looked (a page that would not open, the copy it
-read) go in the limitations, not the answer. A number seen only in a search
-snippet is not reported as a result. Every value
-the answer reports from a source it read is a finding, including method and
+calculated, or combined from more than one place) and one **source note** per
+source read, including one that lacked what it looked for or could not be
+opened (with the URL it actually read, when that differs). Every value the
+answer reports from a source it read is a finding, including method and
 specimen details; besides these, the researcher saves the other values for the
 same material or a closely related property in the passage it read (up to about
 ten more per source), since reading them again later would cost a new session.
+
+While the second turn runs the answer shows "Saving findings…". A second turn
+that crashed, was interrupted or returned no valid answer is tried once more;
+if it fails again, or fails for another reason, the findings are not saved and
+the reason is shown beside the answer, which stands. The engines save a session under the user's home folder, outside
+`.oopc/`, only so it can be resumed: it is deleted when the second turn ends,
+whatever its outcome. Codex's index of the session (its threads, turns and
+items) is kept in the session's own private folder, never in `~/.codex`, and
+deleted with it; such sessions make no Codex memories. A deposit whose process
+stopped (the app, an interrupted `oopc ask`, a killed tick) is settled by the
+next app start, task list or loop tick: the second turn is tried once more if
+the engine still has the session, else the findings are not saved
+(`interrupted`); a deposit whose second turn had already finished is saved from
+its result.
 
 ## Save
 
@@ -186,7 +209,8 @@ the loop hourly with launchd.
 `oopc parity run --engine E [--checker C]` answers the eight fixed questions in
 `benchmarks/parity.json` (four covered by saved findings, four new) two ways:
 a **plain** web-only session (its answers frozen per engine and model) and the
-**ontology** researcher (which saves nothing). Every run checks both arms again,
+**ontology** researcher (both turns; it saves nothing). The researcher's time is
+recorded to its answer and in total, and its tokens are both turns'. Every run checks both arms again,
 one right after the other, with one checker on sources captured once, so a
 difference never comes from a page that opened one day and not another. The
 checker judges each answer against the cited sources (a cited finding with what
@@ -210,7 +234,11 @@ statement more and one complete answer fewer than plain, at least 90% of
 unlabelled answer parts cited (median), median token ratio at most 1.5, on at
 least six checked pairs. Eight questions are descriptive: one or two either way
 is noise. `oopc parity compare A B` puts two runs side by side, for example
-before and after a change to `RESEARCHER`, which is made as a reviewed commit.
+before and after a change to `RESEARCHER` or `DEPOSIT`, which is made as a
+reviewed commit; the median seconds to the answer and in total are shown beside
+its measures and do not decide whether the change is recommended. A question
+whose researcher arm failed to write its findings in either run is left out of
+the token comparison, and the comparison says how many there were.
 Add `--canaries` after changing the reviewer's instructions: wrong findings (a
 changed number, an added condition, another paper's source, a misspelled title
 word), which the reviewer must reject, beside true controls, one of them a value

@@ -1,6 +1,7 @@
 """The shared study driver with a scripted engine behind its Guard, offline: arms in turn and checked together, resume,
-sleep, retries, quota, and a report that leads with the measures independent of source access, with ledger tokens."""
-import contextlib, io, json, re, sys, tempfile, time, unittest
+sleep (per session), retries, one more pass over failed items, a question answered again after a long stop, quota, and
+a report that leads with the measures independent of source access, with ledger tokens."""
+import contextlib, datetime, io, json, re, sys, tempfile, threading, time, unittest
 from pathlib import Path
 from unittest import mock
 
@@ -22,12 +23,20 @@ def statement(verdict, kind="source-fact", category="none"):
 class Engine:
     """Answers by schema, like a real engine. Records each call as (kind, arm, engine): the plain arm, the researcher
     with web search (K) or without (M), or the check of an answer, whose text names its arm. `hook(self, kind, arm)`
-    runs first and may raise an EngineError or change the world."""
+    runs first and may raise an EngineError or change the world. On code whose researcher writes its findings in a
+    second turn (2026-10-25), that resumed turn returns no findings and costs nothing, and is not recorded or hooked,
+    so the calls and tokens counted here are the answers' and checks' as before."""
 
     def __init__(self, hook=None):
         self.calls, self.hook, self.guard = [], hook, None
 
-    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None):
+    def __call__(self, engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None,
+                 **session):
+        if session.get("resume"):
+            answer = {"answer": "", "citations": [], "findings": [], "sources": [], "limitations": [], "openQuestions": []}
+            return {"engine": engine, "model": "scripted", "sessionId": session["resume"], "answer": answer,
+                    "usage": {"input_tokens": 0, "cached_input_tokens": 0, "output_tokens": 0}, "observedTools": [],
+                    "agentSeconds": 0.0}
         if schema is parity.DIRECT_SCHEMA:
             kind, arm = "answer", "P"
         elif schema is ask.ANSWER_SCHEMA:
@@ -92,6 +101,9 @@ class DriverTests(unittest.TestCase):
         self.questions = [{"id": "q%d" % n, "question": "What crystallinity did polymer %d reach?" % n}
                           for n in (1, 2, 3)]
         self.plan = driver.prepare(self.base, "test", self.questions, self.arms, engine="codex", checker="claude-code")
+        patch = mock.patch.object(driver, "PASS_WAIT", 0)  # the pause before one more pass over failed items
+        patch.start()
+        self.addCleanup(patch.stop)
         quiet = contextlib.redirect_stdout(io.StringIO())  # the Guard and emit print every event
         quiet.__enter__()
         self.addCleanup(quiet.__exit__, None, None, None)
@@ -159,28 +171,93 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(len(engine.calls), 18 + 2)
         self.assertEqual(driver.report(self.base)["arms"]["P"]["slept"], 1)
 
-    def test_a_research_timeout_is_retried_once_and_a_second_is_the_items_failure(self):
+    def test_a_timeout_is_tried_once_more_and_a_failed_item_gets_one_more_pass_then_surfaces(self):
         spent = {"input_tokens": 400, "cached_input_tokens": 0, "output_tokens": 0}  # a failed session still costs
-        hooks = [failing(lambda kind, arm, n: n <= 7 and (kind, arm) == ("answer", "P"), "timeout", spent),
-                 failing(lambda kind, arm, n: (kind, arm) == ("check", "K"), "crashed", times=1),
-                 failing(lambda kind, arm, n: n <= 7 and (kind, arm) == ("check", "M"), "timeout")]
-        engine = Engine(lambda *args: [hook(*args) for hook in hooks])
-        self.assertEqual(self.run_with(engine)["status"], "completed")
+
+        def hook(engine, kind, arm):
+            n = sum(c[:2] == (kind, arm) for c in engine.calls)  # this call included
+            if (kind, arm) == ("answer", "P") and n in (1, 2, 5, 6):  # the first question's P, in both passes
+                raise engines.EngineError("timeout", "scripted timeout", seconds=600.0, usage=spent)
+            if (kind, arm, n) in (("check", "K", 1), ("check", "M", 1)):
+                raise engines.EngineError("crashed" if arm == "K" else "timeout", "scripted", seconds=1.0)
+        engine = Engine(hook)
+        state = self.run_with(engine)
+        self.assertEqual((state["status"], state["failedItems"]), ("completed", 1))
         p, k, m = self.item(0, "P"), self.item(0, "K"), self.item(0, "M")
-        self.assertEqual((p["answer"]["error"]["reason"], len(p["attempts"]), "check" in p), ("timeout", 2, False))
+        self.assertEqual((p["answer"]["error"]["reason"], [a["part"] for a in p["attempts"]], "check" in p),
+                         ("timeout", ["answer"] * 4, False))  # tried once more, then once more after the others
         self.assertEqual([a["outcome"] for a in k["attempts"] if a["part"] == "check"], ["failed", "completed"])
-        self.assertEqual((m["check"]["error"]["reason"], len([a for a in m["attempts"] if a["part"] == "check"])),
-                         ("timeout", 1))  # a check timeout is not tried again
+        self.assertEqual([(a["outcome"], a.get("reason")) for a in m["attempts"] if a["part"] == "check"],
+                         [("failed", "timeout"), ("completed", None)])  # a check timeout is tried once more
+        self.assertEqual(len(engine.calls), 22)  # 3 questions x (3 answers + 3 checks) + 2 retries + 2 in the extra pass
         report = driver.report(self.base)
-        self.assertEqual((report["compared"], report["arms"]["P"]["failed"], report["arms"]["M"]["failed"]),
-                         (2, {"answer:timeout": 1}, {"check:timeout": 1}))
+        self.assertEqual((report["compared"], report["failedItems"], report["arms"]["P"]["failed"],
+                          report["arms"]["M"]["failed"]), (2, 1, {"answer:timeout": 1}, {}))
         self.assertEqual(report["arms"]["P"]["tokens"]["research"],  # from the ledger, failed attempts included
-                         {"calls": 4, "total": 2 * 400 + 2 * 3010, "median": 3010, "missingUsage": 0})
+                         {"calls": 6, "total": 4 * 400 + 2 * 3010, "median": 3010, "missingUsage": 0})
+        self.assertIn("Failed items (1, each tried once more)", (self.base / "report.md").read_text())
         again = Engine()
-        self.run_with(again)  # a rerun tries the failed items, and checks the first question's arms together again
-        self.assertEqual([c[:2] for c in again.calls],
+        self.assertEqual(self.run_with(again)["failedItems"], 0)  # a later run tries it again, and checks the first
+        self.assertEqual([c[:2] for c in again.calls],               # question's arms together again
                          [("answer", "P"), ("check", "P"), ("check", "K"), ("check", "M")])
         self.assertEqual(len(self.item(0, "K")["previousChecks"]), 1)
+
+    def test_a_question_resumed_more_than_12_hours_after_its_answers_is_answered_again_by_every_arm(self):
+        def stop_during_second_answer(engine, kind, arm):
+            if len(engine.calls) == 2:
+                (self.base / "STOP").write_text("")
+        self.assertEqual(self.run_with(Engine(stop_during_second_answer))["stopReason"], "owner-stop")
+        (self.base / "STOP").unlink()
+        old = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=13)).isoformat()
+        for arm in ("P", "K"):  # the first question's first two arms answered 13 hours ago, its third not yet
+            item = self.item(0, arm)
+            item["answer"]["at"] = old
+            atomic_json(self.base / "items" / ("0000-%s.json" % arm), item)
+        again = Engine()
+        self.assertEqual(self.run_with(again)["status"], "completed")
+        self.assertEqual([c[:2] for c in again.calls][:6], [("answer", "P"), ("answer", "K"), ("answer", "M"),
+                                                            ("check", "P"), ("check", "K"), ("check", "M")])
+        self.assertEqual([len(self.item(0, a).get("previousAnswers", [])) for a in NAMES], [1, 1, 0])
+        self.assertEqual(len(again.calls), 18)
+
+    def test_an_arm_that_failed_for_good_does_not_make_a_resume_answer_every_arm_again(self):
+        def stop_during_second_answer(engine, kind, arm):
+            if len(engine.calls) == 2:
+                (self.base / "STOP").write_text("")
+        self.run_with(Engine(stop_during_second_answer))
+        (self.base / "STOP").unlink()
+        old = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=13)).isoformat()
+        for arm in ("P", "K"):
+            item = self.item(0, arm)
+            item["answer"]["at"] = old
+            atomic_json(self.base / "items" / ("0000-%s.json" % arm), item)
+        failed = self.item(0, "M")  # the third arm's answer failed for good (it keeps its error), it was not skipped
+        failed["answer"] = {"error": {"reason": "rejected", "message": "scripted"}, "at": old, "localHour": 0}
+        atomic_json(self.base / "items" / "0000-M.json", failed)
+        again = Engine()
+        self.run_with(again)
+        self.assertEqual([c[:2] for c in again.calls][:4], [("answer", "M"), ("check", "P"), ("check", "K"),
+                                                            ("check", "M")])
+        self.assertEqual([len(self.item(0, a).get("previousAnswers", [])) for a in NAMES], [0, 0, 0])
+
+    def test_each_session_keeps_its_own_start_for_sleep_detection(self):
+        clock, seen, guards = [0.0], [], []
+
+        def session(engine, prompt, schema, **options):
+            if prompt == "outer":  # another session starts and ends in another thread, then the machine sleeps
+                inner = threading.Thread(target=guards[0], args=(engine, "inner", schema))
+                inner.start()
+                inner.join()
+                clock[0] += 47 * 60
+                seen.append(guards[0].boundary())
+            return {"engine": engine, "model": "scripted", "answer": {}, "usage": {}, "observedTools": [],
+                    "agentSeconds": 0.1}
+        with mock.patch.object(driver, "drift", lambda: clock[0]):
+            guards.append(driver.Guard(time.time() + 3600, read_quota=lambda e: {"remainingPercent": 80},
+                                       run_session=session, signed=lambda e: True, base=self.base))
+            guards[0]("codex", "outer", {})
+            self.assertIsNone(guards[0].boundary())  # no session running
+        self.assertEqual(seen, ["slept"])  # one start for the whole guard was cleared when the inner session ended
 
     def test_quota_and_sign_out_stop_the_run_with_their_reason(self):
         engine = Engine(failing(lambda kind, arm, n: n == 2, "quota"))
@@ -200,13 +277,64 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(report["columns"][:4], ["answered", "contradicted", "complete", "resultGiven"])
         measures = {name: [report["arms"][name][c] for c in report["columns"][:-1]] for name in NAMES}
         self.assertEqual(measures, {"P": [3, 0, 3, 3, 3, 0], "K": [3, 0, 3, 3, 3, 0], "M": [3, 3, 0, 0, 0, 3]})
-        self.assertEqual(report["arms"]["K"]["tokens"], {
+        self.assertEqual(report["arms"]["K"]["tokens"], dict({
             "research": {"calls": 3, "total": 3030, "median": 1010, "missingUsage": 0},
-            "check": {"calls": 3, "total": 630, "median": 210, "missingUsage": 0}})
+            "check": {"calls": 3, "total": 630, "median": 210, "missingUsage": 0}}, **({
+                # On two-part code the findings come in a second turn (free in this scripted engine).
+                "deposit": {"calls": 3, "total": 0, "median": 0, "missingUsage": 0}} if driver.two_part() else {})))
         self.assertEqual({r["phase"] for r in calls.records(self.arms[2]["root"])},
-                         {"study:test:M:research", "study:test:M:check"})
+                         {"study:test:M:research", "study:test:M:check"}
+                         | ({"study:test:M:deposit"} if driver.two_part() else set()))
         header = (self.base / "report.md").read_text().splitlines()[5]
         self.assertTrue(header.startswith("| Arm | Answered | Contradicted | Complete | Sourced result | Passes |"))
+
+    def test_an_arms_own_prompt_is_recorded_rendered_as_the_codes_and_refused_when_changed(self):
+        folder, prompts = self.base.parent / "own-prompts", self.base.parent / "prompts"
+        prompts.mkdir()
+        same, edited = prompts / "same.txt", prompts / "edited.txt"
+        same.write_text(ask.RESEARCHER)
+        edited.write_text(ask.RESEARCHER.replace("\nQuestion:", "\nPrefer saved findings.\n\nQuestion:"))
+        ws = lambda name: driver.workspace(folder, name, releases=self.source, store=self.source)
+        arms = [{"name": "K", "kind": "researcher", "root": ws("K")},
+                {"name": "S", "kind": "researcher", "root": ws("S"), "prompt": str(same)},
+                {"name": "E", "kind": "researcher", "root": ws("E"), "prompt": str(edited)}]
+        if driver.two_part():  # Code from 2026-10-25: the researcher's instructions have two parts.
+            with self.assertRaises(ValueError) as raised:
+                driver.prepare(folder, "prompts", self.questions[:1], arms, engine="codex", checker="claude-code")
+            self.assertEqual(str(raised.exception), driver.ONE_FILE_ONLY)
+            self.assertFalse((folder / "plan.json").exists())
+            return
+        plan = driver.prepare(folder, "prompts", self.questions[:1], arms, engine="codex", checker="claude-code")
+        self.assertTrue(all("prompt" not in a for a in self.plan["arms"]))  # a plan without arm prompts is as before
+        self.assertEqual(plan["promptVersion"], ask.prompt_version())  # the code's, for arm K
+        self.assertEqual({a["name"]: a.get("promptVersion") for a in plan["arms"]},
+                         {"K": None, "S": ask.prompt_version(), "E": driver.prompt_version(edited.read_text())})
+        seen, engine = [], Engine()
+
+        def recording(name, prompt, schema, **options):
+            if schema is ask.ANSWER_SCHEMA:
+                seen.append(prompt)
+            return engine(name, prompt, schema, **options)
+        guard = driver.Guard(time.time() + 3600, read_quota=lambda e: {"remainingPercent": 80}, run_session=recording,
+                             signed=lambda e: True, base=folder)
+        self.assertEqual(driver.run(folder, runner=guard)["status"], "completed")
+        question = self.questions[0]["question"]
+        self.assertEqual(seen[:2], [ask.researcher_prompt(question, "standard")] * 2)  # K, then S: the same text
+        self.assertEqual(seen[2], driver.render(edited.read_text(), question, "standard"))
+        self.assertIn("Prefer saved findings.", seen[2])
+        items = {a: read_json(folder / "items" / ("0000-%s.json" % a)) for a in "KSE"}
+        self.assertEqual([items[a]["answer"].get("promptVersion") for a in "KSE"],
+                         [None, ask.prompt_version(), driver.prompt_version(edited.read_text())])
+        edited.write_text(edited.read_text() + " Changed.")
+        with self.assertRaises(ValueError):
+            driver.run(folder, runner=guard)  # the arm's prompt changed since the plan was written
+        with self.assertRaises(ValueError):
+            driver.prepare(folder, "prompts", self.questions[:1], arms, engine="codex", checker="claude-code")
+        with self.assertRaises(ValueError):
+            driver.prepare(self.base.parent / "plain", "plain", self.questions, [
+                {"name": "P", "kind": "plain", "prompt": str(same)}])
+        only = driver.prepare(self.base.parent / "only", "only", self.questions, [dict(arms[1], root=ws("S2"))])
+        self.assertIsNone(only["promptVersion"])  # no arm uses the code's prompt
 
     def test_the_plan_is_fixed_and_a_store_must_not_change(self):
         self.assertEqual(driver.prepare(self.base, "test", self.questions, self.arms, engine="codex",

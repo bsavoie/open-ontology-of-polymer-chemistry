@@ -16,31 +16,95 @@ from oopc import engines
 SCHEMA = {"type": "object", "properties": {"answer": {"type": "string"}}, "required": ["answer"], "additionalProperties": False}
 
 CODEX = """
-import json, sys, time
+import json, os, sys, time, uuid
 args = sys.argv[1:]
 prompt = sys.stdin.read()
 mode = open(%(mode)r).read().strip()
 def emit(value): print(json.dumps(value), flush=True)
+def config(key):
+    for flag, value in zip(args, args[1:]):
+        if flag == "-c" and value.startswith(key + "="):
+            return json.loads(value.split("=", 1)[1])
+home = os.environ["CODEX_HOME"]
+# Like Codex: its state databases (the index of threads and their turns) live in sqlite_home, by default $CODEX_HOME;
+# a new one first copies in every thread with a rollout under $CODEX_HOME/sessions (the backfill).
+state = os.path.join(config("sqlite_home") or home, "state_5.sqlite")
+if not os.path.exists(state):
+    found = [name.split("T00-00-00-")[1].split(".jsonl")[0]
+             for _, _, names in os.walk(os.path.join(home, "sessions")) for name in names]
+    os.makedirs(os.path.dirname(state), exist_ok=True)
+    open(state, "w").write(json.dumps({"backfill": "complete", "threads": found}))
+# A thread is saved as a rollout under $CODEX_HOME unless --ephemeral, and `exec resume ID -` continues it, reporting
+# the thread's usage from its start.
+resume = args[1] == "resume"
+thread = args[-2] if resume else str(uuid.uuid4())
+rollout = os.path.join(home, "sessions", "2026", "10", "25", "rollout-2026-10-25T00-00-00-" + thread + ".jsonl")
+before = {"input_tokens": 0, "cached_input_tokens": 0, "output_tokens": 0}
+if resume:
+    if not os.path.exists(rollout):
+        print("ERROR: no rollout found for thread id " + thread, file=sys.stderr); sys.exit(1)
+    before = json.loads(open(rollout).read().splitlines()[-1])
+if "--ephemeral" not in args or resume:
+    index = json.loads(open(state).read())
+    index["threads"] = index["threads"] + [thread] * (thread not in index["threads"])
+    open(state, "w").write(json.dumps(index))
+emit({"type": "thread.started", "thread_id": thread})
+if mode == "two-ids":
+    emit({"type": "thread.started", "thread_id": str(uuid.uuid4())})
+if mode in ("busy", "busy-once"):  # Too many requests: no turn was taken.
+    calls = %(mode)r + ".calls"
+    seen = int(open(calls).read()) if __import__("os").path.exists(calls) else 0
+    open(calls, "w").write(str(seen + 1))
+    if mode == "busy" or seen == 0:
+        emit({"type": "error", "message": "exceeded retry limit, last status: 429 Too Many Requests"}); sys.exit(1)
+turn = ({"input_tokens": 30, "cached_input_tokens": 25, "output_tokens": 7} if resume else
+        {"input_tokens": 10, "cached_input_tokens": 4, "output_tokens": 2})
+total = {key: before[key] + turn[key] for key in turn}
+if "--ephemeral" not in args or resume:  # Codex 0.164 appends a resumed turn even with --ephemeral.
+    os.makedirs(os.path.dirname(rollout), exist_ok=True)
+    open(rollout, "a").write(json.dumps(total) + "\\n")
+if mode == "echo":
+    emit({"type": "item.completed", "item": {"type": "agent_message", "text": json.dumps({"answer": json.dumps(
+        {"args": args, "cwd": os.getcwd()})})}})
+    emit({"type": "turn.completed", "usage": total}); sys.exit(0)
 if mode == "sleep":
     time.sleep(30)
 if mode == "reject":
     print("ERROR: The 'gpt-6-astra' model requires a newer version of Codex.", file=sys.stderr); sys.exit(1)
 if mode == "limit":
     print("You've hit your usage limit. Try again later.", file=sys.stderr); sys.exit(1)
-if mode in ("busy", "busy-once"):
-    calls = %(mode)r + ".calls"
-    seen = int(open(calls).read()) if __import__("os").path.exists(calls) else 0
-    open(calls, "w").write(str(seen + 1))
-    if mode == "busy" or seen == 0:
-        emit({"type": "error", "message": "exceeded retry limit, last status: 429 Too Many Requests"}); sys.exit(1)
 if mode == "garbage":
     emit({"type": "item.completed", "item": {"type": "agent_message", "text": "not json"}}); sys.exit(0)
 emit({"type": "item.completed", "item": {"type": "web_search", "id": "w1", "status": "completed", "action": {"type": "search", "query": "PLA"}}})
 emit({"type": "item.completed", "item": {"type": "mcp_tool_call", "id": "m1", "server": "oopc", "tool": "search_knowledge", "status": "completed"}})
 emit({"type": "item.completed", "item": {"type": "agent_message", "text": json.dumps({"answer": "ok:" + str("--output-schema" in args) + ":" + str("features.shell_tool=false" in args)})}})
-emit({"type": "turn.completed", "usage": {"input_tokens": 10, "cached_input_tokens": 4, "output_tokens": 2}})
+emit({"type": "turn.completed", "usage": total})
 if mode == "crash-after-answer":
     sys.exit(3)
+"""
+
+CLAUDE = """
+import json, os, re, sys, uuid
+args = sys.argv[1:]
+prompt = sys.stdin.read()
+def emit(value): print(json.dumps(value), flush=True)
+# Like Claude Code: a session is saved under $CLAUDE_CONFIG_DIR/projects/<working folder> unless
+# --no-session-persistence, and --resume ID continues it from the same working folder.
+session = args[args.index("--resume") + 1] if "--resume" in args else str(uuid.uuid4())
+project = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "projects", re.sub(r"[^A-Za-z0-9]", "-", os.getcwd()))
+transcript = os.path.join(project, session + ".jsonl")
+if "--resume" in args and not os.path.exists(transcript):
+    print("No conversation found with session ID: " + session, file=sys.stderr); sys.exit(1)
+emit({"type": "system", "subtype": "init", "session_id": session, "cwd": os.getcwd()})
+# Large tool results (fetched pages and PDFs) are kept beside the session even when it is not saved.
+os.makedirs(os.path.join(project, session, "tool-results"), exist_ok=True)
+open(os.path.join(project, session, "tool-results", "webfetch.pdf"), "w").write("%PDF")
+if "--no-session-persistence" not in args:
+    os.makedirs(project, exist_ok=True)
+    open(transcript, "a").write(json.dumps({"prompt": prompt}) + "\\n")
+emit({"type": "result", "subtype": "success", "session_id": session,
+      "structured_output": {"answer": json.dumps({"args": args, "cwd": os.getcwd()})},
+      "usage": {"input_tokens": 3, "cache_read_input_tokens": 7, "cache_creation_input_tokens": 1, "output_tokens": 4}})
 """
 
 
@@ -112,6 +176,7 @@ class ParsingTests(unittest.TestCase):
                  ("rate_limit_exceeded", "rate-limited"),
                  ("exceeded retry limit, last status: 429 Too Many Requests", "rate-limited"),
                  ("Error: Not logged in. Run codex login", "not-signed-in"),
+                 ("Failed to authenticate: OAuth session expired and could not be refreshed", "not-signed-in"),
                  ("invalid_request_error: model requires a newer version", "rejected"),
                  ("2026-09-28T11:03:08.909429Z WARN something happened", "crashed")]
         for text, reason in cases:
@@ -135,8 +200,16 @@ class SessionTests(unittest.TestCase):
         binary = self.folder / "codex"
         binary.write_text("#!" + sys.executable + "\n" + CODEX % {"mode": str(self.mode)})
         binary.chmod(binary.stat().st_mode | stat.S_IEXEC)
-        patches = [mock.patch.dict(os.environ, {"OOPC_CODEX_BINARY": str(binary)}),
-                   mock.patch.object(engines, "host_engines_allowed", return_value=True)]
+        claude = self.folder / "claude"
+        claude.write_text("#!" + sys.executable + "\n" + CLAUDE)
+        claude.chmod(claude.stat().st_mode | stat.S_IEXEC)
+        self.codex_home, self.claude_home = self.folder / "codex-home", self.folder / "claude-home"
+        (self.folder / "tmp").mkdir()
+        patches = [mock.patch.dict(os.environ, {"OOPC_CODEX_BINARY": str(binary), "OOPC_CLAUDE_BINARY": str(claude),
+                                                "CODEX_HOME": str(self.codex_home),
+                                                "CLAUDE_CONFIG_DIR": str(self.claude_home)}),
+                   mock.patch.object(engines, "host_engines_allowed", return_value=True),
+                   mock.patch.object(tempfile, "tempdir", str(self.folder / "tmp"))]
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
@@ -151,7 +224,152 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(result["answer"], {"answer": "ok:True:True"})
         self.assertEqual(result["usage"]["cached_input_tokens"], 4)
         self.assertEqual([t["type"] for t in result["observedTools"]], ["web_search", "mcp_tool_call"])
-        self.assertEqual(len(lines), 4)
+        self.assertEqual(len(lines), 5)
+
+    def index(self, folder):
+        """The threads the fake Codex's state database in `folder` holds."""
+        path = Path(folder) / "state_5.sqlite"
+        return json.loads(path.read_text())["threads"] if path.exists() else []
+
+    def test_an_unsaved_session_is_ephemeral_and_returns_the_engines_own_session_id(self):
+        result, lines = self.run_mode("echo")
+        self.assertIn("--ephemeral", json.loads(result["answer"]["answer"])["args"])
+        self.assertEqual(result["sessionId"], json.loads(lines[0])["thread_id"])
+        self.assertEqual(list(self.codex_home.rglob("*.jsonl")), [])
+        self.assertNotIn(result["sessionId"], self.index(self.codex_home))
+        self.mode.write_text("two-ids")  # The first id the stream reports is the session's.
+        result = engines.run_session("codex", "Question", SCHEMA, timeout=20, progress=lines.append)
+        self.assertEqual(result["sessionId"], json.loads(lines[-6])["thread_id"])
+        self.mode.write_text("echo")
+        result = engines.run_session("claude-code", "Question", SCHEMA, timeout=20)
+        self.assertIn("--no-session-persistence", json.loads(result["answer"]["answer"])["args"])
+        self.assertTrue(result["sessionId"])
+        # Nothing of an unsaved Claude Code session is left: no transcript, fetched files or project folder.
+        self.assertEqual(list((self.claude_home / "projects").iterdir()), [])
+        with self.assertRaises(ValueError):  # A saved session needs a working folder for its later turns.
+            engines.run_session("codex", "Question", SCHEMA, timeout=20, persist=True)
+
+    def test_a_saved_codex_session_is_resumed_in_its_folder_with_its_own_usage_then_deleted(self):
+        self.mode.write_text("echo")
+        mine = self.codex_home / "sessions/2026/10/25/rollout-2026-10-25T00-00-00-01a16980-5f53-7bb0-9424-b3e5e61463a1.jsonl"
+        mine.parent.mkdir(parents=True)
+        mine.write_text("{}\n")  # The user's own history
+        work = engines.session_folder("question")
+        self.assertEqual(stat.S_IMODE(work.stat().st_mode), 0o700)
+        first = engines.run_session("codex", "Question", SCHEMA, timeout=20, persist=True, folder=work)
+        seen = json.loads(first["answer"]["answer"])
+        self.assertNotIn("--ephemeral", seen["args"])
+        self.assertEqual(Path(seen["cwd"]).resolve(), work.resolve())
+        # Codex's index of the thread is in the session's folder, never in $CODEX_HOME, and that index was made empty
+        # first, so the user's own threads were not copied into it; no memories are made of the session.
+        self.assertEqual((self.index(work), (self.codex_home / "state_5.sqlite").exists()), ([first["sessionId"]], False))
+        for flag in ('sqlite_home="%s"' % work, "memories.generate_memories=false", "memories.use_memories=false"):
+            self.assertIn(flag, seen["args"])
+        [rollout] = self.codex_home.rglob("rollout-*-%s.jsonl" % first["sessionId"])
+        self.assertTrue(engines.saved_session_exists("codex", first["sessionId"]))
+        self.assertEqual(json.loads((work / engines.SESSION_RECORD).read_text())["sessionIds"], [first["sessionId"]])
+        second = engines.run_session("codex", "Findings", SCHEMA, timeout=20, resume=first["sessionId"],
+                                     previous_usage=first["sessionUsage"], folder=work)
+        seen = json.loads(second["answer"]["answer"])
+        # `codex exec resume` takes neither -s nor --cd: the sandbox by config, the folder as the working folder.
+        self.assertEqual((seen["args"][:2], seen["args"][-2:]), (["exec", "resume"], [first["sessionId"], "-"]))
+        self.assertFalse({"-s", "--cd"} & set(seen["args"]))
+        for flag in ("--ephemeral", 'sandbox_mode="read-only"', 'sqlite_home="%s"' % work,
+                     "memories.generate_memories=false", "memories.use_memories=false"):
+            self.assertIn(flag, seen["args"])
+        self.assertEqual(Path(seen["cwd"]).resolve(), work.resolve())
+        self.assertEqual((self.index(work), (self.codex_home / "state_5.sqlite").exists()), ([first["sessionId"]], False))
+        # Codex reports the thread's usage from its start: the turn's own usage is the difference.
+        self.assertEqual(first["usage"], {"input_tokens": 10, "cached_input_tokens": 4, "output_tokens": 2})
+        self.assertEqual(second["usage"], {"input_tokens": 30, "cached_input_tokens": 25, "output_tokens": 7})
+        self.assertEqual(second["sessionUsage"], {"input_tokens": 40, "cached_input_tokens": 29, "output_tokens": 9})
+        self.assertEqual((second["sessionId"], engines.discard_session("codex", first["sessionId"], work)),
+                         (first["sessionId"], []))
+        self.assertFalse(rollout.exists() or work.exists() or engines.saved_session_exists("codex", first["sessionId"]))
+        self.assertEqual([p.name for p in self.codex_home.rglob("*")
+                          if p.is_file() and first["sessionId"] in p.read_text()], [])  # Nothing names it any more.
+        # A resumed turn whose session is gone fails with a named reason.
+        work = engines.session_folder("question")
+        with self.assertRaises(engines.EngineError) as raised:
+            engines.run_session("codex", "Findings", SCHEMA, timeout=20, resume=first["sessionId"], folder=work)
+        self.assertEqual(raised.exception.reason, "crashed")
+        engines.discard_session("codex", None, work)
+
+    def test_a_saved_claude_session_is_resumed_by_its_id_in_the_same_folder_then_deleted(self):
+        work = engines.session_folder("question")
+        first = engines.run_session("claude-code", "Question", SCHEMA, timeout=20, persist=True, folder=work)
+        self.assertNotIn("--no-session-persistence", json.loads(first["answer"]["answer"])["args"])
+        [transcript] = self.claude_home.rglob(first["sessionId"] + ".jsonl")
+        second = engines.run_session("claude-code", "Findings", SCHEMA, timeout=20, resume=first["sessionId"],
+                                     previous_usage=first["sessionUsage"], folder=work)
+        args = json.loads(second["answer"]["answer"])["args"]
+        self.assertEqual(args[args.index("--resume") + 1], first["sessionId"])
+        self.assertNotIn("--no-session-persistence", args)
+        # Taken as each run's own usage (unverified for a resumed run): nothing is subtracted.
+        self.assertEqual(second["usage"], first["usage"])
+        self.assertEqual(second["sessionUsage"], {key: 2 * value for key, value in first["usage"].items()})
+        self.assertEqual(engines.discard_session("claude-code", first["sessionId"], work), [])
+        self.assertFalse(transcript.exists() or transcript.parent.exists() or work.exists())
+
+    def test_a_failed_first_turn_deletes_what_it_saved(self):
+        self.mode.write_text("garbage")
+        work = engines.session_folder("question")
+        with self.assertRaises(engines.EngineError) as raised:
+            engines.run_session("codex", "Question", SCHEMA, timeout=20, persist=True, folder=work)
+        self.assertEqual(raised.exception.reason, "invalid-output")
+        self.assertTrue(raised.exception.session_id)
+        self.assertEqual(list(self.codex_home.rglob("*.jsonl")), [])  # Never resumed, so deleted at once.
+        engines.discard_session("codex", None, work)
+        self.assertFalse(work.exists())
+
+    def test_claude_quota_that_the_cli_no_longer_reports_is_named_so(self):
+        # Claude Code 2.1.308 answers `/usage` in print mode with the session's cost, not its subscription limits.
+        report = json.dumps({"type": "result", "local_command": "usage", "result": "Total cost:            $0.0000\n"
+                             "Usage:                 0 input, 0 output, 0 cache read, 0 cache write"})
+        done = subprocess.CompletedProcess([], 0, stdout=report, stderr="")
+        with mock.patch.object(engines.subprocess, "run", return_value=done):
+            value = engines.read_quota("claude-code")
+        self.assertEqual((value["remainingPercent"], value["reason"]), (None, "not-reported"))
+
+    def test_engine_homes_are_only_used_when_set_under_tests(self):
+        with mock.patch.object(engines, "host_engines_allowed", return_value=False):
+            with mock.patch.dict(os.environ, {"CODEX_HOME": "", "CLAUDE_CONFIG_DIR": ""}):
+                self.assertEqual((engines.engine_home("codex"), engines.engine_home("claude-code")), (None, None))
+                self.assertFalse(engines.saved_session_exists("codex", "01a16980-5f53-7bb0-9424-b3e5e61463a1"))
+            # An inherited CODEX_HOME is not a test's own: honoured only when the test opts in.
+            self.assertEqual(engines.engine_home("codex"), None)
+            with mock.patch.dict(os.environ, {"OOPC_TEST_ENGINE_HOMES": "1"}):
+                self.assertEqual(engines.engine_home("codex"), self.codex_home)
+        self.assertEqual(engines.engine_home("codex"), self.codex_home)
+        # A recorded folder that is not a session folder is never deleted.
+        other = self.folder / "not-a-session"
+        other.mkdir()
+        engines.discard_session("codex", None, other)
+        self.assertTrue(other.exists())
+
+    def test_a_rate_limited_resumed_turn_resumes_the_same_session_after_the_pause(self):
+        self.mode.write_text("echo")
+        work = engines.session_folder("question")
+        first = engines.run_session("codex", "Question", SCHEMA, timeout=20, persist=True, folder=work)
+        self.mode.write_text("busy-once")
+        with mock.patch.object(engines, "RATE_LIMIT_PAUSE", 0), mock.patch.object(engines, "RATE_LIMIT_MIN_SECONDS", 1), \
+                mock.patch.object(engines.time, "sleep"):
+            second = engines.run_session("codex", "Findings", SCHEMA, timeout=20, resume=first["sessionId"],
+                                         previous_usage=first["sessionUsage"], folder=work)
+        self.assertEqual((second["sessionId"], second["answer"]["answer"]), (first["sessionId"], "ok:True:True"))
+        self.assertEqual(Path(str(self.mode) + ".calls").read_text(), "2")
+        self.assertEqual(second["usage"], {"input_tokens": 30, "cached_input_tokens": 25, "output_tokens": 7})
+        engines.discard_session("codex", first["sessionId"], work)
+        self.assertEqual(list(self.codex_home.rglob("*.jsonl")), [])
+
+    def test_a_turns_own_usage_is_the_difference_only_when_the_report_covers_the_earlier_turns(self):
+        before = {"input_tokens": 100, "cached_input_tokens": 40, "output_tokens": 10}
+        later = {"input_tokens": 250, "cached_input_tokens": 140, "output_tokens": 25}
+        self.assertEqual(engines.turn_usage("codex", later, before),
+                         {"input_tokens": 150, "cached_input_tokens": 100, "output_tokens": 15})
+        own = {"input_tokens": 90, "cached_input_tokens": 80, "output_tokens": 20}  # Smaller: only the turn's own.
+        self.assertEqual(engines.turn_usage("codex", own, before), own)
+        self.assertEqual(engines.turn_usage("claude-code", later, before), later)
 
     def test_a_valid_answer_survives_a_bad_exit(self):
         result, _ = self.run_mode("crash-after-answer")

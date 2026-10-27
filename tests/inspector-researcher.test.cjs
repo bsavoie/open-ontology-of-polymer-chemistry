@@ -239,6 +239,33 @@ test('an answer with findings waiting for review keeps polling until they are re
   assert.equal(ui.reviewPending(task), false);
 });
 
+test('an answer shows its findings being saved after it, or why they were not saved', () => {
+  const saving = {result: {}, depositState: {status: 'saving'}, reusedFindings: {supported: 1}};
+  assert.deepEqual([ui.provenanceSummary(saving).label, ui.provenanceSummary(saving).tone], ['Saving findings…', 'neutral']);
+  assert.match(ui.provenanceSummary(saving).note, /The answer is ready.*reused 1 saved finding\./);
+  assert.equal(ui.savingFindings(saving), true);  // Keeps polling until they are saved.
+  const failed = {result: {}, depositState: {status: 'failed', reason: 'timeout', message: 'Stopped at the 300-second limit'}};
+  // The reason in plain words, as other failures are, never the raw code.
+  assert.deepEqual([ui.provenanceSummary(failed).label, ui.provenanceSummary(failed).tone], ['Findings not saved: out of time', 'warn']);
+  assert.match(ui.provenanceSummary(failed).note, /The answer stands, .*not saved: writing them reached its time limit\./);
+  assert.equal(ui.savingFindings(failed), false);
+  const stopped = ui.provenanceSummary({result: {}, depositState: {status: 'failed', reason: 'interrupted'}});
+  assert.equal(stopped.label, 'Findings not saved: app stopped');
+  assert.doesNotMatch(ui.provenanceSummary({result: {}, depositState: {status: 'failed', reason: 'new-reason'}}).label, /new-reason/);
+  // Once saved, the deposit is described as before.
+  const saved = {result: {}, depositState: {status: 'saved'}, deposit: {findings: 3, reviewStatus: 'nothing-to-review', counts: {accepted: 3}}};
+  assert.equal(ui.provenanceSummary(saved).label, 'Findings added');
+  assert.equal(ui.savingFindings(saved), false);
+});
+
+test('an answer is redrawn only when its saved findings or their review change', () => {
+  const saving = {result: {}, status: 'completed', depositState: {status: 'saving'}, effort: {seconds: 30}};
+  assert.equal(ui.depositKey(saving), ui.depositKey({...saving, effort: {seconds: 31}}));  // Unrelated detail: no redraw.
+  const saved = {...saving, depositState: {status: 'saved'}, deposit: {findings: 2, waitingReview: 1, counts: {accepted: 2}}};
+  assert.notEqual(ui.depositKey(saving), ui.depositKey(saved));
+  assert.notEqual(ui.depositKey(saved), ui.depositKey({...saved, deposit: {...saved.deposit, waitingReview: 0}}));
+});
+
 test('exhausted reviews stop polling and retain the failure explanation', () => {
   const task = {result: {}, deposit: {findings: 1, counts: {unreviewed: 1}, reviewStatus: 'failed', reviewAttempts: 2}};
   assert.equal(ui.reviewPending(task), false);

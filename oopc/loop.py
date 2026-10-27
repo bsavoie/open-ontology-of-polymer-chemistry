@@ -177,12 +177,23 @@ def research_stage(root, *, runner=None, engine=None, moment=None, reserve_perce
     return {"status": "asked", "questionId": view["id"], "outcome": service.get(view["id"])["status"]}
 
 
+def settle_deposits(root, *, runner=None, engine=None):
+    """Deposits left saving by a process that stopped (an interrupted `oopc ask`, a killed tick), settled before the
+    tick ends: their second turn is tried once more if the session is still saved, else they fail as interrupted."""
+    from .ask import Questions
+    service = Questions(root, runner=runner, review_engine=engine)
+    settled = service.settle_stale()
+    service.wait(reviews=True)
+    return settled
+
+
 def tick(root, *, runner=None, engine=None):
     """Run each stage once. Overlapping ticks skip instead of waiting."""
     root = Path(root).resolve()
     entry = {"startedAt": now()}
     try:
         with locked(_folder(root) / "tick.lock", blocking=False):
+            entry["deposits"] = settle_deposits(root, runner=runner, engine=engine)
             entry["reviews"] = review_stage(root, runner=runner, engine=engine)
             entry["research"] = research_stage(root, runner=runner, engine=engine)
     except BlockingIOError:

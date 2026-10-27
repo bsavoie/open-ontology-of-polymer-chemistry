@@ -28,6 +28,27 @@ class CallLedger(unittest.TestCase):
         self.assertEqual(value["failed"], {"quota": 1})
         self.assertEqual(calls.summary(self.root), value)
 
+    def test_the_next_answer_waits_for_the_last_ones_findings_so_it_reads_them(self):
+        started, release = threading.Event(), threading.Event()
+
+        def slow(*a, **k):
+            started.set()
+            self.assertTrue(release.wait(3))
+            return {"engine": "codex", "answer": {}}
+        background = threading.Thread(target=lambda: calls.invoke(self.root, "deposit", "q1", slow, "codex", "", {}))
+        background.start()
+        self.assertTrue(started.wait(3))
+        answered = threading.Event()
+        foreground = threading.Thread(target=lambda: (calls.invoke(self.root, "research", "q2", lambda *a, **k:
+                                                                   {"engine": "codex", "answer": {}}, "codex", "", {}),
+                                                      answered.set()))
+        foreground.start()
+        self.assertFalse(answered.wait(0.5))  # Still writing q1's findings.
+        release.set()
+        self.assertTrue(answered.wait(3))
+        for thread in (background, foreground):
+            thread.join(3)
+
     def test_a_second_reviewer_waits_and_finds_nothing_left_to_review(self):
         q, identifier = self.deposit()
         started, release = threading.Event(), threading.Event()

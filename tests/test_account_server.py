@@ -151,7 +151,10 @@ class AccountServerTests(unittest.TestCase):
     def test_a_running_question_blocks_login(self):
         self.tasks.items = [{"taskId": "b" * 32, "status": "running"}]
         self.assertEqual(self.login()[0], 409)
-        self.tasks.items = [{"taskId": "b" * 32, "status": "completed"}]
+        # An answered question whose session is still writing its findings is running too.
+        self.tasks.items = [{"taskId": "b" * 32, "status": "completed", "depositState": {"status": "saving"}}]
+        self.assertEqual(self.login()[0], 409)
+        self.tasks.items = [{"taskId": "b" * 32, "status": "completed", "depositState": {"status": "failed"}}]
         self.assertEqual(self.login()[0], 202)
 
     def test_question_submission_cannot_race_login_transition(self):

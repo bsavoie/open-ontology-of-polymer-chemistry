@@ -10,6 +10,11 @@ Both engines use the user's own saved subscription sign-in. API keys and
 provider overrides are removed from the worker environment. Workers get web
 access and, when given, the coordinator-hosted `oopc` MCP tools; they have no
 shell and cannot read local files.
+
+A session is not saved unless asked (`persist`), so a later turn can resume it
+(`resume`). Both CLIs save sessions under the user's home folder, outside
+`.oopc/`, so a saved session is deleted with `discard_session` as soon as its
+last turn ends.
 """
 from __future__ import annotations
 
@@ -52,13 +57,15 @@ CLAUDE_AUTH_HOSTS = frozenset({"claude.ai", "claude.com", "console.anthropic.com
 
 
 class EngineError(RuntimeError):
-    """A failed session, with one of `REASONS`."""
+    """A failed session, with one of `REASONS`. `session_id` is the engine's id for the session when its stream gave
+    one, and `session_usage` the usage it reported for the whole session (see `run_session`)."""
 
-    def __init__(self, reason, message, *, seconds=None, usage=None):
+    def __init__(self, reason, message, *, seconds=None, usage=None, session_id=None, session_usage=None):
         if reason not in REASONS:
             raise ValueError("Unknown engine failure reason: " + str(reason))
         super().__init__(message)
         self.reason, self.seconds, self.usage = reason, seconds, usage or {}
+        self.session_id, self.session_usage = session_id, session_usage or {}
 
     @property
     def retryable(self):
@@ -298,7 +305,9 @@ def read_quota(engine, timeout=20):
                                        env=claude_environment(), stdin=subprocess.DEVNULL, cwd=Path.home())
         except (OSError, subprocess.TimeoutExpired):
             return _quota([], "cli-error")
-        reason = "cli-error" if completed.returncode or not (completed.stdout or "").strip() else "unrecognized-report"
+        reason = ("cli-error" if completed.returncode or not (completed.stdout or "").strip()
+                  else "not-reported" if "Total cost:" in completed.stdout else "unrecognized-report")
+        # Claude Code 2.1.308 answers `/usage` in print mode with the session's cost, not its subscription limits.
         return _quota(parse_claude_usage(completed.stdout), reason)
     return _read_codex_quota(timeout)
 
@@ -444,6 +453,8 @@ def parse_claude_stream(stdout):
                     errors[block.get("tool_use_id")] = "failed" if block.get("is_error") is True else (
                         "refused" if refused else "")
         elif event.get("type") == "result":
+            # Taken as this run's own usage. Whether a resumed run (`--resume`) reports only its own turn or the earlier
+            # turns too is unverified (2026-10-25): if it is cumulative, add CLAUDE to CUMULATIVE_USAGE.
             raw = event.get("usage") if isinstance(event.get("usage"), dict) else {}
             if isinstance(raw.get("input_tokens"), int) and isinstance(raw.get("output_tokens"), int):
                 cached = raw.get("cache_read_input_tokens") or 0
@@ -484,6 +495,50 @@ def parse_claude_stream(stdout):
     return answer, usage, tools
 
 
+def stream_session_id(line):
+    """The engine's id for its session, from one stream line: Codex's `thread.started` event gives the thread id;
+    Claude Code's init (system) and result events give the session id."""
+    if '"thread.started"' not in line and '"session_id"' not in line:
+        return None
+    try:
+        event = json.loads(line)
+    except ValueError:
+        return None
+    if not isinstance(event, dict):
+        return None
+    value = event.get("thread_id") if event.get("type") == "thread.started" else (
+        event.get("session_id") if event.get("type") in ("system", "result") else None)
+    return value if isinstance(value, str) and value else None
+
+
+# Engines that report a resumed session's usage from its start, so a turn's own usage is the difference. Codex does
+# (smoke test, 2026-10-25: a resumed process's usage included the earlier turns' input and output). Claude Code is
+# taken to report each run's own usage; that is unverified (see `parse_claude_stream`).
+CUMULATIVE_USAGE = frozenset({CODEX})
+USAGE_KEYS = ("input_tokens", "cached_input_tokens", "output_tokens")
+
+
+def turn_usage(engine, reported, previous):
+    """A turn's own usage from what the engine reported, given the session's usage before the turn. The difference is
+    taken only when every count reported is at least the one before (the report then covers the earlier turns too);
+    otherwise the report is taken as the turn's own, never clamped."""
+    if engine not in CUMULATIVE_USAGE or not reported or not previous:
+        return reported
+    counts = {key: value for key, value in reported.items() if type(value) is int and type(previous.get(key)) is int}
+    if not counts or any(value < previous[key] for key, value in counts.items()):
+        return reported
+    return {key: value - previous[key] if key in counts else value for key, value in reported.items()}
+
+
+def session_usage(engine, reported, previous):
+    """The session's usage from its start, after this turn: what the next turn's `previous_usage` is."""
+    if engine in CUMULATIVE_USAGE or not previous:
+        return reported
+    if not reported:
+        return previous
+    return {key: (reported.get(key) or 0) + (previous.get(key) or 0) for key in USAGE_KEYS}
+
+
 def classify_failure(returncode, stdout, stderr):
     """A named reason for a session that produced no valid answer."""
     text = ((stderr or "") + "\n" + (stdout or "")[-4000:]).lower()
@@ -492,7 +547,9 @@ def classify_failure(returncode, stdout, stderr):
     # Too many requests at once: the subscription still has quota (2026-10-14: two hours of 429s at 74% remaining).
     if re.search(r"rate[ _]limit|too many requests|\bstatus:? ?429\b", text):
         return "rate-limited"
-    if re.search(r"not logged in|login required|please log in|unauthorized|\bstatus:? ?401\b", text):
+    # Claude Code reports an expired sign-in in its stream, not on stderr (2026-10-26).
+    if re.search(r"not logged in|login required|please log in|unauthorized|\bstatus:? ?401\b|failed to authenticate|"
+                 r"oauth session expired|authentication_error", text):
         return "not-signed-in"
     if re.search(r"invalid_request_error|requires a newer version|400 bad request|model is not supported|unsupported model", text):
         return "rejected"
@@ -577,24 +634,40 @@ def _stop_live_workers():
 atexit.register(_stop_live_workers)
 
 
-def codex_command(schema_path, folder, *, model, web, tools):
-    command = [resolve_codex_binary(), "exec", "-m", model, "-s", "read-only", "--ephemeral", "--ignore-user-config",
-               "--skip-git-repo-check", "--json", "--output-schema", str(schema_path), "--cd", str(folder),
-               "-c", 'forced_login_method="chatgpt"', "-c", 'web_search="live"' if web else 'web_search="disabled"',
-               "-c", "features.apps=false", "-c", "features.skill_mcp_dependency_install=false",
-               "-c", "features.shell_tool=false", "-c", "features.unified_exec=false"]
+def codex_command(schema_path, folder, *, model, web, tools, persist=False, resume=None):
+    """`codex exec`, or with `resume` (a thread id) `codex exec resume`, which takes neither `-s` nor `--cd`: its sandbox
+    is set by config and its folder is the process's working folder. A first turn is saved only with `persist`.
+
+    A saved session's turns keep Codex's state databases (its index of threads and their turns) in the session's own
+    folder (`sqlite_home`), so they never reach `$CODEX_HOME` and are deleted with the folder, and generate no memories.
+    The resumed turn is `--ephemeral` too (Codex 0.164 still appends it to the rollout, which is deleted after it)."""
+    if resume:
+        command = [resolve_codex_binary(), "exec", "resume", "-m", model, "--ephemeral", "--ignore-user-config",
+                   "--skip-git-repo-check", "--json", "--output-schema", str(schema_path), "-c", 'sandbox_mode="read-only"']
+    else:
+        command = [resolve_codex_binary(), "exec", "-m", model, "-s", "read-only", *([] if persist else ["--ephemeral"]),
+                   "--ignore-user-config", "--skip-git-repo-check", "--json", "--output-schema", str(schema_path),
+                   "--cd", str(folder)]
+    command += ["-c", 'forced_login_method="chatgpt"', "-c", 'web_search="live"' if web else 'web_search="disabled"',
+                "-c", "features.apps=false", "-c", "features.skill_mcp_dependency_install=false",
+                "-c", "features.shell_tool=false", "-c", "features.unified_exec=false"]
+    if persist or resume:
+        command += [*codex_state_options(folder), "-c", "memories.generate_memories=false",
+                    "-c", "memories.use_memories=false"]
     if tools:
         command += ["-c", "mcp_servers.oopc.command=" + json.dumps(tools["command"]),
                     "-c", "mcp_servers.oopc.args=" + json.dumps(tools["args"]),
                     "-c", "mcp_servers.oopc.required=true", "-c", "mcp_servers.oopc.startup_timeout_sec=60"]
-    return command + ["-"]
+    return command + ([resume] if resume else []) + ["-"]
 
 
-def claude_command(schema, folder, *, model, web, tools):
+def claude_command(schema, folder, *, model, web, tools, persist=False, resume=None):
+    """`claude -p`; a first turn is saved only with `persist`, and `resume` (a session id) continues a saved one. Claude
+    Code files a session under its working folder, so both turns run in the same `folder`."""
     command = [resolve_claude_binary(), "-p", "--model", model, "--output-format", "stream-json", "--verbose",
                "--json-schema", json.dumps(schema), "--restricted", "--strict-mcp-config", "--setting-sources", "local",
-               "--disable-slash-commands", "--no-session-persistence", "--permission-mode", "dontAsk",
-               "--permission-prompts", "none"]
+               "--disable-slash-commands", *([] if persist or resume else ["--no-session-persistence"]),
+               "--permission-mode", "dontAsk", "--permission-prompts", "none"]
     command += ["--tools", ",".join(CLAUDE_WEB_TOOLS)] if web else ["--disallowedTools", ",".join(CLAUDE_WEB_TOOLS + CLAUDE_DENIED)]
     allowed = (["mcp__oopc"] if tools else []) + (list(CLAUDE_WEB_TOOLS) if web else [])
     if allowed:
@@ -602,7 +675,7 @@ def claude_command(schema, folder, *, model, web, tools):
     config = Path(folder) / "mcp-config.json"
     servers = {"oopc": {"type": "stdio", "command": tools["command"], "args": tools["args"]}} if tools else {}
     config.write_text(json.dumps({"mcpServers": servers}), encoding="utf-8")
-    return command + ["--mcp-config", str(config)]
+    return command + ["--mcp-config", str(config)] + (["--resume", resume] if resume else [])
 
 
 def _run_process(command, *, prompt, cwd, env, timeout, on_line, idle=None):
@@ -684,53 +757,94 @@ def _run_process(command, *, prompt, cwd, env, timeout, on_line, idle=None):
     return process.returncode, "".join(out), "".join(err), stopped
 
 
-def run_session(engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None):
-    """One fresh session. Returns a result dict or raises EngineError.
+def run_session(engine, prompt, schema, *, tools=None, web=True, timeout=600, progress=None, idle=None,
+                persist=False, resume=None, previous_usage=None, folder=None):
+    """One session turn. Returns a result dict or raises EngineError.
 
-    `tools` is an MCP service object (with `serve`) hosted for this session only.
+    `tools` is an MCP service object (with `serve`) hosted for this turn only.
     `progress` receives each raw stream line, for display. A rate-limited session is started once more after
     RATE_LIMIT_PAUSE seconds, within the same time limit; callers' own retry rules apply to the other reasons.
     `idle` stops a session that writes nothing for that many seconds (a `timeout`); reviews and checks use it.
+
+    By default a session is fresh, runs in a temporary folder and is not saved. With `persist` it is saved so a later
+    turn can `resume` it by its `sessionId` (the engine's own id: Codex's thread id, Claude Code's session id). Every
+    turn of a saved session runs in its working `folder` (from `session_folder`), which records the session's ids so
+    `discard_session` can delete it. A resumed turn returns its own `usage`; pass the previous turn's `sessionUsage` as
+    `previous_usage`, since Codex reports a resumed session's usage from its start. A first turn that fails deletes
+    what it saved (it is never resumed); a resumed turn that fails leaves the session for one retry, and the caller
+    discards it when the last turn ends.
     """
-    started = time.monotonic()
-    try:
-        return _session(engine, prompt, schema, tools=tools, web=web, timeout=timeout, progress=progress, idle=idle)
-    except EngineError as error:
-        remaining = timeout - (time.monotonic() - started) - RATE_LIMIT_PAUSE
-        if error.reason != "rate-limited" or remaining < RATE_LIMIT_MIN_SECONDS:
-            raise
-    time.sleep(RATE_LIMIT_PAUSE)
-    return _session(engine, prompt, schema, tools=tools, web=web, timeout=int(remaining), progress=progress,
-                    idle=idle)
+    if (persist or resume) and folder is None:
+        raise ValueError("A saved or resumed session needs its working folder")
+    if persist and resume:
+        raise ValueError("A resumed session is already saved")
+    options = dict(tools=tools, web=web, progress=progress, idle=idle, persist=persist, resume=resume,
+                   previous_usage=previous_usage, folder=Path(folder) if folder is not None else None)
+    started, limit = time.monotonic(), timeout
+    for attempt in (1, 2):
+        try:
+            return _session(engine, prompt, schema, timeout=limit, **options)
+        except EngineError as error:
+            if persist:
+                discard_session(engine, error.session_id)  # A failed first turn is never resumed.
+            remaining = timeout - (time.monotonic() - started) - RATE_LIMIT_PAUSE
+            if attempt == 2 or error.reason != "rate-limited" or remaining < RATE_LIMIT_MIN_SECONDS:
+                raise
+        time.sleep(RATE_LIMIT_PAUSE)
+        limit = int(remaining)
 
 
-def _session(engine, prompt, schema, *, tools, web, timeout, progress, idle=None):
+def _session(engine, prompt, schema, *, tools, web, timeout, progress, idle=None, persist=False, resume=None,
+             previous_usage=None, folder=None):
     if engine not in ENGINES:
         raise ValueError("Unsupported engine")
     if not host_engines_allowed():
         raise EngineError("not-signed-in", "Engines are disabled while tests run")
     model = ENGINES[engine]["model"]
-    started = time.monotonic()
-    with tempfile.TemporaryDirectory(prefix="oopc-" + engine + "-") as directory:
-        folder = Path(directory)
+    started, seen = time.monotonic(), []
+
+    def on_line(line):
+        identifier = stream_session_id(line)
+        if identifier and identifier not in seen:
+            seen.append(identifier)
+            if folder is not None:
+                _record_session(folder, engine, identifier)  # As soon as it is known, so a stopped app can delete it.
+        if progress:
+            progress(line)
+    with (_working_folder(folder) if folder is not None else tempfile.TemporaryDirectory(prefix="oopc-" + engine + "-")) \
+            as directory:
+        directory = Path(directory)
+        if engine == CODEX and persist:
+            init_codex_state(directory)
         with (hosted_tools(tools) if tools is not None else _nothing()) as proxy_config:
             if engine == CODEX:
-                schema_path = folder / "schema.json"
+                schema_path = directory / "schema.json"
                 schema_path.write_text(json.dumps(schema), encoding="utf-8")
-                command = codex_command(schema_path, folder, model=model, web=web, tools=proxy_config)
+                command = codex_command(schema_path, directory, model=model, web=web, tools=proxy_config,
+                                        persist=persist, resume=resume)
                 env, parse = codex_environment(), parse_codex_stream
             else:
-                command = claude_command(schema, folder, model=model, web=web, tools=proxy_config)
+                command = claude_command(schema, directory, model=model, web=web, tools=proxy_config, persist=persist,
+                                         resume=resume)
                 env, parse = claude_environment(), parse_claude_stream
             try:
-                returncode, stdout, stderr, stopped = _run_process(command, prompt=prompt, cwd=folder, env=env,
-                                                                   timeout=timeout, on_line=progress, idle=idle)
+                returncode, stdout, stderr, stopped = _run_process(command, prompt=prompt, cwd=directory, env=env,
+                                                                   timeout=timeout, on_line=on_line, idle=idle)
             except FileNotFoundError as error:
                 raise EngineError("not-signed-in", engine + " is not installed: " + str(error)) from error
             except (KeyboardInterrupt, SystemExit):
-                raise EngineError("interrupted", "The session was interrupted", seconds=time.monotonic() - started)
+                raise EngineError("interrupted", "The session was interrupted", seconds=time.monotonic() - started,
+                                  session_id=seen[0] if seen else resume)
+            finally:
+                if engine == CLAUDE and not persist and not resume:
+                    # Even unsaved, Claude Code keeps the session's large tool results (fetched pages and PDFs) in
+                    # its projects folder: delete them with the folder.
+                    for identifier in seen:
+                        discard_session(engine, identifier, directory)
     seconds = round(time.monotonic() - started, 2)
-    text, usage, observed = parse(stdout)
+    text, reported, observed = parse(stdout)
+    session_id = seen[0] if seen else resume
+    usage, whole = turn_usage(engine, reported, previous_usage), session_usage(engine, reported, previous_usage)
     answer = None
     if isinstance(text, str) and text.strip():
         try:
@@ -739,23 +853,162 @@ def _session(engine, prompt, schema, *, tools, web, timeout, progress, idle=None
             answer = None
     if isinstance(answer, dict):
         # A valid final answer is a success even if cleanup or exit reporting failed.
-        return {"engine": engine, "model": model, "sessionId": uuid.uuid4().hex, "answer": answer,
-                "usage": usage, "observedTools": observed, "agentSeconds": seconds}
+        return {"engine": engine, "model": model, "sessionId": session_id, "answer": answer, "usage": usage,
+                "sessionUsage": whole, "observedTools": observed, "agentSeconds": seconds}
+    failed = dict(seconds=seconds, usage=usage, session_id=session_id, session_usage=whole)
     if stopped == "idle":
-        raise EngineError("timeout", "Stopped after %d seconds without output" % int(idle), seconds=seconds, usage=usage)
+        raise EngineError("timeout", "Stopped after %d seconds without output" % int(idle), **failed)
     if stopped:
-        raise EngineError("timeout", "Stopped at the %d-second limit" % int(timeout), seconds=seconds, usage=usage)
+        raise EngineError("timeout", "Stopped at the %d-second limit" % int(timeout), **failed)
     if returncode == 0:
-        raise EngineError("invalid-output", "The session ended without a valid JSON answer", seconds=seconds, usage=usage)
+        raise EngineError("invalid-output", "The session ended without a valid JSON answer", **failed)
     reason = classify_failure(returncode, stdout, stderr)
     detail = (stderr or "").strip().splitlines()[-3:] if stderr else []
     raise EngineError(reason, "%s exited with %s. %s" % (ENGINES[engine]["label"], returncode, " ".join(detail))[:600],
-                      seconds=seconds, usage=usage)
+                      **failed)
 
 
 @contextmanager
 def _nothing():
     yield None
+
+
+# ---------------------------------------------------------------------------
+# Saved sessions: their working folder, and deleting them when their last turn ends
+
+SESSION_PREFIX = "oopc-session-"
+SESSION_RECORD = "session.json"
+_SESSION_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z-]{7,63}")
+
+
+def session_folder(owner):
+    """A new private working folder (mode 0700) for every turn of one saved session.
+
+    It is outside any repository, as the temporary folder of an unsaved session is: in a folder inside the workspace
+    (a git checkout) Codex would read the repository's AGENTS.md and Claude Code its git status, so the researcher would
+    see more than it does today. It also holds Codex's state databases for the session (`codex_state_options`). Its
+    path is kept in the question's private record; `discard_session` deletes it."""
+    return Path(tempfile.mkdtemp(prefix=SESSION_PREFIX + re.sub(r"[^A-Za-z0-9]", "", str(owner))[:24] + "-"))
+
+
+@contextmanager
+def _working_folder(folder):
+    """A saved session's working folder, made again (mode 0700) if the system removed it while the app was stopped:
+    Claude Code finds a session by the folder's path."""
+    folder = Path(folder)
+    if folder.is_symlink() or (folder.exists() and (not folder.is_dir() or (
+            hasattr(os, "getuid") and folder.stat().st_uid != os.getuid()))):
+        raise EngineError("crashed", "The session's working folder is not this user's folder")
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    yield folder
+
+
+def codex_state_options(folder):
+    """Codex keeps its state databases (threads, their turns and items, logs) in the session's working folder."""
+    return ["-c", "sqlite_home=" + json.dumps(str(folder))]
+
+
+def init_codex_state(folder, timeout=60):
+    """Create the session folder's Codex state databases empty, with no request and no sign-in, before its first turn.
+
+    A Codex given a new `sqlite_home` first copies its whole index of the user's threads into it from
+    `$CODEX_HOME/sessions` (2026-10-25: 41 s for 7,222 threads, before the turn starts). Resuming a thread id that does
+    not exist, against an empty `$CODEX_HOME`, creates the databases with that copy done and empty, then stops (0.3 s);
+    the real turn then finds it done. Returns whether the databases now exist; if not, the turn still keeps them in
+    the folder, only slower."""
+    folder = Path(folder)
+    if any(folder.glob("state_*.sqlite")):
+        return True
+    empty = Path(tempfile.mkdtemp(prefix="oopc-codex-init-"))
+    try:
+        subprocess.run([resolve_codex_binary(), "exec", "resume", "--ephemeral", "--ignore-user-config",
+                        "--skip-git-repo-check", "--json", *codex_state_options(folder), str(uuid.uuid4()), "-"],
+                       input="x", capture_output=True, text=True, cwd=folder, timeout=timeout,
+                       env=dict(codex_environment(), CODEX_HOME=str(empty)))
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    finally:
+        shutil.rmtree(empty, ignore_errors=True)
+    return any(folder.glob("state_*.sqlite"))
+
+
+def _record_session(folder, engine, identifier):
+    """Keep the session ids a working folder's turns reported, for `discard_session`."""
+    path = Path(folder) / SESSION_RECORD
+    try:
+        value = read_json(path) if path.is_file() else {}
+    except (OSError, ValueError):
+        value = {}
+    ids = [i for i in value.get("sessionIds", []) if isinstance(i, str)] if isinstance(value, dict) else []
+    try:
+        atomic_json(path, {"engine": engine, "sessionIds": ids + [identifier] if identifier not in ids else ids},
+                    private=True)
+    except OSError:
+        pass
+
+
+def engine_home(engine):
+    """Where the engine keeps its saved sessions: `$CODEX_HOME` (default ~/.codex) or `$CLAUDE_CONFIG_DIR` (default
+    ~/.claude). Under tests only a folder the test set itself is used (with `OOPC_TEST_ENGINE_HOMES=1`), never an
+    inherited one or the default, so tests never touch this machine's sessions."""
+    variable, default = ("CODEX_HOME", ".codex") if engine == CODEX else ("CLAUDE_CONFIG_DIR", ".claude")
+    if not host_engines_allowed():
+        if os.environ.get("OOPC_TEST_ENGINE_HOMES") == "1" and os.environ.get(variable):
+            return Path(os.environ[variable])
+        return None
+    return Path(os.environ[variable]) if os.environ.get(variable) else Path.home() / default
+
+
+def _session_files(engine, identifier):
+    """The engine's saved files of one session: the Codex rollout of that thread (and any shell snapshot named by it);
+    the Claude Code project transcript (and its folder of side files)."""
+    home = engine_home(engine)
+    if home is None or not isinstance(identifier, str) or not _SESSION_ID.fullmatch(identifier):
+        return []
+    if engine == CODEX:
+        return [*home.glob("sessions/*/*/*/rollout-*-%s.jsonl*" % identifier),  # .jsonl.zst once compressed
+                *home.glob("shell_snapshots/%s.*" % identifier)]
+    return [*home.glob("projects/*/%s.jsonl" % identifier), *home.glob("projects/*/%s" % identifier)]
+
+
+def saved_session_exists(engine, session_id):
+    """Whether the engine still has a session saved to resume."""
+    return any(".jsonl" in path.name for path in _session_files(engine, session_id))
+
+
+def discard_session(engine, session_id=None, folder=None):
+    """Delete a saved session: the engine's files of `session_id` and of every id its working `folder` recorded, then
+    the folder. Returns the paths that could not be removed (none: nothing is left to resume)."""
+    ids, folder = [session_id] if session_id else [], Path(folder) if folder else None
+    if folder is not None and folder.name.startswith(SESSION_PREFIX):
+        try:
+            value = read_json(folder / SESSION_RECORD) if (folder / SESSION_RECORD).is_file() else {}
+        except (OSError, ValueError):
+            value = {}
+        ids += [i for i in value.get("sessionIds", []) if isinstance(i, str)] if isinstance(value, dict) else []
+    left = []
+    for identifier in dict.fromkeys(ids):
+        for path in _session_files(engine, identifier):
+            try:
+                shutil.rmtree(path) if path.is_dir() and not path.is_symlink() else path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError:
+                left.append(path)
+                continue
+            # A Claude Code project folder named after this session's working folder holds nothing else.
+            parent = path.parent
+            if (engine == CLAUDE and folder is not None and parent.parent.name == "projects"
+                    and parent.name.endswith(re.sub(r"[^A-Za-z0-9]", "-", folder.name))):
+                try:
+                    parent.rmdir()
+                except OSError:
+                    pass
+    if folder is not None and folder.name.startswith(SESSION_PREFIX) and folder.exists():
+        shutil.rmtree(folder, ignore_errors=True)
+        if folder.exists():
+            left.append(folder)
+    return left
 
 
 # ---------------------------------------------------------------------------

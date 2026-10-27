@@ -5,8 +5,9 @@
   review backlog and the latest parity guardrail.
 - `compare` puts two parity runs side by side over the questions checked in both,
   for example the runs before and after a change to the researcher's
-  instructions. Those instructions live in code (`oopc.ask.RESEARCHER`); a change
-  is a reviewed commit, judged by such a comparison.
+  instructions. Those instructions live in code (`oopc.ask.RESEARCHER` for the
+  answer and `oopc.ask.DEPOSIT` for its findings); a change is a reviewed
+  commit, judged by such a comparison.
 
 Research workers never edit their own prompt, the review policy or code.
 """
@@ -45,9 +46,11 @@ def summary(root, days=7, moment=None):
         web_calls = (value.get("webSearches") or 0) + (value.get("pagesRead") or 0) + (value.get("unclassifiedWebCalls") or 0)
         web.append(web_calls)
         zero_web += web_calls == 0
-        measured_tokens = calls.new_tokens(result.get("usage") or {})
-        if measured_tokens is not None:
-            tokens.append(measured_tokens)
+        # The answer's turn and, since 2026-10-25, the turn that wrote its findings.
+        turns = [calls.new_tokens(result.get("usage") or {})] + (
+            [calls.new_tokens(result["depositTurn"].get("usage") or {})] if result.get("depositTurn") else [])
+        if None not in turns:
+            tokens.append(sum(turns))
         cited = reused_findings(root, (result.get("answer") or {}).get("citations"))
         reuse += cited["supported"] + cited["added"] > 0
     from .parity import report as parity_report
@@ -76,8 +79,14 @@ def compare(baseline, trial):
     """Like for like: only questions whose ontology answer was checked in both runs. A trial is *recommended*
     (not worse on this set) when it has no more contradicted statements, no fewer complete answers or sourced
     results, keeps citations, and uses no more median new tokens and at most 10% more in total. Passes are shown
-    beside these; they move with whether a source opened during the check."""
+    beside these; they move with whether a source opened during the check. So are the median seconds to the answer
+    and in total (the deposit included), which never decide the recommendation.
+
+    An ontology arm whose deposit (second turn) failed has not spent a deposit's tokens, so its question is left out
+    of the token comparison, on both sides; the comparison says how many such arms each run had and on how many
+    questions tokens were compared, and recommends nothing when that is fewer than MIN_PARITY_QUESTIONS."""
     from . import reviewer
+    from .parity import total_seconds
 
     def checked(report):
         return {row["id"]: row["arms"]["ontology"] for row in report["rows"]
@@ -85,10 +94,15 @@ def compare(baseline, trial):
     before, after = checked(baseline), checked(trial)
     common = sorted(set(before) & set(after))
     median = lambda values: statistics.median(values) if values else None
+    failed = lambda arms: [q for q in common if (arms[q].get("metrics") or {}).get("depositFailed")]
+    priced = [q for q in common if q not in failed(before) and q not in failed(after)]  # comparable on tokens
 
     def stats(arms):
-        new = [(arms[q].get("metrics") or {}).get("newTokens") for q in common]
+        new = [(arms[q].get("metrics") or {}).get("newTokens") for q in priced]
         cited = [arms[q].get("citedFraction") for q in common]
+        # Before 2026-10-25 the answer and its findings came in one turn: its seconds were both to the answer and total.
+        seconds = [(arms[q].get("metrics") or {}).get("seconds") for q in common]
+        totals = [total_seconds(arms[q].get("metrics")) for q in common]
         # Older reports kept the statements but not the measures.
         measured = [arms[q].get("measures") or reviewer.measures({"verdict": arms[q]["verdict"],
                                                                   "resultGiven": arms[q].get("resultGiven"),
@@ -102,17 +116,25 @@ def compare(baseline, trial):
                 "passes": sum(arms[q]["verdict"] == "pass" for q in common),
                 "medianNewTokens": median([n for n in new if n is not None]),
                 "medianCited": median([c for c in cited if c is not None]),
-                "totalNewTokens": sum(new) if new and None not in new else None}
+                "totalNewTokens": sum(new) if new and None not in new else None,
+                # Informational only: never part of the recommendation.
+                "medianSeconds": median([t for t in seconds if t is not None]),
+                "medianTotalSeconds": median([t for t in totals if t is not None])}
     first, second = stats(before), stats(after)
     pair = {key: (first[key], second[key]) for key in first}
     tokens, totals, cited = pair["medianNewTokens"], pair["totalNewTokens"], pair["medianCited"]
-    enough = len(common) >= MIN_PARITY_QUESTIONS
+    enough = len(common) >= MIN_PARITY_QUESTIONS and len(priced) >= MIN_PARITY_QUESTIONS
     recommended = (enough and second["contradicted"] <= first["contradicted"] and second["complete"] >= first["complete"]
                    and (None in pair["resultsGiven"] or second["resultsGiven"] >= first["resultsGiven"])
                    and None not in tokens and tokens[1] <= tokens[0]
                    and None not in totals and totals[1] <= totals[0] * TOTAL_TOKEN_ALLOWANCE
                    and (cited[1] or 0) >= (cited[0] or 0) - 0.05)
+    deposits = (len(failed(before)), len(failed(after)))
+    notice = ("Eight questions: 'recommended' means 'not worse on this set', not a proven improvement; "
+              "a difference of one or two statements, answers or passes is within noise.")
+    if any(deposits):
+        notice += (" %d and %d ontology arms had a failed deposit; their questions are left out of the token "
+                   "comparison, which covers %d questions." % (deposits + (len(priced),)))
     return {"baseline": baseline.get("run"), "trial": trial.get("run"), **pair, "compared": len(common),
-            "checked": (len(before), len(after)), "recommended": bool(recommended),
-            "notice": "Eight questions: 'recommended' means 'not worse on this set', not a proven improvement; "
-                      "a difference of one or two statements, answers or passes is within noise."}
+            "checked": (len(before), len(after)), "failedDeposits": deposits, "tokensCompared": len(priced),
+            "recommended": bool(recommended), "notice": notice}

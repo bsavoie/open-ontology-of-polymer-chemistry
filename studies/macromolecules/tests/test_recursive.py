@@ -1,17 +1,20 @@
 """Offline check of test 2's driver with a scripted engine: no subscription is used.
 
 A small version of the whole test (two tasks per round, three dev and three held-out questions) runs every phase:
-round tasks through the normal loop, the improver, the dev decision, held-out scoring and the final crossing.
+round tasks through the normal loop, the improver, the dev decision, held-out scoring and the final crossing. Since the
+steps were opened to the restarts (2026-10-18), `AsItRan` checks that test 2's phases, limits and task sets are as
+they ran.
 
 Test 2's test_recursive.py (`.oopc/loop/harness/2026-10-recursive/`), moved to the repository on 2026-10-13 unchanged
 except imports and paths, the guard's run folder passed as `base`, and a skip when the private records it reads are
 absent."""
-import json, sys, tempfile, threading, unittest
+import json, random, sys, tempfile, threading, unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # studies/macromolecules, for common
 from common import ROOT  # noqa: E402  (common puts CODE first on sys.path)
-from recursive import recursive  # noqa: E402
+from recursive import make_tasks, recursive  # noqa: E402
 from oopc import ask, knowledge, reviewer  # noqa: E402
 
 NEEDS = [recursive.BASE / "dev.json", recursive.BASE / "rounds.json", recursive.ABLATION / "heldout.json",
@@ -144,6 +147,36 @@ class Recursive(unittest.TestCase):
         calls = len(engine.calls)
         recursive.run()  # Resuming does nothing again.
         self.assertEqual(len(engine.calls), calls)
+
+
+class AsItRan(unittest.TestCase):
+    """The steps opened to the restarts on 2026-10-18 still run test 2 as it ran."""
+
+    def test_test_2s_phases_limits_and_failures_are_unchanged(self):
+        keys = [key for key, _, _ in recursive.phases()]
+        self.assertEqual(keys, ["round-%d-%s" % (r, p) for r in (1, 2, 3) for p in ("tasks", "snapshot", "dev", "heldout")]
+                         + ["final"])
+        self.assertEqual([quiet for _, _, quiet in recursive.phases()], [False, False, True, True] * 3 + [True])
+        self.assertEqual((recursive.EDIT_LIMITS, recursive.TRANSIENT, recursive.RELEASES), ((700, 1100), (), ROOT))
+        text = "x" * 50 + ANCHOR + "Question:\n"  # test 2 accepted up to 700 and 1,100 characters
+        self.assertIsNone(recursive.validate(text, {"old": "x" * 50, "new": "x" * 50 + "y" * 1000}))
+        self.assertIn("too long", recursive.validate(text, {"old": "x" * 50, "new": "x" * 50 + "y" * 1100}))
+
+    @unittest.skipUnless(all(p.exists() for p in (make_tasks.BASE / "dev.json", make_tasks.BASE / "rounds.json",
+                                                  make_tasks.CAMPAIGN / "questions.json",
+                                                  make_tasks.ABLATION / "heldout.json", knowledge.database(make_tasks.STORE))),
+                         "needs test 2's task sets and the inputs they were drawn from (private records under .oopc/)")
+    def test_test_2s_task_sets_are_drawn_again_byte_for_byte(self):
+        recorded_dev, recorded_rounds = (make_tasks.BASE / "dev.json").read_text(), (make_tasks.BASE / "rounds.json").read_text()
+        found = {r["question"]: r["findingsFound"] for r in json.loads(recorded_dev)}  # K3's search counts, as recorded
+        rng = random.Random(make_tasks.SEED)
+        campaign = json.loads((make_tasks.CAMPAIGN / "questions.json").read_text())
+        heldout = json.loads((make_tasks.ABLATION / "heldout.json").read_text())
+        with mock.patch.object(make_tasks, "found", found.__getitem__):
+            dev = make_tasks.dev_set(rng, campaign, heldout)
+            rounds = make_tasks.round_tasks(rng, campaign, heldout, dev)
+        self.assertEqual(json.dumps(dev, ensure_ascii=False, indent=1), recorded_dev)
+        self.assertEqual(json.dumps(rounds, ensure_ascii=False, indent=1), recorded_rounds)
 
 
 class CodexReady(unittest.TestCase):

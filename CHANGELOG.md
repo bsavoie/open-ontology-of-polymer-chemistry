@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.13.0: answers first, findings after (2026-10-26)
+
+- An answer is shown as soon as the research turn ends; the same engine session
+  is then resumed in the background to write the findings and source notes it
+  read, which are saved and reviewed as before. With almost nothing saved, the
+  answer turn writes 38% fewer output tokens (the findings, 30–100 s of
+  generation on research-heavy questions, come after it); a resumed turn reuses
+  the prompt cache (97% cached). Parity holds (owner-approved plan of
+  2026-10-25, `docs/exec-plans/active/app-latency-plan.md`).
+- A saved session lives only in a private working folder outside the repository;
+  Codex's state databases are kept there too, so nothing of a question reaches
+  `~/.codex`, and every saved session is deleted when its last turn ends. Even
+  unsaved, a Claude Code session's fetched files are deleted with it.
+- A question asked right after another still waits for the last answer's
+  findings to be saved, so a follow-up reads them (letting it start sooner was
+  tried and made that a race).
+- Robustness: a failed question retried by hand gets a new trace (its old one
+  refused every knowledge search); an expired Claude Code sign-in fails as
+  `not-signed-in`, not `crashed`; findings left "saving" by a stopped process
+  are settled without a restart; Claude Code's unreported quota is named so.
+- The Mac app builder (prototype) builds from committed code only and records
+  the commit in the bundle.
+
 ## 0.12.0: the core loop, frozen for the case studies (tag `study-freeze-2`, 2026-10-16)
 
 Pre-publication cleanup (owner's plan of 2026-10-13):
