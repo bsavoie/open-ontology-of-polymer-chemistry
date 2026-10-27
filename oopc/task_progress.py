@@ -49,7 +49,21 @@ class ProgressTracker:
         self.sites, self.turns, self.output_tokens = [], 0, 0
         self.sources = set()  # Distinct documents opened; re-reading one does not add to it.
         self.last_action, self.last_write = "Starting the research session", 0.0
+        self.waiting = False
         self._write(force=True)
+
+    def wait(self, action):
+        """The session is waiting for its engine's turn (`calls.invoke`): no clock runs, and the action says why."""
+        with self.lock:
+            self.waiting, self.last_action = True, action
+            self._write(force=True)
+
+    def begin(self):
+        """The session has its engine: its clock starts now, as its time limit does."""
+        with self.lock:
+            self.started, self.startedAt, self.waiting = time.monotonic(), now(), False
+            self.last_action = "Starting the research session"
+            self._write(force=True)
 
     def __call__(self, line):
         try:
@@ -173,8 +187,9 @@ class ProgressTracker:
         self.last_action = "Reading " + (site or "a web page")
 
     def snapshot(self):
-        return {"format": FORMAT, "phase": self.phase, "startedAt": self.startedAt, "updatedAt": now(),
-                "elapsedSeconds": round(time.monotonic() - self.started, 1), "budgetSeconds": self.budget,
+        return {"format": FORMAT, "phase": self.phase, "updatedAt": now(), "waiting": self.waiting,
+                "startedAt": None if self.waiting else self.startedAt,
+                "elapsedSeconds": 0 if self.waiting else round(time.monotonic() - self.started, 1), "budgetSeconds": self.budget,
                 "graph": dict(self.graph), "web": dict(self.web), "sites": list(self.sites),
                 "webActivityProtocol": WEB_ACTIVITY,
                 "sourcesOpened": len(self.sources),

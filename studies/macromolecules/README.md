@@ -510,6 +510,58 @@ OOPC_STUDY_CODE=$PWD/.oopc/study/freeze-3 python3 -B -m unittest discover -s stu
   -p "test_refinement_*.py"
 ```
 
+## Confirmation run (study-freeze-4)
+
+`confirm/confirm.py` runs the confirmation of Part A's headline results on the released code, 0.13.0
+(`docs/exec-plans/active/confirmation-plan.md`; predictions written before any run): A2 confirmed (test 1's 60
+held-out questions in test 1's order, K0 and KF, one replicate, researcher and checker on Codex) and the case studies
+confirmed (cs1–cs4 once, as a sixth replicate of A5, scored blind by `case_studies/score.py` on Claude Code). It reuses
+Part A's harness: `confirm.configure()` points `part_a.py` and `case_studies.py` at this run's pins, stores and folders
+for its own process, as `recursive.configure` does for a restart; the finished studies' files are unchanged. KF is read
+only from its frozen copy `.oopc/study/analysis/kf/workspaces/KF` (store and graph release), never from the live store;
+K0 is test 1's store. Nothing prepares or runs unless the code under test is tag `study-freeze-4` (`918a64c`), the
+researcher prompt (`86404bf073ce`), both models (Codex `gpt-6.1-sol`, Claude Code `claude-opus-5-5`) and the graph
+release (`oopc-6ad56d8b354d053bcc3cf3a1`) are the pins, KF's copy and K0 have their fingerprints, and neither the code
+nor the harness's `studies/` has uncommitted changes. Every command runs from the main checkout with:
+
+```
+export OOPC_STUDY_ROOT=$PWD                              # the data: the main checkout
+export OOPC_STUDY_CODE=$PWD/.oopc/study/freeze-4         # the code under test: tag study-freeze-4
+```
+
+In order (each resumable; a STOP file in a run folder stops it at a boundary):
+
+```
+python -B studies/macromolecules/confirm/confirm.py prepare-a2 [--shards N]  # -> .oopc/loop/harness/2026-10-confirm-a2/r1-s1 … r1-sN
+python -B studies/macromolecules/confirm/confirm.py run-a2 [--shard K]       # Codex; one process per shard folder
+python -B studies/macromolecules/confirm/confirm.py prepare-cs               # -> .oopc/loop/harness/2026-10-confirm-cs/
+python -B studies/macromolecules/confirm/confirm.py run-cs                   # Codex, then the blind scoring on Claude Code
+python -B studies/macromolecules/confirm/confirm.py score-cs                 # Claude Code: only what is still to score
+python -B studies/macromolecules/confirm/confirm.py status
+python -B studies/macromolecules/confirm/confirm.py report                   # -> .oopc/study/analysis/confirm/results.json, results.md
+```
+
+- `2026-10-confirm-a2` holds `experiment.json` (the layout) and one driver folder per shard, `r1-s<k>` (one by
+  default), each with both arms' store copies, its plan, `pins.json`, `runs.jsonl`, items, streams and the driver's
+  report. On this code a researcher arm runs through `parity.answer_ontology`, both turns, saving nothing; its metrics
+  record `newTokens` over both turns, `seconds` to the answer, `depositSeconds` and `totalSeconds`.
+- `2026-10-confirm-cs` holds a case-study replicate as Part A's did: `pins.json`, the four studies' driver folders,
+  `cs4-first` (the first askings through the normal loop on a KF copy, saved and reviewed there), `cs4-repeat`, and
+  `scoring/`. `run-cs` scores blind once every item is settled; `score-cs` scores only what is left.
+- `report` reads the records only and writes the plan's predictions 1–5, each with its numbers and met or not met,
+  against Part A's recorded values (`analysis/a2a3e8/results.json`, `analysis/a5/results.json`, and
+  `2026-10-kf-scaling/rows.json` for Part A's KF seconds on the same questions), and the plan's rule for the
+  manuscript. KF/K0 is paired per question as in Part A (`part_a/estimate.py`). `--into DIR` runs any step on folders
+  under DIR instead (a dry run on the real inputs).
+
+Its test builds its own release and stores, runs both parts with a scripted engine and judges the predictions on a
+hand-made example; run it on today's code and on freeze-4:
+
+```
+OOPC_STUDY_CODE=$PWD python3 -B -m unittest discover -s studies/macromolecules/tests -p "test_confirm.py"
+OOPC_STUDY_CODE=$PWD/.oopc/study/freeze-4 python3 -B -m unittest discover -s studies/macromolecules/tests -p "test_confirm.py"
+```
+
 ## Layout
 
 | Path | Lines | What |
@@ -522,6 +574,7 @@ OOPC_STUDY_CODE=$PWD/.oopc/study/freeze-3 python3 -B -m unittest discover -s stu
 | `scaling/scaling.py`, `analyze.py` | 225, 150 | E4, E5 |
 | `recursive/make_tasks.py`, `recursive.py` | 227, 698 | test 2 |
 | `planted/planted.py` | 246 | E9 |
+| `confirm/confirm.py` | 823 | the confirmation run on study-freeze-4 (A2 and the case studies, and its report) |
 | `analysis/dataset_build.py`, `loop_build.py` | 1324, 867 | E2 |
 | `analysis/properties/build.py`, `rules.py`, `manual.json`, `vocabulary.json` | 473, 764, 1636, 1411 | E3, with its tracked inputs |
 | `analysis/properties_check.py` | 90 | E3's blind-check agreement |

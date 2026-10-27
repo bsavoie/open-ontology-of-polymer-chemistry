@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- The researcher app is redrawn in purple, yellow and gray with bundled Inter
+  (OFL), and shows only what serves the loop: token counts and review policy
+  left the Ask, answer and Knowledge pages. The About page is an animated
+  figure of the two loops with live counts; its glossary and drawn figures
+  are retired.
+- Depth buttons name the depth only; the time limits `oopc/ask.py` enforces
+  show on a running question's clock.
+- The top bar reads OOPC, printed out of register in yellow; hovering it
+  spells out Open Ontology of Polymer Chemistry at any width, and the Ask
+  page carries the full name above "Ask your knowledge base, improve your
+  knowledge base".
+- A question waiting for its engine (the last answer's findings or review)
+  says so, and its clock starts when its session does, as its time limit
+  always has.
+
 ## 0.13.0: answers first, findings after (2026-10-26)
 
 - An answer is shown as soon as the research turn ends; the same engine session

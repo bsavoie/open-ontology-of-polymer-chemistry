@@ -99,6 +99,18 @@ class TrackerTests(unittest.TestCase):
         self.assertEqual((value["graphLookups"], value["knowledgeLookups"], value["webSearches"], value["pagesRead"]), (1, 1, 1, 1))
         self.assertEqual((value["inputTokens"], value["graphHops"], value["sites"]), (1000, 3, ["example.org"]))
 
+    def test_a_session_waiting_for_its_engine_has_no_clock_until_it_begins(self):
+        self.tracker.wait("Waiting for the last answer's findings to be saved")
+        waiting = read_progress(self.path)
+        self.assertEqual((waiting["waiting"], waiting["startedAt"], waiting["elapsedSeconds"]), (True, None, 0))
+        self.assertEqual(waiting["lastAction"], "Waiting for the last answer's findings to be saved")
+        self.tracker.begin()
+        started = read_progress(self.path)
+        self.assertFalse(started["waiting"])
+        self.assertTrue(started["startedAt"])
+        self.assertLess(started["elapsedSeconds"], 1)
+        self.assertEqual(started["lastAction"], "Starting the research session")
+
 
 class SourceCountTests(unittest.TestCase):
     def test_re_reading_a_source_does_not_count_as_a_new_one(self):

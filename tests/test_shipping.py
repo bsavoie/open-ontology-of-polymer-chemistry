@@ -85,7 +85,8 @@ class ShippingTests(unittest.TestCase):
         self.assertFalse(runtime-selected, "Register new runtime modules in config/public-files.json")
         for name in ("oopc/web/index.html", "oopc/web/researcher.js", "oopc/web/researcher.css", "oopc/web/operator.html",
                      "oopc/web/app.js", "oopc/web/style.css", "oopc/web/vendor/cytoscape.min.js", "oopc/web/vendor/cytoscape.LICENSE",
-                     "oopc/web/vendor/openchemlib.js", "oopc/web/vendor/openchemlib.LICENSE"):
+                     "oopc/web/vendor/openchemlib.js", "oopc/web/vendor/openchemlib.LICENSE", "oopc/web/vendor/InterVariable.woff2",
+                     "oopc/web/vendor/InterVariable-Italic.woff2", "oopc/web/vendor/inter.LICENSE"):
             self.assertIn(name, selected)
             self.assertGreater((root/name).stat().st_size, 0)
 

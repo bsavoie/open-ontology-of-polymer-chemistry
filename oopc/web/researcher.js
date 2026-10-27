@@ -204,8 +204,10 @@
     const recorded = Number(p.elapsedSeconds) || 0, started = Date.parse(p.startedAt);
     const elapsed = task.status === "running" && Number.isFinite(started) ? Math.max(recorded, (currentTime - started) / 1000) : recorded;
     const limit = Number(p.budgetSeconds) || Number(task.budgetSeconds) || 0;
-    return {stage, stages, action, counts, sites: (p.sites || []).slice(0, 8), clock: formatClock(elapsed),
-            limit: limit ? formatDuration(limit) : "", percent: limit ? Math.min(100, Math.round(elapsed / limit * 100)) : 0,
+    // Waiting for the engine's turn (the last answer's findings, say): nothing has started, so no clock runs.
+    const waiting = p.waiting === true;
+    return {stage, stages, action, counts, sites: (p.sites || []).slice(0, 8), clock: formatClock(waiting ? 0 : elapsed), waiting,
+            limit: limit ? formatDuration(limit) : "", percent: limit && !waiting ? Math.min(100, Math.round(elapsed / limit * 100)) : 0,
             budget: DEPTHS[task.depth] || null, depth: DEPTHS[task.depth]?.label || ""};
   }
 
@@ -401,7 +403,14 @@
     const [status, runtimes] = await Promise.all([get("/api/tasks/status"), get("/api/runtimes").catch(() => null)]);
     state.status = status; state.runtimes = runtimes;
     state.account = runtimes?.runtimes?.[runtimes.selected]?.account || {status: "error"};
+    adoptDepths(status.depths);
     return {status, runtimes};
+  }
+  /** The server's depth table (oopc/ask.py) is the one in force; the copy here only labels them until it loads. */
+  function adoptDepths(depths) {
+    for (const [key, depth] of Object.entries(depths || {})) {
+      if (DEPTHS[key] && isCount(depth?.searches) && isCount(depth?.sources)) Object.assign(DEPTHS[key], {searches: depth.searches, sources: depth.sources});
+    }
   }
   const selectedRuntime = () => state.runtimes?.selected || "codex";
   function readiness() {
@@ -410,7 +419,7 @@
     if (account.status === "login-pending") return {ready: false, message: `Finish signing in to ${label} to ask questions.`, action: "settings"};
     if (account.status !== "connected") return {ready: false, message: account.status === "unavailable" || account.status === "unsupported" ? `${account.message || `${label} is unavailable.`} Choose another engine in Settings.` : `Connect your ${label} account to ask questions.`, action: "settings"};
     if (!status.available) return {ready: false, message: status.reason || "Questions are unavailable right now."};
-    return {ready: true, message: status.queued ? `${plural(status.queued, "question")} ahead of yours.` : `Runs on ${label}.`};
+    return {ready: true, message: status.queued ? `${plural(status.queued, "question")} ahead of yours` : ""};
   }
 
   // Pre-submit hint only; the engine enforces its own limits.
@@ -424,44 +433,46 @@
   async function renderAsk(token) {
     view.innerHTML = `
       <section class="ask">
-        <h1>Ask the polymer memory</h1>
-        <p class="lede">The research agent reads saved findings first, uses open sources for the rest, and cites every reported fact. Values read directly in a source are added on the researcher’s judgement; figure readings, conversions and combined values go to a separate reviewer. Later questions read reviewed and added knowledge first.</p>
+        <p class="full-name"><b>O</b>pen <b>O</b>ntology of <b>P</b>olymer <b>C</b>hemistry</p>
+        <h1>Ask your knowledge base, improve your knowledge base</h1>
         <form id="ask-form" class="ask-form" novalidate>
           <label class="visually-hidden" for="question">Your question</label>
-          <textarea id="question" rows="5" minlength="10" maxlength="8000" required placeholder="e.g. How does annealing temperature affect the tensile modulus of PLA films? Keep specimen and test conditions explicit."></textarea>
-          <div class="ask-options">
-            <label>Depth<select id="depth"><option value="quick">Quick · up to 5 min, ~4 sources</option><option value="standard" selected>Standard · up to 10 min, ~8 sources</option><option value="thorough">Thorough · up to 20 min, ~20 sources</option></select></label>
-            <p class="depth-note muted small">Depth sets the time and source budget. Reading another section of the same source does not count as a new source, but still uses tokens. The agent may go slightly over to finish an answer.</p>
+          <textarea id="question" rows="4" minlength="10" maxlength="8000" required placeholder="How does annealing temperature affect the tensile modulus of PLA films?"></textarea>
+          <div class="ask-bar">
+            <fieldset class="depth-choice"><legend class="visually-hidden">Depth</legend>${Object.entries(DEPTHS).map(([key, depth]) =>
+              `<label title="About ${depth.searches} web searches and ${depth.sources} sources"><input type="radio" name="depth" value="${key}"${key === "standard" ? " checked" : ""}><span>${depth.label}</span></label>`).join("")}</fieldset>
+            <button id="ask-submit" class="primary-button" type="submit" disabled>Ask</button>
           </div>
-          <p id="budget-text" class="muted small"></p>
-          <div class="ask-actions"><button id="ask-submit" class="primary-button" type="submit" disabled>Ask</button><p id="ask-readiness" class="muted small" role="status"></p></div>
-          <p id="ask-quota" class="muted small" role="status" hidden></p>
-          <p id="ask-error" class="inline-error" role="alert" hidden></p>
         </form>
+        <p id="ask-readiness" class="ask-status muted small" role="status"></p>
+        <p id="ask-quota" class="muted small" role="status" hidden></p>
+        <p id="ask-error" class="inline-error" role="alert" hidden></p>
       </section>
       <section class="recent" aria-labelledby="recent-title"><div class="section-heading"><h2 id="recent-title">Recent questions</h2><a href="#/history">See all</a></div><div id="recent-list" class="task-list"><p class="muted">Loading…</p></div></section>`;
-    const form = $("#ask-form"), submit = $("#ask-submit");
-    const budgetText = () => {
-      const depth = DEPTHS[$("#depth").value], minutes = {quick: 5, standard: 10, thorough: 20}[$("#depth").value];
-      $("#budget-text").textContent = `Runs on your ${runtimeLabel(selectedRuntime())} subscription: up to ${minutes} minutes, about ${depth.searches} web searches and ${depth.sources} sources. What it finds is saved to your local knowledge.`;
-    };
+    const form = $("#ask-form"), submit = $("#ask-submit"), depthValue = () => form.elements.depth.value;
     const update = () => {
-      budgetText();
-      const ready = readiness();
-      $("#ask-readiness").innerHTML = escapeHTML(ready.message) + (ready.action === "settings" ? ` <button type="button" class="text-button" data-open-settings>Open settings</button>` : "");
+      for (const choice of form.querySelectorAll("[name=depth]")) {
+        const known = DEPTHS[choice.value];
+        choice.closest("label").title = `About ${known.searches} web searches and ${known.sources} sources`;
+      }
+      const ready = readiness(), depth = DEPTHS[depthValue()];
+      const budget = `Runs on ${runtimeLabel(selectedRuntime())} · about ${depth.sources} sources`;
+      const line = $("#ask-readiness");
+      line.classList.toggle("ready", ready.ready);
+      line.innerHTML = ready.ready ? escapeHTML([budget, ready.message].filter(Boolean).join(" · "))
+        : escapeHTML(ready.message) + (ready.action === "settings" ? ` <button type="button" class="text-button" data-open-settings>Open settings</button>` : "");
       submit.disabled = !ready.ready || $("#question").value.trim().length < 10 || state.submitting;
     };
     if (state.prefill) { $("#question").value = state.prefill.question; state.prefill = null; }
     state.updateAsk = () => { if (token === state.routeToken) update(); };
     form.addEventListener("input", () => { state.pending = null; update(); });
-    $("#depth").addEventListener("change", budgetText);
     form.addEventListener("submit", async event => {
       event.preventDefault();
       if (submit.disabled) return;
       const error = $("#ask-error"); error.hidden = true;
       state.submitting = true; update();
       state.pending ||= {taskId: crypto.randomUUID().replaceAll("-", ""), question: $("#question").value.trim(),
-        depth: $("#depth").value, authorizeSubscription: true, runtime: selectedRuntime()};
+        depth: depthValue(), authorizeSubscription: true, runtime: selectedRuntime()};
       try {
         const task = await post("/api/tasks", state.pending);
         state.pending = null;
@@ -538,7 +549,7 @@
         <div class="answer-body prose">${renderMarkdown(result.answer, inline)}</div>
         ${limitations.length ? `<details class="limitations"><summary>Limitations noted with this answer (${limitations.length})</summary><ul>${limitations.map(item => `<li>${renderInline(item, inline)}</li>`).join("")}</ul></details>` : ""}
         <section class="sources" aria-labelledby="sources-title"><h2 id="sources-title">Sources</h2>${citations.length ? `<ol id="source-list">${citations.map((id, i) => `<li id="source-${i + 1}" data-record="${escapeHTML(id)}">${safeURL(id) ? sourceLink(id) : `<span class="muted small">Loading…</span>`}</li>`).join("")}</ol>` : `<p class="muted">This answer cites no sources.</p>`}</section>
-        ${findings.length ? `<section class="findings" aria-labelledby="findings-title"><h2 id="findings-title">What this answer added</h2><p class="muted small">Findings saved from the sources this answer read. Added findings rely on the researcher’s judgement; Reviewed findings were checked in a separate source-review session.</p><ul class="finding-list">${findings.map(findingItem).join("")}</ul></section>` : ""}
+        ${findings.length ? `<section class="findings" aria-labelledby="findings-title"><h2 id="findings-title">What this answer added</h2><p class="muted small">Saved for later questions. Added rests on the research agent’s reading; Reviewed was checked against the source by a separate reviewer.</p><ul class="finding-list">${findings.map(findingItem).join("")}</ul></section>` : ""}
         ${openQuestions.length && task.origin !== "legacy" ? `<section class="open-questions" aria-labelledby="open-title"><h2 id="open-title">Worth researching later</h2><ul>${openQuestions.map((q, i) => `<li><span>${escapeHTML(q)}</span> ${list(task.queuedResearch).includes(q) ? `<span class="tag">In the research queue</span>` : `<button type="button" class="text-button" data-research="${i}">Add to research queue</button>`}</li>`).join("")}</ul><p id="research-status" class="muted small" role="status">${list(task.queuedResearch).length ? `Added to the <a href="#/knowledge">research queue</a> automatically.` : ""}</p></section>` : ""}
         <section class="how-found" aria-labelledby="how-title"><h2 id="how-title">How this answer was found</h2><div id="how-found">${howFound(task, citations)}</div></section>` : ""}`;
     if (status.busy) watchActivity(task, taskId, token);
@@ -568,7 +579,10 @@
   function howFound(task, citations) {
     const stats = effortStats(task.effort), reused = task.reusedFindings || {}, sites = list(task.effort?.sites);
     if (!stats.length) return `<p class="muted small">Retrieval was not recorded for this answer.</p>`;
-    return `<ul class="stat-row">${stats.map(s => `<li><strong>${formatCount(s.value)}</strong><span>${escapeHTML(s.label)}</span></li>`).join("")}<li><strong>${formatCount((reused.supported || 0) + (reused.added || 0))}</strong><span>saved findings reused</span></li><li><strong>${formatCount(citations.length)}</strong><span>source${citations.length === 1 ? "" : "s"} cited</span></li></ul>${sites.length ? `<p class="muted small">Sites read: ${sites.map(escapeHTML).join(", ")}</p>` : ""}${task.runId ? `<p class="muted small">Every lookup into the memory was recorded for this answer.</p>` : ""}`;
+    // Tokens belong to the developer inspector; the researcher sees what was reused, searched and cited.
+    const shown = [{value: (reused.supported || 0) + (reused.added || 0), label: "saved findings reused", lead: true},
+      ...stats.filter(s => s.label !== "tokens"), {value: citations.length, label: `source${citations.length === 1 ? "" : "s"} cited`}];
+    return `<ul class="stat-row">${shown.map(s => `<li${s.lead ? ` class="lead"` : ""}><strong>${formatCount(s.value)}</strong><span>${escapeHTML(s.label)}</span></li>`).join("")}</ul>${sites.length ? `<p class="muted small">Sites read: ${sites.map(escapeHTML).join(", ")}</p>` : ""}`;
   }
   function findingItem(finding) {
     const status = recordStatus(finding), source = finding.source || {}, url = safeURL(source.url);
@@ -583,6 +597,8 @@
       <p class="progress-foot muted small">You can leave this page; the answer will be in History.</p></section>`;
   }
   function activityInner(live) {
+    if (live.waiting) return `<div class="progress-head"><span class="pulse waiting" aria-hidden="true"></span><strong>Waiting for its turn</strong>${live.limit ? `<span class="progress-clock muted">${escapeHTML(live.limit)} limit starts when it begins</span>` : ""}</div>
+      <p class="progress-now">${escapeHTML(live.action)}</p>`;
     const meter = (used, cap, word) => cap ? `<span class="meter"><span class="meter-label">${formatCount(used)} of ${formatCount(cap)} ${word}</span><span class="meter-track"><span style="width:${Math.min(100, Math.round(used / cap * 100))}%"></span></span></span>` : `<span class="meter"><span class="meter-label">${formatCount(used)} ${word}</span></span>`;
     return `<div class="progress-head"><span class="pulse" aria-hidden="true"></span><strong>${escapeHTML(STAGES.find(([k]) => k === live.stage)[1])}</strong><span class="progress-clock muted" data-clock>${escapeHTML(live.clock)}${live.limit ? ` / ${escapeHTML(live.limit)}` : ""}</span></div>
       <div class="progress-bar" aria-hidden="true"><span data-bar style="width:${live.percent}%"></span></div>
@@ -612,7 +628,7 @@
       if (token !== state.routeToken || !box()) return;
       const live = progressDetail(current);
       const clock = box().querySelector("[data-clock]"), bar = box().querySelector("[data-bar]");
-      if (live && clock) { clock.textContent = live.clock + (live.limit ? ` / ${live.limit}` : ""); bar.style.width = live.percent + "%"; }
+      if (live && clock && !live.waiting) { clock.textContent = live.clock + (live.limit ? ` / ${live.limit}` : ""); bar.style.width = live.percent + "%"; }
       later(token, tick, 1000);
     };
     const poll = async () => {
@@ -833,12 +849,12 @@
     const last = list(loop.log)[0];
     view.querySelector(".knowledge").innerHTML = `
       <h1>What the memory knows</h1>
-      <div class="status-card"><p class="headline">${escapeHTML(summary.headline)}</p><p>Each answer saves the facts it read, with their source, locator and a short excerpt. ${loop.settings?.reviewMode === "all" ? "A separate reviewer checks every finding against its source before later questions use it." : "Values the research agent read directly in a source are added at once; ones it read off a figure, converted or combined go to a separate reviewer first. You can require review of every finding in Settings."}${summary.spotText ? ` ${escapeHTML(summary.spotText)}` : ""}</p></div>
+      <div class="status-card"><p class="headline">${escapeHTML(summary.headline)}</p>${summary.spotText ? `<p>${escapeHTML(summary.spotText)}</p>` : ""}</div>
       <section aria-labelledby="loop-title"><h2 id="loop-title">The loop</h2>
         <ol class="loop">${summary.stages.map((stage, i) => `<li class="loop-stage reached"><span class="loop-number">${i + 1}</span><span class="loop-title">${escapeHTML(stage.title)}</span><strong class="loop-value">${formatCount(stage.value)}</strong><span class="loop-text">${escapeHTML(stage.text)}</span></li>`).join("")}</ol>
         <div class="loop-actions">
           <button type="button" id="loop-run" class="secondary-button"${loop.running ? " disabled" : ""}>${loop.running ? "Running…" : "Run the loop now"}</button>
-          <p class="muted small">Reviews ${formatCount(summary.pending)} answer${summary.pending === 1 ? "" : "s"} waiting${researching ? ", then asks one queued question if this week's limit allows" : ""}, using your signed-in subscriptions.</p>
+          <p class="muted small">Reviews ${formatCount(summary.pending)} answer${summary.pending === 1 ? "" : "s"} waiting${researching ? ", then asks one queued question if this week's limit allows" : ""}.</p>
           <p id="loop-status" class="muted small" role="status">${loop.running ? "The loop is running." : last ? `Last run ${escapeHTML(dateLabel(last.finishedAt))}: ${escapeHTML(loopRunText(last))}` : "The loop has not run yet."}${loop.schedule?.installed ? " It also runs hourly in the background." : " It runs only when you start it."}</p>
         </div>
       </section>

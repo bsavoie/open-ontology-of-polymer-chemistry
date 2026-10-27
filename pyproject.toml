@@ -26,4 +26,4 @@ include-package-data = false
 include = ["oopc*"]
 
 [tool.setuptools.package-data]
-oopc = ["web/index.html", "web/researcher.js", "web/researcher.css", "web/operator.html", "web/app.js", "web/style.css", "web/about.html", "web/about.css", "web/about.js", "web/about/*.svg", "web/vendor/cytoscape.min.js", "web/vendor/cytoscape.LICENSE", "web/vendor/openchemlib.js", "web/vendor/openchemlib.LICENSE", "schema/*.json"]
+oopc = ["web/index.html", "web/researcher.js", "web/researcher.css", "web/operator.html", "web/app.js", "web/style.css", "web/about.html", "web/about.css", "web/about.js", "web/vendor/cytoscape.min.js", "web/vendor/cytoscape.LICENSE", "web/vendor/openchemlib.js", "web/vendor/openchemlib.LICENSE", "web/vendor/InterVariable.woff2", "web/vendor/InterVariable-Italic.woff2", "web/vendor/inter.LICENSE", "schema/*.json"]

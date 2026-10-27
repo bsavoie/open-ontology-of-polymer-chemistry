@@ -49,6 +49,39 @@ class CallLedger(unittest.TestCase):
         for thread in (background, foreground):
             thread.join(3)
 
+    def test_a_question_waiting_for_the_last_findings_says_so_and_starts_its_clock_when_its_turn_comes(self):
+        started, release, events = threading.Event(), threading.Event(), []
+
+        class Progress:
+            def __call__(self, line): pass
+            def wait(self, action): events.append(("wait", action))
+            def begin(self): events.append(("begin", release.is_set()))
+
+        def slow(*a, **k):
+            started.set()
+            self.assertTrue(release.wait(3))
+            return {"engine": "codex", "answer": {}}
+        background = threading.Thread(target=lambda: calls.invoke(self.root, "deposit", "q1", slow, "codex", "", {}))
+        background.start()
+        self.assertTrue(started.wait(3))
+        foreground = threading.Thread(target=lambda: calls.invoke(self.root, "research", "q2", lambda *a, **k:
+                                                                  {"engine": "codex", "answer": {}}, "codex", "", {},
+                                                                  progress=Progress()))
+        foreground.start()
+        for _ in range(50):
+            if events:
+                break
+            threading.Event().wait(0.02)
+        self.assertEqual(events, [("wait", "Waiting for the last answer's findings to be saved")])
+        release.set()
+        for thread in (background, foreground):
+            thread.join(3)
+        self.assertEqual(events[1:], [("begin", True)])  # Its clock started only once the findings were saved.
+        events.clear()
+        calls.invoke(self.root, "research", "q3", lambda *a, **k: {"engine": "codex", "answer": {}}, "codex", "", {},
+                     progress=Progress())
+        self.assertEqual(events, [("begin", True)])  # A free engine: no waiting.
+
     def test_a_second_reviewer_waits_and_finds_nothing_left_to_review(self):
         q, identifier = self.deposit()
         started, release = threading.Event(), threading.Event()

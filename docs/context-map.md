@@ -42,7 +42,7 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 | Surface | Files | Audience |
 | --- | --- | --- |
 | Researcher app (home, `/`): Ask, Polymers, Knowledge, History, Settings | `index.html`, `researcher.js`, `researcher.css` | Polymer researchers |
-| About page (`/about.html`, linked from the top bar): the knowledge base and the loop for newcomers, with a glossary that every underlined term opens | `about.html`, `about.js`, `about.css`, `about/*.svg` (drawn by `tools/draw_about_figures.py` from the public seed) | Students and new researchers |
+| About page (`/about.html`, linked from the top bar): an animated figure of the two loops (accumulation round the ring, expansion across the polymers), live counts and the status labels | `about.html`, `about.js`, `about.css` | Students and new researchers |
 | Developer inspector (`/operator.html`, unlinked from the app): graph, ontology, task replay, loop health | `operator.html`, `app.js`, `style.css` | Maintainers |
 | Bundled libraries | `vendor/cytoscape.*`, `vendor/openchemlib.*` | — |
 

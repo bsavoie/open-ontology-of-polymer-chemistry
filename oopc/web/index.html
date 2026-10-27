@@ -11,9 +11,8 @@
 <body>
   <a class="skip-link" href="#view">Skip to content</a>
   <header class="topbar">
-    <a class="brand" href="#/ask" aria-label="Open Ontology of Polymer Chemistry home">
-      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M10 10 29 10 34 28 17 35 5 24Z M10 10 17 35 M29 10 5 24"/><circle cx="10" cy="10" r="3"/><circle cx="29" cy="10" r="3"/><circle cx="34" cy="28" r="3"/><circle cx="17" cy="35" r="3"/><circle cx="5" cy="24" r="3"/></svg>
-      <span><strong>Open Ontology</strong><span class="brand-subtitle">of Polymer Chemistry</span></span>
+    <a class="brand" href="#/ask" aria-label="Open Ontology of Polymer Chemistry (OOPC), home">
+      <span class="wordmark" aria-hidden="true"><span class="word">O<span class="rest"><span>pen</span></span></span><span class="word">O<span class="rest"><span>ntology</span></span></span><span class="word minor"><span class="rest"><span>of</span></span></span><span class="word">P<span class="rest"><span>olymer</span></span></span><span class="word">C<span class="rest"><span>hemistry</span></span></span></span>
     </a>
     <nav class="tabs" aria-label="Sections">
       <a href="#/ask" data-tab="ask">Ask</a>
@@ -33,7 +32,7 @@
     <div class="dialog-heading"><h2 id="settings-title">Settings</h2><button type="button" class="icon-button" data-close aria-label="Close settings">×</button></div>
     <section class="settings-section" aria-labelledby="account-title">
       <h3 id="account-title">Research engine</h3>
-      <p class="muted small">Questions run through your own subscription. Both engines share one memory and one history; each answer records which engine produced it. The reviewer checks an answer in a fresh session of the engine that wrote it, which can open the sources it read. ChatGPT (Codex) is the default: in October 2026 Claude Code’s web fetch could not open about two in five of the sources researchers cited (publisher pages and many PDFs), so its answers find fewer readable sources.</p>
+      <p class="muted small">Questions run on your own subscription, and both engines share one memory. ChatGPT (Codex) is the default: in October 2026 Claude Code’s web fetch could not open about two in five cited sources.</p>
       <div id="runtime-list" class="runtime-list" role="radiogroup" aria-labelledby="account-title"><p class="muted small">Checking…</p></div>
       <p class="muted small">Sign-in happens on the provider’s own website; no password is entered here.</p>
       <p id="account-error" class="inline-error" role="alert" hidden></p>
@@ -41,18 +40,18 @@
     <section class="settings-section" aria-labelledby="knowledge-title">
       <h3 id="knowledge-title">Adding findings</h3>
       <div class="runtime-list" role="radiogroup" aria-labelledby="knowledge-title">
-        <label class="runtime-option"><input type="radio" name="review-mode" value="researcher"><span><strong>The research agent decides</strong><br><span class="muted small">Values it read directly in a source’s text or a table are added at once. Values it read off a figure, converted or combined go to a separate reviewer first.</span></span></label>
-        <label class="runtime-option"><input type="radio" name="review-mode" value="all"><span><strong>Review every finding first</strong><br><span class="muted small">Nothing is used by later questions until a separate reviewer has checked it against its source.</span></span></label>
+        <label class="runtime-option"><input type="radio" name="review-mode" value="researcher"><span><strong>The research agent decides</strong><br><span class="muted small">Values read in a source’s text or a table are added at once; figure readings, conversions and combined values go to a reviewer first.</span></span></label>
+        <label class="runtime-option"><input type="radio" name="review-mode" value="all"><span><strong>Review every finding first</strong><br><span class="muted small">Later questions use a finding only after a separate reviewer has checked it against its source.</span></span></label>
       </div>
       <label class="spot-rate">Spot checks<select id="spot-rate"><option value="0">Off</option><option value="0.1">1 in 10 added findings</option><option value="0.2">1 in 5 added findings</option><option value="1">Every added finding</option></select></label>
-      <p class="muted small">After an answer is delivered, the reviewer that checks its figure readings, conversions and combined values also checks a sample of the ones the research agent added, to show how often its judgement holds up. The answer never waits for it.</p>
+      <p class="muted small">The reviewer also checks a sample of added findings, to show how often the agent’s judgement holds up. Answers never wait for it.</p>
       <label class="spot-rate">Background research, questions a week<input type="number" id="research-per-week" min="0" max="100" step="1" inputmode="numeric"></label>
-      <p class="muted small">0 (the default) turns it off. Above 0, each answer's open questions join the research queue and the hourly loop asks up to this many a week, using a signed-in engine's spare quota.</p>
+      <p class="muted small">0 turns it off. Above 0, open questions from your answers join the research queue and the hourly loop asks up to this many a week with spare quota.</p>
       <p id="knowledge-error" class="inline-error" role="alert" hidden></p>
     </section>
     <section class="settings-section" aria-labelledby="privacy-title">
       <h3 id="privacy-title">Privacy</h3>
-      <p class="small">Your question is sent to the selected engine’s provider (OpenAI or Anthropic) to run the research. The answer, its findings and its activity record stay on this computer. Each finding is labelled with who vouched for it: the research agent, or a separate reviewer that checked it against its source. Your questions and activity records are never included in public releases.</p>
+      <p class="small muted">Your question goes to the selected engine’s provider (OpenAI or Anthropic). The answer, its findings and its activity record stay on this computer, and your questions and activity are never included in public releases.</p>
     </section>
   </dialog>
   <noscript><p class="error-banner">JavaScript is required for this application.</p></noscript>

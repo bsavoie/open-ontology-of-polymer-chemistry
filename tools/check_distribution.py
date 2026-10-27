@@ -13,11 +13,8 @@ import zipfile
 
 ASSETS = {"web/index.html", "web/researcher.js", "web/researcher.css", "web/operator.html", "web/app.js", "web/style.css",
           "web/vendor/cytoscape.min.js", "web/vendor/cytoscape.LICENSE", "web/vendor/openchemlib.js", "web/vendor/openchemlib.LICENSE",
-          "web/about.html", "web/about.css", "web/about.js",
-          "web/about/fig-accumulation-narrow.svg", "web/about/fig-accumulation.svg", "web/about/fig-loop-narrow.svg",
-          "web/about/fig-loop.svg", "web/about/fig-polylactide-narrow.svg", "web/about/fig-polylactide.svg",
-          "web/about/fig-seed-graph-narrow.svg", "web/about/fig-seed-graph.svg", "web/about/fig-who-vouches-narrow.svg",
-          "web/about/fig-who-vouches.svg"}
+          "web/vendor/InterVariable.woff2", "web/vendor/InterVariable-Italic.woff2", "web/vendor/inter.LICENSE",
+          "web/about.html", "web/about.css", "web/about.js"}
 WINDOWS_DEVICES = {"CON", "PRN", "AUX", "NUL"} | {
     prefix + number for prefix in ("COM", "LPT") for number in "123456789¹²³"}
 

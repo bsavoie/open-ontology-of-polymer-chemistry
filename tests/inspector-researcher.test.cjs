@@ -209,6 +209,15 @@ test('live progress shows the stage, clock, budget and sites', () => {
   assert.equal(ui.formatClock(3725), '62:05');
 });
 
+test('a question waiting for its engine shows why, with no clock or progress yet', () => {
+  const live = ui.progressDetail({status: 'running', budgetSeconds: 600, depth: 'standard',
+    progress: {waiting: true, startedAt: null, elapsedSeconds: 0, budgetSeconds: 600, lastAction: "Waiting for the last answer's findings to be saved"}},
+    Date.parse('2026-09-27T16:00:00Z'));
+  assert.deepEqual([live.waiting, live.clock, live.percent, live.limit], [true, '0:00', 0, '10 min']);
+  assert.equal(live.action, "Waiting for the last answer's findings to be saved");
+  assert.equal(ui.progressDetail({progress: {lastAction: 'Reading example.org'}}).waiting, false);
+});
+
 test('the running clock advances between worker events without changing the record', () => {
   const start = Date.parse('2026-09-27T16:00:00Z');
   const task = {status: 'running', progress: {startedAt: new Date(start).toISOString(), elapsedSeconds: 0, budgetSeconds: 600}};

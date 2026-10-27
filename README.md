@@ -38,18 +38,31 @@ records, and the [tester guide](docs/tester-guide.md) for a walk-through.
 
 ## Start locally
 
-Requires Python 3.9 or later with SQLite FTS5. The reader and app need no
-package installation. Asking questions needs a signed-in ChatGPT (Codex) or
-Claude Code subscription.
+Requires git and Python 3.9 or later with SQLite FTS5; the reader and app have
+no Python packages to install. Asking questions also needs a ChatGPT (Codex) or
+Claude Code subscription, signed in through its own app or command-line tool
+([Codex](docs/openai-connection.md), [Claude Code](docs/claude-connection.md)).
 
 ```sh
-python3 -m oopc import-seed data/wiki-snapshot-v2.json   # once, from the source repository
+git clone https://github.com/bsavoie/open-ontology-of-polymer-chemistry.git
+cd open-ontology-of-polymer-chemistry
+python3 -m oopc import-seed data/wiki-snapshot-v2.json   # once: builds the seed release in releases/
 python3 -m oopc inspect --open
 ```
 
-Open `http://127.0.0.1:8765`: **Ask**, **Polymers**, **Knowledge** and
-**History**, with engine sign-in under Settings. The same loop runs from the
-command line:
+Keep the terminal running. The app opens at `http://127.0.0.1:8765`: **Ask**,
+**Polymers**, **Knowledge** and **History**, with engine sign-in under
+Settings. To type `oopc` in place of `python3 -m oopc`, install the clone into
+a virtual environment and run it from the clone (or set `OOPC_ROOT` to it):
+
+```sh
+python3 -m venv .venv && . .venv/bin/activate
+python3 -m pip install .
+oopc inspect --open
+```
+
+The portable ZIP, the wheel and the Mac app prototype are described in
+[installation](docs/installation.md). The same loop runs from the command line:
 
 ```sh
 python3 -m oopc ask "How does annealing temperature affect the crystallinity of PLA films?"

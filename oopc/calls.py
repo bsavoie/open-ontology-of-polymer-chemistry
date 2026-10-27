@@ -2,9 +2,16 @@
 import os
 import time
 import uuid
+from contextlib import ExitStack
 from pathlib import Path
 from . import engines
 from .util import atomic_json, locked, now, read_json
+
+# What each engine is doing for this process, so a session waiting for its turn can say what it waits for.
+_BUSY = {}
+WAITING = {"deposit": "Waiting for the last answer's findings to be saved",
+           "review": "Waiting for the last answer's review to finish",
+           "research": "Waiting for the question before it to finish"}
 
 
 def new_tokens(usage):
@@ -23,9 +30,20 @@ def invoke(root, phase, owner, runner, engine, prompt, schema, **options):
     item = {"callId": identifier, "phase": phase, "owner": owner, "engine": engine, "pid": os.getpid(),
             "startedAt": now(), "outcome": "running", "usage": None, "newTokens": None}
     atomic_json(path, item, private=True)
-    clock, started = time.monotonic(), None
+    clock, started, progress = time.monotonic(), None, options.get("progress")
     try:
-        with locked(path.parent / (engine + ".lock")):
+        with ExitStack() as turn:
+            lock = path.parent / (engine + ".lock")
+            try:
+                turn.enter_context(locked(lock, blocking=False))
+            except BlockingIOError:
+                if hasattr(progress, "wait"):  # A live question shows what it waits for; its clock has not started.
+                    progress.wait(WAITING.get(_BUSY.get(engine), "Waiting for the engine to finish another task"))
+                turn.enter_context(locked(lock))
+            _BUSY[engine] = phase
+            turn.callback(_BUSY.pop, engine, None)
+            if hasattr(progress, "begin"):
+                progress.begin()
             started = time.monotonic()
             result = (runner or engines.run_session)(engine, prompt, schema, **options)
         item.update(outcome="completed", usage=result.get("usage"), sessionId=result.get("sessionId"))
