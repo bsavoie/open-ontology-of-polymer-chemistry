@@ -43,6 +43,9 @@ no Python packages to install. Asking questions also needs a ChatGPT (Codex) or
 Claude Code subscription, signed in through its own app or command-line tool
 ([Codex](docs/openai-connection.md), [Claude Code](docs/claude-connection.md)).
 
+On a Mac, git and Python come with Apple's Command Line Tools: macOS offers to
+install them the first time you run `git`, or run `xcode-select --install`.
+
 ```sh
 git clone https://github.com/bsavoie/open-ontology-of-polymer-chemistry.git
 cd open-ontology-of-polymer-chemistry
@@ -61,8 +64,12 @@ python3 -m pip install .
 oopc inspect --open
 ```
 
-The portable ZIP, the wheel and the Mac app prototype are described in
-[installation](docs/installation.md). The same loop runs from the command line:
+On an Apple Silicon Mac, the OOPC app (a prototype) runs the same app with no
+terminal. Its disk image is not published yet: ask the maintainer for one, or
+build it from the clone with Python 3.11 or later
+([the Mac app](docs/installation.md#use-the-mac-app-prototype)). The portable
+ZIP and the wheel are also described in [installation](docs/installation.md).
+The same loop runs from the command line:
 
 ```sh
 python3 -m oopc ask "How does annealing temperature affect the crystallinity of PLA films?"

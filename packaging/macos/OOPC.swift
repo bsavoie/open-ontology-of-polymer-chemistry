@@ -23,6 +23,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
     private var log: FileHandle?
     private var quitting = false
     private var failed = false
+    private var stopSignal: DispatchSourceSignal?
 
     private let workspace: URL = {
         if let root = ProcessInfo.processInfo.environment["OOPC_ROOT"], !root.isEmpty {
@@ -37,6 +38,13 @@ final class Launcher: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = mainMenu()
+        // `kill` sends SIGTERM: quit as from the menu, so the server stops too. A handler, unlike SIG_IGN, is not
+        // inherited by the processes this app starts. The quit runs from the run loop, not this main-queue block,
+        // because it waits for a reply sent through the main queue.
+        signal(SIGTERM) { _ in }
+        stopSignal = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        stopSignal?.setEventHandler { RunLoop.main.perform { NSApp.terminate(nil) } }
+        stopSignal?.resume()
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 try self.prepareWorkspace()

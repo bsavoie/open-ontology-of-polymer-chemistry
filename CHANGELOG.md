@@ -16,6 +16,10 @@
 - A question waiting for its engine (the last answer's findings or review)
   says so, and its clock starts when its session does, as its time limit
   always has.
+- `tools/publish_public.py` publishes a version to the public repository as
+  one commit, without the development history or the development records.
+- The README says how a Mac gets git and Python and where the Mac app comes
+  from; its builder stops with a clear message on Python older than 3.11.
 
 ## 0.13.0: answers first, findings after (2026-10-26)
 

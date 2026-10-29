@@ -83,8 +83,9 @@ fresh clone, including once with no engines signed in
 (`env -i HOME=<empty dir> PATH=/usr/bin:/bin`), as CI has none. CI minutes are
 capped by a small budget, so batch pushes and release at most once a week;
 never mark a push that carries code `[skip ci]` (it skips CI for every commit
-in it). Public releases are deferred until the loop is stable; a failed release
-must preserve the last validated release. Never reset the source wiki checkout.
+in it). Publish to the public repository only with `tools/publish_public.py`:
+one commit per version, never this repository's history. A failed release must
+preserve the last validated release. Never reset the source wiki checkout.
 
 ## Several sessions at once
 

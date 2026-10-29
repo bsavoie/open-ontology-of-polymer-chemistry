@@ -52,7 +52,8 @@ run has already passed.
 later) that needs no Python or terminal. Drag **OOPC** to Applications and open
 it; the researcher app opens in the default browser. Clicking the Dock icon
 opens it again; quitting OOPC stops the server and any running question. The
-app's menu also shows the data folder and the log.
+app's menu also shows the data folder and the log. The disk image is not
+published yet: get one from the maintainer, or build it as described below.
 
 The prototype is signed ad hoc, not by an Apple developer, so macOS blocks the
 first open: open System Settings → Privacy & Security and choose **Open
@@ -66,13 +67,22 @@ The app looks for Claude Code and Codex on the login shell's `PATH` (Finder
 starts apps with a bare one), in `~/.local/bin`, Homebrew's folders and inside
 the Claude, ChatGPT and Codex desktop apps. Sign in under Settings as usual.
 
-To build it on a Mac with the Xcode command-line tools:
+To build it on a Mac, you need the Command Line Tools (`xcode-select --install`)
+and Python 3.11 or later. The Mac's own `python3` (3.9) runs the app from a
+clone but is too old for the builder; the app itself bundles its own Python.
+Install a newer one from [python.org](https://www.python.org/downloads/macos/)
+or with Homebrew (`brew install python@3.13`), then, in a clone:
 
 ```sh
-python3 tools/build_macos_app.py --release releases/RELEASE_ID   # -> build/macos/OOPC.app and the .dmg
+python3.13 -m oopc import-seed data/wiki-snapshot-v2.json   # once, if releases/ is empty
+python3.13 tools/build_macos_app.py   # the current release -> build/macos/OOPC.app and OOPC-VERSION-arm64.dmg
 ```
 
-The script downloads a pinned [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+`--release releases/RELEASE_ID` bundles another release. The app is built from
+committed code only: the builder refuses uncommitted changes to what it bundles
+and records the commit in the app (`Contents/Resources/build.json`). Build a
+disk image you share from a revision published to the public repository, whose
+commit names that revision (`Development-revision`). The script downloads a pinned [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
 Python and checks its digest, installs the package files the wheel ships into
 it, copies and verifies one release, compiles `packaging/macos/OOPC.swift`, signs
 everything ad hoc and makes a compressed disk image. The bundle is a real Python
@@ -163,3 +173,13 @@ release first, and replaces a prior download only after building a complete ZIP.
 Run `python3 tools/package_release.py` from a checkout with a verified current
 release. Python wheels and source distributions intentionally omit the data and
 private operational state; distribute the portable ZIP for the complete seed.
+
+## Publish the public repository
+
+Development happens in a private repository; the public one holds one commit
+per published version and none of the development history.
+`python3 tools/publish_public.py` shows what `main` would add, and `--push` adds
+it as one commit on the public `main` (`--tag NAME` also tags it). Each commit
+leaves out the development records listed under `internal` in
+`config/public-files.json` and local editor settings (`.claude/`), and names its
+development revision.

@@ -9,18 +9,25 @@ refuses uncommitted changes to what it bundles and records the commit in the
 bundle (Info.plist `OOPCSourceCommit`, Resources/build.json). The bundle is signed ad hoc only, so a downloaded copy
 opens through System Settings -> Privacy & Security -> Open Anyway.
 
-    python3 tools/build_macos_app.py                # current release -> build/macos/
-    python3 tools/build_macos_app.py --release releases/oopc-...
+    python3.13 tools/build_macos_app.py             # current release -> build/macos/
+    python3.13 tools/build_macos_app.py --release releases/oopc-...
 
-Build locally on a Mac: macOS runners cost ten times the CI minutes.
+The builder needs Python 3.11 or later (the app bundles its own). Build locally
+on a Mac: macOS runners cost ten times the CI minutes.
 """
+import sys
+
+if sys.version_info < (3, 11):  # tomllib and tarfile's extraction filters; the Mac's own python3 is 3.9.
+    raise SystemExit("The Mac app builder needs Python 3.11 or later; this is Python %d.%d. Install one from "
+                     "python.org or with `brew install python@3.13`, then run `python3.13 tools/build_macos_app.py`."
+                     % sys.version_info[:2])
+
 import argparse
 import hashlib
 import json
 import plistlib
 import shutil
 import subprocess
-import sys
 import tarfile
 import tomllib
 import urllib.request
