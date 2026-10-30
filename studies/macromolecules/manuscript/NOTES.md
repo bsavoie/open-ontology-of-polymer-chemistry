@@ -8,8 +8,9 @@ The main text is `main.tex` (ACS `achemso`, `journal=mamobx`) and the Supporting
     tectonic si.tex
     tectonic preprint.tex
 
-`preprint.tex` is the preprint: `main.tex` with the OOPC wordmark at the bottom right of every page, level with the
-page number. `main.tex` alone, the journal submission, has no mark. The wordmark files (`figures/oopc-wordmark*`,
+Since 2026-10-29 (owner) `main.tex` and `si.tex` both print the OOPC wordmark at the bottom right of every page,
+level with the page number, so `preprint.tex` gives the same document as `main.tex`. For a submission without the mark,
+delete the `\providecommand` and the hook marked "OOPC mark" in each file. The wordmark files (`figures/oopc-wordmark*`,
 SVG and PDF, letters as outlines) are drawn by `../figures/wordmark.py` from the app's font and colours:
 `oopc-wordmark-paper` for a white page, which the preprint uses, and `oopc-wordmark`, the app's dark-tile icon.
 

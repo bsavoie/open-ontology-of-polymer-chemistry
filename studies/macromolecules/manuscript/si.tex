@@ -14,6 +14,12 @@
 %% Single-spaced throughout, as main.tex; the class double-spaces manuscripts.
 \AtBeginDocument{\singlespacing}
 
+%% OOPC mark, as in main.tex: the wordmark at the bottom right of every page (owner, 2026-10-29).
+\providecommand\OOPCpreprint{\includegraphics[height=.17in]{figures/oopc-wordmark-paper}}
+\AddToHook{shipout/foreground}{%
+  \put(\dimexpr1in+\oddsidemargin+\textwidth\relax,\dimexpr-1in-\topmargin-\headheight-\headsep-\textheight-\footskip\relax)
+    {\makebox[0pt][r]{\raisebox{\dimexpr.35em-.5\height\relax}{\OOPCpreprint}}}}
+
 \SectionNumbersOn
 \renewcommand{\thesection}{S\arabic{section}}
 \renewcommand{\thefigure}{S\arabic{figure}}

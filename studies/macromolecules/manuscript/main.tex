@@ -30,14 +30,13 @@
 %% Release and prompt identifiers: monospaced, breakable at hyphens.
 \newcommand{\ident}[1]{\path{#1}}
 
-%% Preprint mark. preprint.tex defines \OOPCpreprint (the OOPC wordmark) and reads this file, which then prints the
-%% mark at the bottom right of every page, flush with the text's right edge and centred on the page number's line.
-%% This file alone, the journal submission, has no mark.
-\ifdefined\OOPCpreprint
-  \AddToHook{shipout/foreground}{%
-    \put(\dimexpr1in+\oddsidemargin+\textwidth\relax,\dimexpr-1in-\topmargin-\headheight-\headsep-\textheight-\footskip\relax)
-      {\makebox[0pt][r]{\raisebox{\dimexpr.35em-.5\height\relax}{\OOPCpreprint}}}}
-\fi
+%% OOPC mark: the wordmark at the bottom right of every page, flush with the text's right edge and centred on the page
+%% number's line. On every build since 2026-10-29 (owner); preprint.tex gives the same document. For a submission
+%% without the mark, delete the \providecommand and the hook below.
+\providecommand\OOPCpreprint{\includegraphics[height=.17in]{figures/oopc-wordmark-paper}}
+\AddToHook{shipout/foreground}{%
+  \put(\dimexpr1in+\oddsidemargin+\textwidth\relax,\dimexpr-1in-\topmargin-\headheight-\headsep-\textheight-\footskip\relax)
+    {\makebox[0pt][r]{\raisebox{\dimexpr.35em-.5\height\relax}{\OOPCpreprint}}}}
 
 \author{Brett M. Savoie}
 \email{bsavoie2@nd.edu}
