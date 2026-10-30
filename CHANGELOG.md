@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.1: the Mac app's icon and update check (2026-10-29)
+
+- The Mac app has an icon in Finder, the Dock and the app switcher: the OOPC
+  wordmark set two over two in its three inks, on the top bar's dark gray
+  (`packaging/macos/icon.html`).
+- The Mac app says when a newer version is out: when it starts it asks
+  GitHub for the latest release and offers its page, with Check for Updates…
+  and an off switch in its menu. It never installs anything itself.
+
 ## 0.14.0: optional reflection, a redrawn app, the Mac app as a download (2026-10-29)
 
 - An optional ontology reflection, off by default (`oopc reflect`; the owner's

@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- The Mac app's icon: the OOPC wordmark set two over two, printed as in the app's top bar (a white key over
+     purple and yellow plates out of register, on the bar's dark gray), on the macOS icon grid (an 824 px rounded
+     square in 1024 px). tools/build_macos_app.py makes OOPC.icns from icon.png; after changing this page, render it
+     again with any Chromium, for example
+       chrome-headless-shell --hide-scrollbars --default-background-color=00000000 --window-size=1024,1024 \
+         --virtual-time-budget=3000 --screenshot=packaging/macos/icon.png packaging/macos/icon.html -->
+<meta charset="utf-8">
+<title>OOPC icon</title>
+<style>
+@font-face{font-family:InterVariable;font-weight:100 900;src:url("../../oopc/web/vendor/InterVariable.woff2") format("woff2")}
+html,body{margin:0;width:1024px;height:1024px;background:transparent;overflow:hidden}
+.shadow{position:absolute;left:100px;top:100px;width:824px;height:824px;filter:drop-shadow(0 10px 12px rgb(0 0 0 / .32))}
+.tile{width:100%;height:100%;
+  background:radial-gradient(circle at 12px 12px,#ffffff14 3px,transparent 3.6px) 0 0/48px 48px,
+             radial-gradient(120% 90% at 30% 0%,#2a2537,#17141f 62%)}
+.grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(2,300px);grid-template-rows:repeat(2,300px);
+  place-content:center;column-gap:4px;row-gap:-1px;font:700 330px/300px InterVariable;isolation:isolate}
+.letter{position:relative;display:grid;place-items:center;color:rgb(255 255 255 / .86)}
+.letter::before,.letter::after{content:attr(data-i);position:absolute;inset:0;display:grid;place-items:center;z-index:-1;mix-blend-mode:screen}
+.letter::before{color:#ab95ff;translate:15px -10px}
+.letter::after{color:#f6c43f;translate:-20px 15px}
+</style>
+<div class="shadow"><div class="tile" id="tile"></div>
+  <div class="grid"><span class="letter" data-i="O">O</span><span class="letter" data-i="O">O</span><span class="letter" data-i="P">P</span><span class="letter" data-i="C">C</span></div>
+</div>
+<script>
+// Apple's icon shape is a continuous-corner square; a superellipse of exponent 5 matches it closely.
+const n = 5, r = 412, steps = 720, points = [];
+for (let i = 0; i < steps; i++) {
+  const t = i / steps * 2 * Math.PI, c = Math.cos(t), s = Math.sin(t);
+  points.push([r + r * Math.sign(c) * Math.abs(c) ** (2 / n), r + r * Math.sign(s) * Math.abs(s) ** (2 / n)].map(v => v.toFixed(2)).join(" "));
+}
+const d = `M ${points.join(" L ")} Z`, shape = `path("${d}")`;
+document.getElementById("tile").style.clipPath = shape;
+document.querySelector(".grid").style.clipPath = shape;
+// A faint light rim, half of a stroke inside the shape, keeps the dark tile apart from a dark Dock or window.
+document.querySelector(".shadow").insertAdjacentHTML("beforeend",
+  `<svg width="824" height="824" style="position:absolute;inset:0;clip-path:${shape}"><path d="${d}" fill="none" stroke="#ffffff26" stroke-width="5"/></svg>`);
+</script>

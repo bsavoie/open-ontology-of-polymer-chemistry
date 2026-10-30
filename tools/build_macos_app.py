@@ -46,6 +46,7 @@ MINIMUM_MACOS = "11.0"
 # from python/licenses/ of the matching pgo+lto-full build, those of CPython and of the libraries it links statically
 # into the modules the app keeps (zlib, ncurses and libedit are macOS's own; Tk is trimmed).
 PYTHON_LICENSES = ROOT / "packaging" / "macos" / "python-licenses"
+ICON = ROOT / "packaging" / "macos" / "icon.png"
 PYTHON = {"url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/"
                  "cpython-3.13.16%2B20261009-aarch64-apple-darwin-install_only_stripped.tar.gz",
           "sha256": "11785155d0f70e634178219c20925d8f20be00a3da4684fc4f5019dd15602ef7",
@@ -69,6 +70,10 @@ Asking questions needs a signed-in Claude Code or ChatGPT (Codex)
 subscription; connect one under Settings. Browsing works without one.
 Your questions and findings stay on this Mac, in
 ~/Library/Application Support/OOPC.
+
+When it starts, OOPC asks GitHub whether a newer version is out and offers
+its page; the OOPC menu turns this off. To update, quit OOPC and drag the
+new app to Applications; your questions and findings are kept.
 
 Source, documentation and licenses:
 https://github.com/bsavoie/open-ontology-of-polymer-chemistry
@@ -144,8 +149,22 @@ def install_release(release, resources):
     return release_id
 
 
+def install_icon(resources, out):
+    """OOPC.icns, at the sizes Finder, the Dock and the app switcher ask for, from the 1024 px master that
+    packaging/macos/icon.html renders."""
+    iconset = out / (APP + ".iconset")
+    shutil.rmtree(iconset, ignore_errors=True)
+    iconset.mkdir(parents=True)
+    for size in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            name = "icon_%dx%d%s.png" % (size, size, "@2x" if scale == 2 else "")
+            run("sips", "-z", size * scale, size * scale, ICON, "--out", iconset / name, capture_output=True)
+    run("iconutil", "-c", "icns", iconset, "-o", resources / (APP + ".icns"))
+    shutil.rmtree(iconset)
+
+
 def write_info(contents, commit):
-    info = {"OOPCSourceCommit": commit,
+    info = {"OOPCSourceCommit": commit, "CFBundleIconFile": APP,
         "CFBundleName": APP, "CFBundleDisplayName": APP, "CFBundleIdentifier": BUNDLE_ID,
         "CFBundleExecutable": APP, "CFBundlePackageType": "APPL", "CFBundleInfoDictionaryVersion": "6.0",
         "CFBundleShortVersionString": __version__, "CFBundleVersion": __version__,
@@ -221,6 +240,7 @@ def main():
     for name in LICENSES:
         shutil.copy2(ROOT / name, resources / "licenses" / name)
     shutil.copytree(PYTHON_LICENSES, resources / "licenses" / "python")
+    install_icon(resources, out)
     run("xcrun", "swiftc", "-O", "-swift-version", "5", "-target", "arm64-apple-macos" + MINIMUM_MACOS,
         ROOT / "packaging" / "macos" / "OOPC.swift", "-o", contents / "MacOS" / APP)
     write_info(contents, commit)

@@ -2,7 +2,7 @@
 
 The core reader and inspector have no third-party runtime dependencies.
 """
-__version__ = "0.14.0"
+__version__ = "0.14.1"
 
 
 def __getattr__(name):

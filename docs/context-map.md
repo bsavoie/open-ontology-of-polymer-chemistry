@@ -48,8 +48,8 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 | Bundled libraries | `vendor/cytoscape.*`, `vendor/openchemlib.*` | — |
 
 The Mac app (a prototype) wraps the same server: the launcher
-`packaging/macos/OOPC.swift` and its build, `tools/build_macos_app.py` (see
-[installation](installation.md)).
+`packaging/macos/OOPC.swift`, its icon (`icon.html`, rendered to `icon.png`) and
+its build, `tools/build_macos_app.py` (see [installation](installation.md)).
 
 `oopc/server.py` serves both on loopback only. Writes (asking, retrying, the
 research queue, loop runs, sign-in, engine choice) need the same origin and the

@@ -65,6 +65,14 @@ private `.oopc/`, with the app's log at `.oopc/app.log`); replacing the app
 keeps them. A newer app copies its release there the first time it runs and
 makes it the current one.
 
+To update, download the new disk image, quit OOPC, drag the new app to
+Applications and choose Replace; as with the first download, macOS asks for
+**Open Anyway** once more. When it starts, the app asks GitHub's public API for
+the latest release (one request, which tells GitHub this computer's address)
+and, when it is newer, offers to open its page; it never downloads or installs
+anything itself. **Check for Updates…** in the app's menu asks at any time, and
+**Check for Updates Automatically** turns the check at start off.
+
 The app looks for Claude Code and Codex on the login shell's `PATH` (Finder
 starts apps with a bare one), in `~/.local/bin`, Homebrew's folders and inside
 the Claude, ChatGPT and Codex desktop apps. Sign in under Settings as usual.

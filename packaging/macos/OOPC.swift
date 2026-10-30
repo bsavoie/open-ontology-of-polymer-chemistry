@@ -6,6 +6,10 @@
 // ~/Library/Application Support/OOPC, or OOPC_ROOT when set. The bundle is never
 // written: the bundled release is copied into the workspace the first time this
 // app version runs. OOPC_APP_NO_BROWSER=1 skips opening the browser (for tests).
+//
+// Once the server is ready, the app asks GitHub for the latest release and offers its
+// page when it is newer; it never downloads or installs anything. The app menu turns
+// this off, or launch with `-CheckForUpdates NO`.
 import AppKit
 import Darwin
 
@@ -24,6 +28,10 @@ final class Launcher: NSObject, NSApplicationDelegate {
     private var quitting = false
     private var failed = false
     private var stopSignal: DispatchSourceSignal?
+    private let defaults = UserDefaults.standard  // CheckForUpdates and SkippedVersion
+    private var version: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
+    private static let latestRelease =
+        URL(string: "https://api.github.com/repos/bsavoie/open-ontology-of-polymer-chemistry/releases/latest")!
 
     private let workspace: URL = {
         if let root = ProcessInfo.processInfo.environment["OOPC_ROOT"], !root.isEmpty {
@@ -37,6 +45,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
     // MARK: Application
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        defaults.register(defaults: ["CheckForUpdates": true])
         NSApp.mainMenu = mainMenu()
         // `kill` sends SIGTERM: quit as from the menu, so the server stops too. A handler, unlike SIG_IGN, is not
         // inherited by the processes this app starts. The quit runs from the run loop, not this main-queue block,
@@ -52,6 +61,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     self.url = url
                     self.openBrowser()
+                    if self.defaults.bool(forKey: "CheckForUpdates") { self.checkForUpdates(asked: false) }
                 }
             } catch {
                 DispatchQueue.main.async { self.fail("OOPC could not start", error.localizedDescription) }
@@ -259,6 +269,10 @@ final class Launcher: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         let app = NSMenu()
         app.addItem(withTitle: "About OOPC", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(item("Check for Updates…", #selector(checkNow)))
+        let automatic = item("Check for Updates Automatically", #selector(toggleAutomaticChecks(_:)))
+        automatic.state = defaults.bool(forKey: "CheckForUpdates") ? .on : .off
+        app.addItem(automatic)
         app.addItem(.separator())
         app.addItem(item("Open in Browser", #selector(openBrowser), "o"))
         app.addItem(item("Show Data Folder", #selector(showWorkspace)))
@@ -290,6 +304,78 @@ final class Launcher: NSObject, NSApplicationDelegate {
         if alert.runModal() == .alertSecondButtonReturn { showLog() }
         quitting = true
         NSApp.terminate(nil)
+    }
+
+    // MARK: Updates
+
+    @objc private func checkNow() { checkForUpdates(asked: true) }
+
+    @objc private func toggleAutomaticChecks(_ sender: NSMenuItem) {
+        defaults.set(sender.state != .on, forKey: "CheckForUpdates")
+        sender.state = defaults.bool(forKey: "CheckForUpdates") ? .on : .off
+    }
+
+    /// One request for the latest release; a newer one is offered unless skipped, and only an asked check reports
+    /// that there is none or that GitHub could not be reached.
+    private func checkForUpdates(asked: Bool) {
+        var request = URLRequest(url: Self.latestRelease, timeoutInterval: 15)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            let release = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let tag = (release?["tag_name"] as? String).map { $0.hasPrefix("v") ? String($0.dropFirst()) : $0 }
+            let page = (release?["html_url"] as? String).flatMap { URL(string: $0) }
+            let found = (response as? HTTPURLResponse)?.statusCode == 200 && tag != nil && page != nil
+            // From the run loop, not a main-queue block: an alert's modal loop would hold up the main queue.
+            RunLoop.main.perform {
+                guard found, let tag = tag, let page = page else {
+                    let reason = error?.localizedDescription ?? "GitHub did not return the latest release."
+                    self.note("Update check failed: " + reason)
+                    if asked { self.inform("OOPC could not check for updates", reason) }
+                    return
+                }
+                self.note("Update check: the latest release is " + tag + "; this app is " + self.version + ".")
+                if Self.isNewer(tag, than: self.version) {
+                    if asked || self.defaults.string(forKey: "SkippedVersion") != tag { self.offer(tag, page) }
+                } else if asked {
+                    self.inform("OOPC is up to date", "OOPC " + self.version + " is the latest version.")
+                }
+            }
+        }.resume()
+    }
+
+    /// Dotted versions compared number by number, so 0.14.10 is newer than 0.14.9.
+    private static func isNewer(_ candidate: String, than current: String) -> Bool {
+        let a = candidate.split(separator: ".").map { Int($0) ?? 0 }, b = current.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(a.count, b.count) {
+            let x = i < a.count ? a[i] : 0, y = i < b.count ? b[i] : 0
+            if x != y { return x > y }
+        }
+        return false
+    }
+
+    private func offer(_ tag: String, _ page: URL) {
+        note("Offering OOPC " + tag + ".")
+        let alert = NSAlert()
+        alert.messageText = "OOPC " + tag + " is available"
+        alert.informativeText = "You have OOPC " + version + ". Download the disk image from the release page, " +
+            "quit OOPC and drag the new app to Applications. Your questions and findings are kept."
+        alert.addButton(withTitle: "Open Release Page")
+        alert.addButton(withTitle: "Not Now")
+        alert.addButton(withTitle: "Skip This Version")
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: NSWorkspace.shared.open(page)
+        case .alertThirdButtonReturn: defaults.set(tag, forKey: "SkippedVersion")
+        default: break
+        }
+    }
+
+    private func inform(_ title: String, _ detail: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = detail
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     // MARK: Log
