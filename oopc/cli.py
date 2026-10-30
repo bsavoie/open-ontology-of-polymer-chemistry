@@ -169,6 +169,16 @@ def parser():
     ls.add_parser("status")
     ls.add_parser("install", help="Run the loop hourly with launchd")
     ls.add_parser("uninstall")
+    reflect = sub.add_parser("reflect", help="Replay recorded searches and fix the names, polymer ids and property "
+                                             "terms search reads (optional; off by default)")
+    rs = reflect.add_subparsers(dest="reflect_action", required=True)
+    q = rs.add_parser("run", help="Run once now (uses your subscription)")
+    q.add_argument("--dry-run", action="store_true", help="Mine and show the dossier only: no engine, nothing written")
+    rs.add_parser("status", help="The edits in force, the reverted ones and recent runs")
+    q = rs.add_parser("revert", help="Undo edits in force by id")
+    q.add_argument("edits", nargs="+")
+    q = rs.add_parser("schedule", help="Run from the loop's tick every DAYS days (0 turns it off)")
+    q.add_argument("days", type=int)
     parity = sub.add_parser("parity", help="Compare the researcher with a plain web session on the fixed parity set")
     ps = parity.add_subparsers(dest="parity_action", required=True)
     q = ps.add_parser("run", help="Answer and check the parity set on one engine (uses your subscription)")
@@ -193,7 +203,7 @@ def parser():
     im.add_parser("summary")
     upkeep = sub.add_parser("upkeep", help="One-off store cleanups before a freeze (a report unless --apply)")
     upkeep.add_argument("action", choices=["audit", "requeue", "excerpts", "titles", "polymers", "disambiguate", "duplicates",
-                                           "reviews"])
+                                           "index", "reviews"])
     upkeep.add_argument("--apply", action="store_true", help="Change the store (after a backup copy)")
     upkeep.add_argument("--capture", action="store_true", help="disambiguate: fetch sources not captured yet")
     upkeep.add_argument("--crossref-cache", metavar="FOLDER", help="titles: Crossref responses another tool cached")
@@ -282,6 +292,16 @@ def main(argv=None):
             if args.loop_action == "install":
                 return emit(loop.install(root))
             return emit(loop.uninstall())
+        if command == "reflect":
+            from . import loop, reflect
+            if args.reflect_action == "run":
+                return emit(reflect.run(root, dry_run=args.dry_run,
+                                        progress=lambda m: print("reflect: " + m, file=sys.stderr, flush=True)))
+            if args.reflect_action == "status":
+                return emit(reflect.status(root))
+            if args.reflect_action == "revert":
+                return emit({"reverted": [reflect.revert(root, identifier) for identifier in args.edits]})
+            return emit({"reflectEveryDays": loop.update_settings(root, {"reflectEveryDays": args.days})["reflectEveryDays"]})
         if command == "parity":
             from . import parity
             if args.parity_action == "run":

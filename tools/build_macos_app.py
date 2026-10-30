@@ -42,7 +42,10 @@ from oopc.util import resolve_release
 APP = "OOPC"
 BUNDLE_ID = "org.oopc.app"
 MINIMUM_MACOS = "11.0"
-# python-build-standalone, pinned by digest; bump both together.
+# python-build-standalone, pinned by digest; bump both together, and the license texts in PYTHON_LICENSES with them:
+# from python/licenses/ of the matching pgo+lto-full build, those of CPython and of the libraries it links statically
+# into the modules the app keeps (zlib, ncurses and libedit are macOS's own; Tk is trimmed).
+PYTHON_LICENSES = ROOT / "packaging" / "macos" / "python-licenses"
 PYTHON = {"url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/"
                  "cpython-3.13.16%2B20261009-aarch64-apple-darwin-install_only_stripped.tar.gz",
           "sha256": "11785155d0f70e634178219c20925d8f20be00a3da4684fc4f5019dd15602ef7",
@@ -66,6 +69,9 @@ Asking questions needs a signed-in Claude Code or ChatGPT (Codex)
 subscription; connect one under Settings. Browsing works without one.
 Your questions and findings stay on this Mac, in
 ~/Library/Application Support/OOPC.
+
+Source, documentation and licenses:
+https://github.com/bsavoie/open-ontology-of-polymer-chemistry
 """
 
 
@@ -214,6 +220,7 @@ def main():
     (resources / "licenses").mkdir()
     for name in LICENSES:
         shutil.copy2(ROOT / name, resources / "licenses" / name)
+    shutil.copytree(PYTHON_LICENSES, resources / "licenses" / "python")
     run("xcrun", "swiftc", "-O", "-swift-version", "5", "-target", "arm64-apple-macos" + MINIMUM_MACOS,
         ROOT / "packaging" / "macos" / "OOPC.swift", "-o", contents / "MacOS" / APP)
     write_info(contents, commit)

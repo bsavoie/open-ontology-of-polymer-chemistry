@@ -1,6 +1,6 @@
-"""The background loop: review what is waiting, then work a small research queue.
+"""The background loop: review what is waiting, work a small research queue, and now and then reflect.
 
-`tick` runs two stages once and logs what happened:
+`tick` runs three stages once and logs what happened:
 
 1. **Review**: up to `REVIEWS_PER_TICK` answers whose findings are waiting for
    review (normally reviewed right after the answer; this catches the rest). A
@@ -8,6 +8,9 @@
 2. **Research**: up to `researchPerWeek` questions a week from the research
    queue (0, the default, turns background research off), each asked like an
    ordinary question with origin `research`.
+3. **Reflection** (optional): every `reflectEveryDays` days (0, the default, turns it off), one `reflect.run`: the
+   recorded searches are replayed, a curator proposes names, polymer ids and property terms for what they missed, a
+   reviewer checks them, and the ones that do not lose more than they fix take effect (`oopc/reflect.py`).
 
 The parity set is run on demand (`oopc parity run`), not by the loop.
 
@@ -86,7 +89,7 @@ def add_research(root, question, *, from_question=None):
 # ----- settings -----
 
 REVIEW_MODES = ("researcher", "all")
-DEFAULT_SETTINGS = {"reviewMode": "researcher", "spotCheckRate": 0.2, "researchPerWeek": 0}
+DEFAULT_SETTINGS = {"reviewMode": "researcher", "spotCheckRate": 0.2, "researchPerWeek": 0, "reflectEveryDays": 0}
 
 
 def settings(root):
@@ -94,7 +97,8 @@ def settings(root):
     the ones it flags for review; `all` reviews every finding before it is used.
     `spotCheckRate`: the share of added findings also sent for review.
     `researchPerWeek`: how many queued questions the loop may ask a week; 0 turns background
-    research off, and only then do answers' open questions stop joining the queue."""
+    research off, and only then do answers' open questions stop joining the queue.
+    `reflectEveryDays`: how often the loop runs an ontology reflection (`reflect`); 0 turns it off."""
     path = _folder(root) / "settings.json"
     value = dict(DEFAULT_SETTINGS)
     if path.exists():
@@ -116,6 +120,9 @@ def update_settings(root, changes):
     if "researchPerWeek" in changes and (type(changes["researchPerWeek"]) is not int
                                          or not 0 <= changes["researchPerWeek"] <= 100):
         raise ValueError("researchPerWeek must be a whole number from 0 to 100")
+    if "reflectEveryDays" in changes and (type(changes["reflectEveryDays"]) is not int
+                                          or not 0 <= changes["reflectEveryDays"] <= 365):
+        raise ValueError("reflectEveryDays must be a whole number from 0 to 365")
     value = dict(settings(root), **changes)
     _folder(root).mkdir(parents=True, exist_ok=True, mode=0o700)
     atomic_json(_folder(root) / "settings.json", value, private=True)
@@ -196,6 +203,8 @@ def tick(root, *, runner=None, engine=None):
             entry["deposits"] = settle_deposits(root, runner=runner, engine=engine)
             entry["reviews"] = review_stage(root, runner=runner, engine=engine)
             entry["research"] = research_stage(root, runner=runner, engine=engine)
+            from . import reflect
+            entry["reflection"] = reflect.stage(root, runner=runner, engine=engine)
     except BlockingIOError:
         entry["status"] = "skipped-another-tick-running"
     entry["finishedAt"] = now()
@@ -204,8 +213,9 @@ def tick(root, *, runner=None, engine=None):
 
 
 def status(root):
+    from . import reflect
     from .ask import reuse_stats
-    return {"knowledge": knowledge.summary(root), "reviews": knowledge.reviews(root, 10), "reuse": reuse_stats(root),
+    return {"reflection": reflect.status(root, 5), "knowledge": knowledge.summary(root), "reviews": knowledge.reviews(root, 10), "reuse": reuse_stats(root),
             "settings": settings(root), "spotChecks": knowledge.spot_check_stats(root),
             "research": {"queue": research_queue(root)[-20:], "askedThisWeek": asked_this_week(root),
                          "weeklyLimit": settings(root)["researchPerWeek"]},

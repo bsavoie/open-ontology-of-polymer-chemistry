@@ -332,6 +332,7 @@
   }
 
   const RUNTIME_LABELS = {"codex": "ChatGPT (Codex)", "claude-code": "Claude Code"};
+  const RUNTIME_ORDER = ["codex", "claude-code"];
   const LOGIN_HOSTS = {"codex": ["auth.openai.com", "auth0.openai.com", "chatgpt.com"], "claude-code": ["claude.ai", "claude.com", "console.anthropic.com", "platform.claude.com"]};
   /** Only the provider's own https sign-in pages become links. */
   function loginLink(value, runtime) {
@@ -416,10 +417,20 @@
   function readiness() {
     const {status, account} = state, label = runtimeLabel(selectedRuntime());
     if (!status || !account || account.status === "checking") return {ready: false, message: `Checking your ${label} connection…`};
-    if (account.status === "login-pending") return {ready: false, message: `Finish signing in to ${label} to ask questions.`, action: "settings"};
-    if (account.status !== "connected") return {ready: false, message: account.status === "unavailable" || account.status === "unsupported" ? `${account.message || `${label} is unavailable.`} Choose another engine in Settings.` : `Connect your ${label} account to ask questions.`, action: "settings"};
+    if (account.status === "login-pending") return {ready: false, message: `Finish signing in to ${label} to ask questions.`};
+    if (account.status !== "connected") return {ready: false, message: account.status === "unavailable" || account.status === "unsupported" ? `${account.message || `${label} is unavailable.`} Choose another engine.` : `Sign in to ${label} to ask questions.`};
     if (!status.available) return {ready: false, message: status.reason || "Questions are unavailable right now."};
     return {ready: true, message: status.queued ? `${plural(status.queued, "question")} ahead of yours` : ""};
+  }
+  /** One chip per engine under the ask box: a signed-in engine is chosen with a click; one that is not opens its sign-in in Settings. */
+  function engineChips() {
+    const runtimes = state.runtimes?.runtimes || {}, selected = selectedRuntime();
+    return RUNTIME_ORDER.filter(id => runtimes[id]).map(id => {
+      const status = runtimes[id].account?.status;
+      const note = {connected: "", checking: "Checking…", "login-pending": "Finish sign-in", disconnected: "Sign in"}[status] ?? "Unavailable";
+      const action = status === "connected" ? `data-engine="${id}"` : status === "checking" ? "disabled" : `data-open-settings="${id}"`;
+      return `<button type="button" class="engine${status === "connected" ? " ready" : ""}" data-runtime="${id}" ${action} aria-pressed="${id === selected}">${escapeHTML(runtimeLabel(id))}${note ? ` <b>${note}</b>` : ""}</button>`;
+    }).join("");
   }
 
   // Pre-submit hint only; the engine enforces its own limits.
@@ -444,23 +455,37 @@
             <button id="ask-submit" class="primary-button" type="submit" disabled>Ask</button>
           </div>
         </form>
-        <p id="ask-readiness" class="ask-status muted small" role="status"></p>
+        <div class="ask-status"><span id="engines-label" class="muted small">Runs on</span><span id="ask-engines" class="engines" role="group" aria-labelledby="engines-label"></span><span id="ask-readiness" class="muted small" role="status"></span></div>
         <p id="ask-quota" class="muted small" role="status" hidden></p>
         <p id="ask-error" class="inline-error" role="alert" hidden></p>
       </section>
-      <section class="recent" aria-labelledby="recent-title"><div class="section-heading"><h2 id="recent-title">Recent questions</h2><a href="#/history">See all</a></div><div id="recent-list" class="task-list"><p class="muted">Loading…</p></div></section>`;
+      <aside class="recent" aria-labelledby="recent-title"><button class="recent-tab" type="button" aria-expanded="false" aria-controls="recent-panel" aria-label="Recent questions"><span>Recent</span></button><div id="recent-panel" class="recent-panel"><div class="section-heading"><h2 id="recent-title">Recent questions</h2><a href="#/history">See all</a></div><div id="recent-list" class="task-list"><p class="muted">Loading…</p></div></div></aside>`;
+    // The tab opens and closes the recent-questions drawer; Escape or a click back on the question closes it.
+    const tab = $(".recent-tab"), showRecent = open => tab.setAttribute("aria-expanded", open);
+    tab.addEventListener("click", () => showRecent(tab.getAttribute("aria-expanded") !== "true"));
+    $(".recent").addEventListener("keydown", event => { if (event.key === "Escape" && tab.getAttribute("aria-expanded") === "true") { showRecent(false); tab.focus(); } });
+    $(".ask").addEventListener("click", () => showRecent(false));
     const form = $("#ask-form"), submit = $("#ask-submit"), depthValue = () => form.elements.depth.value;
+    const askError = error => { $("#ask-error").textContent = error?.message || ""; $("#ask-error").hidden = !error; };
+    $("#ask-engines").addEventListener("click", event => {
+      const chip = event.target.closest("[data-engine]");
+      if (chip && chip.dataset.engine !== selectedRuntime()) chooseRuntime(chip.dataset.engine, askError);
+    });
+    let shownChips = "";
     const update = () => {
       for (const choice of form.querySelectorAll("[name=depth]")) {
         const known = DEPTHS[choice.value];
         choice.closest("label").title = `About ${known.searches} web searches and ${known.sources} sources`;
       }
       const ready = readiness(), depth = DEPTHS[depthValue()];
-      const budget = `Runs on ${runtimeLabel(selectedRuntime())} · about ${depth.sources} sources`;
-      const line = $("#ask-readiness");
-      line.classList.toggle("ready", ready.ready);
-      line.innerHTML = ready.ready ? escapeHTML([budget, ready.message].filter(Boolean).join(" · "))
-        : escapeHTML(ready.message) + (ready.action === "settings" ? ` <button type="button" class="text-button" data-open-settings>Open settings</button>` : "");
+      const chips = engineChips();
+      if (chips !== shownChips) {
+        // Redrawing the chips keeps keyboard focus on the one that had it.
+        const focused = document.activeElement?.closest?.("#ask-engines [data-runtime]")?.dataset.runtime;
+        $("#ask-engines").innerHTML = shownChips = chips;
+        if (focused) $(`#ask-engines [data-runtime="${focused}"]`)?.focus();
+      }
+      $("#ask-readiness").textContent = ready.ready ? [`about ${depth.sources} sources`, ready.message].filter(Boolean).join(" · ") : ready.message;
       submit.disabled = !ready.ready || $("#question").value.trim().length < 10 || state.submitting;
     };
     if (state.prefill) { $("#question").value = state.prefill.question; state.prefill = null; }
@@ -886,7 +911,6 @@
   // ----- Settings -----
   const settings = $("#settings-dialog");
   let accountTimer = null;
-  const RUNTIME_ORDER = ["codex", "claude-code"];
   const accountPaths = runtime => runtime === "claude-code"
     ? {login: "/api/runtimes/claude-code/login", cancel: "/api/runtimes/claude-code/cancel"}
     : {login: "/api/account/login", cancel: "/api/account/cancel"};
@@ -897,7 +921,7 @@
       const identity = [account.account?.email, account.account?.planType].filter(Boolean).join(" · ");
       const text = account.status === "connected" ? `Connected${identity ? ` · ${identity}` : ""}` : account.message || "Checking…";
       const link = pending && account.loginUrl ? loginLink(account.loginUrl, id) : null;
-      return `<div class="runtime-option${id === selected ? " selected" : ""}">
+      return `<div class="runtime-option${id === selected ? " selected" : ""}" data-runtime="${escapeHTML(id)}">
         <label><input type="radio" name="runtime" value="${escapeHTML(id)}"${id === selected ? " checked" : ""}><span><strong>${escapeHTML(entry.label)}</strong> <span class="muted small">${escapeHTML(entry.model)}</span></span></label>
         <p class="small runtime-status">${badge({label: ({connected: "Connected", "login-pending": "Signing in", disconnected: "Not connected"})[account.status] || "Unavailable", tone: account.status === "connected" ? "good" : pending ? "warn" : "neutral"})} ${escapeHTML(text)}</p>
         <div class="settings-actions">
@@ -939,17 +963,22 @@
     } catch (error) { settingsError(error); }
     finally { clearTimeout(accountTimer); await refreshSettings(); }
   }
-  async function chooseRuntime(runtime) {
+  async function chooseRuntime(runtime, report = settingsError) {
     try {
       if (!state.csrf) await loadTaskStatus();
       await post("/api/runtimes/select", {runtime, authorizeRuntimeSelection: true});
       state.pending = null;
-      settingsError(null);
-    } catch (error) { settingsError(error); }
+      report(null);
+    } catch (error) { report(error); }
     await refreshSettings();
     await state.refreshAskQuota?.();
   }
-  function openSettings() { settings.showModal(); renderSettings(); refreshSettings(); loadKnowledgeSettings(); }
+  async function openSettings(runtime) {
+    settings.showModal(); renderSettings(); loadKnowledgeSettings();
+    await refreshSettings();
+    // A sign-in chip on the Ask page lands on its engine's own button.
+    if (runtime) settings.querySelector(`.runtime-option[data-runtime="${CSS.escape(runtime)}"]`)?.querySelector("[data-connect],a,[data-cancel]")?.focus();
+  }
 
   // ----- Theme and global events -----
   function setTheme(theme) {
@@ -962,7 +991,7 @@
     try { theme = localStorage.getItem("oopc-theme"); } catch { /* Preference is optional. */ }
     setTheme(theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
     $("#theme-toggle").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
-    $("#settings-button").addEventListener("click", openSettings);
+    $("#settings-button").addEventListener("click", () => openSettings());
     settings.addEventListener("close", () => { clearTimeout(accountTimer); state.updateAsk?.(); });
     settings.querySelector("[data-close]").addEventListener("click", () => settings.close());
     settings.addEventListener("click", event => {
@@ -978,7 +1007,8 @@
     });
     $("#error-dismiss").addEventListener("click", () => showError(null));
     document.addEventListener("click", event => {
-      if (event.target.closest("[data-open-settings]")) openSettings();
+      const settingsLink = event.target.closest("[data-open-settings]");
+      if (settingsLink) openSettings(settingsLink.dataset.openSettings);
       const cite = event.target.closest("a.cite");
       if (cite) {
         event.preventDefault();

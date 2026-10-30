@@ -20,7 +20,13 @@ The project is one loop, described in `docs/core-loop.md`:
    for review and a sample of its added ones against their sources.
 5. **Reuse**: the most relevant reviewed and added findings are what the next
    question reads first.
-6. **Measure**: on demand, a small fixed parity set tracks quality and tokens
+6. **Reflect** (optional, off by default): every few days the recorded searches
+   are replayed; a curator proposes names, polymer ids and property terms for
+   what they missed, a reviewer checks each against its sources, and the edits
+   that do not lose more than they fix go into a local overlay the owner can
+   revert. The owner asked for it to ship as an option on 2026-10-29, though the
+   study's run of it (Part C) showed no end-to-end gain.
+7. **Measure**: on demand, a small fixed parity set tracks quality and tokens
    against a direct session.
 
 Parity with an unscaffolded Claude Code or Codex session is a guardrail, not the
@@ -40,6 +46,11 @@ Preserve stable WOP identities and read the wiki seed only. Canonical JSON-LD
 records and their pinned source snapshot are authoring inputs; SQLite, RDF and
 browser pages are derived projections. Never mark imported seed prose or
 relationships as independently reviewed.
+
+Reflection edits live only in the local overlay `.oopc/loop/ontology.json`,
+each with its proposer and its reviewer's verdict and reason; they never change
+the wiki seed or a graph release, and its curator can propose only from its
+closed list of edits.
 
 Every finding keeps who vouched for it. By the owner's default (2026-09-28), a
 finding the researcher read directly in its cited source is **added** on the

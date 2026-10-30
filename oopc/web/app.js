@@ -791,10 +791,21 @@
     const rows=Object.entries(labels).filter(([key])=>grade(quality.scores[key]?.baseline) && grade(quality.scores[key]?.candidate));
     return `<p class="event-note">${escapeHTML(quality.measuredPairs)} / ${escapeHTML(quality.expectedPairs ?? "?")} matched pairs · ${quality.calibrationRejected ? "Observed controls; calibration rejected" : quality.completeComparison ? "Complete comparison" : "Partial observations; no complete comparison"}. Scores are dimension-wise means on the 1–10 scale; baseline → candidate.</p><dl class="detail-fields">${rows.map(([key,label])=>`<div><dt>${escapeHTML(label)}</dt><dd>${grade(quality.scores[key].baseline)} → ${grade(quality.scores[key].candidate)}</dd></div>`).join("")}</dl>`;
   }
-  /** Parity (run on demand with `oopc parity run`) and this week's loop numbers, for maintainers. */
+  /** The optional ontology reflection (`oopc reflect`): its schedule, the edits in force with who proposed and
+   * approved each and what the replay measured, and recent runs. Undoing an edit stays on the command line. */
+  function renderReflection(r = {}, num) {
+    const schedule = r.everyDays ? `Runs every ${esc(r.everyDays)} days from the loop's tick.` : 'Off (the default). Turn it on with <code>oopc reflect schedule DAYS</code>; <code>oopc reflect run --dry-run</code> shows what a run would send, without an engine.';
+    const change = e => e.type === "name" ? `“${esc(e.fields?.name)}” names ${esc(e.polymer || e.fields?.polymer)}${e.refiled ? `; files ${num(e.refiled)} findings` : ""}` : e.type === "annotation" ? `${esc(e.material || e.fields?.finding)} filed under ${esc(e.polymer || e.fields?.subject)}` : `${esc(e.fields?.term)}: ${esc((e.fields?.names || []).join("; "))}`;
+    const edits = (r.inForce || []).map(e => `<tr><td><code>${esc(e.id)}</code></td><td>${change(e)}</td><td>${esc(e.proposedBy?.engine)}</td><td>${esc(e.review?.engine)}: ${esc(e.review?.reason)}</td><td>${num(e.effect?.fixed)} / ${num(e.effect?.lostCount)}</td></tr>`).join("");
+    const runs = (r.runs || []).map(run => `<tr><td>${esc((run.startedAt || "").slice(0, 16).replace("T", " "))}</td><td>${esc(run.status)}${run.reason ? ` (${esc(run.reason)})` : ""}</td><td>${num(run.answers)}</td><td>${num(Object.values(run.misses || {}).reduce((a, b) => a + b, 0))}</td><td>${num(run.proposed)} / ${num(run.refused)} / ${num(run.approved)} / ${num(run.dropped)} / ${num(run.applied?.length)}</td></tr>`).join("");
+    return `<p class="small">${schedule} Edits are kept in <code>.oopc/loop/ontology.json</code>; the seed and the graph release never change. Undo one with <code>oopc reflect revert ID</code>; ${num((r.reverted || []).length)} reverted so far.</p>`
+      + (edits ? `<table class="data-table"><thead><tr><th>Edit</th><th>Change</th><th>Proposed by</th><th>Approved by</th><th>Misses fixed / results lost</th></tr></thead><tbody>${edits}</tbody></table>` : '<p class="muted small">No edit in force.</p>')
+      + (runs ? `<table class="data-table"><thead><tr><th>Run</th><th>Outcome</th><th>Answers</th><th>Misses</th><th>Proposed / refused / approved / dropped / applied</th></tr></thead><tbody>${runs}</tbody></table>` : "");
+  }
+  /** Parity (run on demand with `oopc parity run`), this week's loop numbers and the optional reflection, for maintainers. */
   async function openLoopHealth() {
     $("#loop-health-dialog").showModal();
-    const [parity, week] = await Promise.all([get("/api/parity").then(r => r.report).catch(() => null), get("/api/improvement").then(r => r.summary).catch(() => null)]);
+    const [parity, week, loopState] = await Promise.all([get("/api/parity").then(r => r.report).catch(() => null), get("/api/improvement").then(r => r.summary).catch(() => null), get("/api/loop").catch(() => null)]);
     const pct = v => typeof v === "number" ? `${Math.round(v * 100)}%` : "—", num = v => Number.isFinite(v) ? Math.round(v).toLocaleString("en-US") : "—";
     const all = parity?.summary?.all || {}, covered = parity?.summary?.covered || {}, g = parity?.guardrail || {};
     const row = (label, direct, ontology) => `<tr><td>${esc(label)}</td><td>${esc(direct)}</td><td>${esc(ontology)}</td></tr>`;
@@ -812,7 +823,7 @@
       : '<p class="muted small">No parity run yet. Run <code>oopc parity run --engine codex</code>; compare two runs with <code>oopc parity compare A B</code>.</p>';
     const w = week || {}, reviews = w.reviews || {}, spot = w.spotChecks || {};
     const weekHTML = `<dl class="detail-fields">${field("Answers this week", w.answered)}${field("Reused saved findings", w.reusedSavedFindings)}${field("Needed no web", w.answeredWithoutWeb)}${field("Median new tokens per answer", num(w.medianNewTokens))}${field("Reviews waiting / given up", `${num(reviews.waiting)} / ${num(reviews.givenUp)}`)}${field("Same-engine reviews", pct(reviews.sameEngineFraction))}${field("Sampled added findings rejected", spot.checked ? `${spot.unsupported} of ${spot.checked}` : "—")}${field("Checking share of new tokens", pct(w.loopCosts?.checkingTokenFraction))}</dl>`;
-    $("#loop-health").innerHTML = `<h3>Parity</h3>${parityHTML}<h3>This week</h3>${weekHTML}`;
+    $("#loop-health").innerHTML = `<h3>Parity</h3>${parityHTML}<h3>This week</h3>${weekHTML}<h3>Ontology reflection</h3>${renderReflection(loopState?.reflection, num)}`;
   }
 
   function openReleaseDialog() {

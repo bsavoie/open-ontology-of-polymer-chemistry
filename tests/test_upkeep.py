@@ -48,9 +48,11 @@ class UpkeepTests(unittest.TestCase):
         return [f["id"] for f in knowledge.for_question(self.root, question * 32)]
 
     def set(self, identifier, **columns):
+        """A finding as an older store held it, indexed for search as it was then."""
         with knowledge.connect(self.root) as db:
             for key, value in columns.items():
                 db.execute("UPDATE findings SET %s=? WHERE id=?" % key, (value, identifier))
+            knowledge._reindex(db, identifier)
 
     def test_access_uncertain_findings_go_back_to_review_and_the_store_is_backed_up(self):
         flagged, sampled, ambiguous = self.save("a", [finding(1), finding(2), finding(3)])
@@ -78,8 +80,8 @@ class UpkeepTests(unittest.TestCase):
         self.assertTrue(knowledge.bare_excerpt("27.4") and knowledge.bare_excerpt("29 MPa", "MPa"))
         self.assertFalse(knowledge.bare_excerpt("Tg 58.5 °C", "°C"))
         # An excerpt an earlier pass picked from captured text by itself (here, another measurement's row).
+        self.set(picked, excerpt="HDPE-1 | flexural strength | 27.4")
         with knowledge.connect(self.root) as db:
-            db.execute("UPDATE findings SET excerpt='HDPE-1 | flexural strength | 27.4' WHERE id=?", (picked,))
             knowledge._set_detail(db, picked, excerptFrom={"captured": "https://open.example.org/hdpe", "was": "27.4"})
         report = upkeep.excerpts(self.root, apply=True)
         self.assertEqual((report["withdrawn"], report["sentToSpotCheck"], report["sentToRecheck"]), (1, 2, 1))
@@ -95,6 +97,7 @@ class UpkeepTests(unittest.TestCase):
         knowledge.record_review(self.root, "b" * 32, engine="codex", started_at="", seconds=1, usage={}, verdicts={
             missing: {"verdict": "supported", "reason": "Table 1.", "excerpt": "tensile strength of 28 MPa for grade 8"}})
         self.assertEqual(knowledge.get(self.root, missing)["excerpt"], "tensile strength of 28 MPa for grade 8")
+        self.assertEqual(upkeep.stale_index(self.root), {"findings": [], "notes": []})
 
     def test_polymer_ids_from_the_question_and_family_members(self):
         question = "What tensile strength has been reported for polyetherimide?"
@@ -135,6 +138,7 @@ class UpkeepTests(unittest.TestCase):
         self.assertNotIn("subject", knowledge.get(self.root, pei))
         self.assertEqual(upkeep.polymers(self.root, apply=True)["changes"], 0)
         self.assertNotIn("subject", knowledge.get(self.root, pei))
+        self.assertEqual(upkeep.stale_index(self.root), {"findings": [], "notes": []})
 
     def old_deposit(self, identifier, question, item, status="accepted"):
         """A finding as a deposit made before the duplicate rules improved saved it."""
@@ -144,9 +148,9 @@ class UpkeepTests(unittest.TestCase):
         return identifier
 
     def test_duplicates_merge_into_the_reviewed_one_and_old_ids_still_resolve(self):
-        first = self.old_deposit("finding:d-1", "d", finding(1, excerpt=""))
+        first = self.old_deposit("finding:d-1", "d", finding(1, excerpt="grade 1 tensile strength 21 MPa"))
         again = self.old_deposit("finding:e-1", "e", finding(1, statement="The HDPE grade 1 tensile strength was 21 MPa.",
-                                                             excerpt="21 MPa"), status="supported")
+                                                             excerpt=""), status="supported")
         grade = self.old_deposit("finding:f-1", "f", finding(4, statement="The UHMWPE was the GUR-2122 grade.",
                                                              material="UHMWPE GUR-2122", value="GUR-2122", unit="",
                                                              sourceUrl="https://example.org/g"))
@@ -160,6 +164,8 @@ class UpkeepTests(unittest.TestCase):
         self.assertEqual((resolved["id"], resolved["mergedFrom"], resolved["status"]), (again, first, "supported"))
         self.assertEqual(upkeep.audit(self.root)["duplicates"]["pairs"], 0)
         self.assertEqual({knowledge.get(self.root, i)["id"] for i in (grade, method)}, {grade, method})
+        self.assertEqual(resolved["excerpt"], "grade 1 tensile strength 21 MPa")  # The kept one had none.
+        self.assertEqual(upkeep.stale_index(self.root), {"findings": [], "notes": []})
 
     def test_an_ambiguous_polymer_name_is_settled_at_deposit_or_sent_to_review(self):
         # Owner, 2026-10-14: an ambiguous label is updated when the source is ingested, never stored ambiguous.
@@ -247,6 +253,42 @@ class UpkeepTests(unittest.TestCase):
         knowledge.record_review(self.root, "h" * 32, engine="codex", started_at="", seconds=1, usage={}, verdicts={
             kept: {"verdict": "supported", "reason": "Fig. 2.", "excerpt": "a strength of 21 MPa"}})
         self.assertEqual(knowledge.get(self.root, kept)["excerpt"], "tensile strength of 21 MPa")
+
+    def found(self, q):
+        result = knowledge.search(self.root, q)
+        return [f["id"] for group in ("reviewed", "added", "unreviewed", "notes") for f in result[group]]
+
+    def test_search_reads_the_excerpt_a_reviewer_quoted_and_a_notes_crossref_title(self):
+        [figure] = self.save("m", [finding(1, excerpt="21", derivation="figure")])
+        knowledge.record_review(self.root, "m" * 32, engine="codex", started_at="", seconds=1, usage={}, verdicts={
+            figure: {"verdict": "supported", "reason": "Fig. 2.", "excerpt": "injection moulded bars reached 21 MPa"}})
+        self.assertEqual(self.found("moulded"), [figure])
+        knowledge.deposit(self.root, "n" * 32, {"findings": [], "sources": [{
+            "title": "Typed title", "url": "", "doi": "10.1234/n", "locator": "", "excerpts": [],
+            "supports": "HDPE tensile strength", "conditions": ""}]}, engine="codex", spot_check_rate=0)
+        message = json.dumps({"message": {"title": ["Weathering of polyethylene pipes"]}}).encode()
+        knowledge.apply_titles(self.root, fetch=lambda url, accept="*/*", timeout=20: (200, "application/json", message, url))
+        self.assertEqual(len(self.found("weathering")), 1)
+        self.assertEqual(upkeep.stale_index(self.root), {"findings": [], "notes": []})
+
+    def test_index_repairs_search_text_that_older_writes_left_behind(self):
+        [kept, other] = self.save("p", [finding(1), finding(2)])
+        with knowledge.connect(self.root) as db:
+            # As a review wrote an excerpt before 2026-10-29, and Crossref titles a note: without their search text.
+            db.execute("UPDATE findings SET excerpt='compression moulded plaques, 21 MPa' WHERE id=?", (kept,))
+            knowledge._insert_note(db, "note:p-1", "p" * 32, "research", {
+                "title": "Typed title", "url": "https://example.org/p", "doi": "", "locator": "", "excerpts": [],
+                "supports": "HDPE tensile strength", "conditions": ""}, created_at="2026-10-11T00:00:00")
+            db.execute("UPDATE notes SET title='Weathering of polyethylene pipes' WHERE id='note:p-1'")
+        self.assertEqual((self.found("plaques"), self.found("weathering")), ([], []))
+        report = upkeep.index(self.root)
+        self.assertEqual((report["findings"], report["notes"], report["applied"]), (1, 1, False))
+        self.assertEqual(self.found("plaques"), [])  # A report changes nothing.
+        done = upkeep.index(self.root, apply=True)
+        self.assertTrue((Path(done["backup"]) / "knowledge.sqlite").exists())
+        self.assertEqual((self.found("plaques"), self.found("weathering")), ([kept], ["note:p-1"]))
+        self.assertEqual(upkeep.stale_index(self.root), {"findings": [], "notes": []})
+        self.assertNotIn(other, self.found("plaques"))
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ Browsing performs read-only requests and creates no agent trace events.
 
 # Developer inspector (`/operator.html`)
 
-**Loop health** (top right) shows the latest parity run (run on demand with `oopc parity run`) beside the plain session, and this week's numbers: answers, reuse, answers needing no web, tokens, reviews waiting or given up, same-engine reviews, the rejected share of sampled added findings, and the checking share of tokens.
+**Loop health** (top right) shows the latest parity run (run on demand with `oopc parity run`) beside the plain session, and this week's numbers: answers, reuse, answers needing no web, tokens, reviews waiting or given up, same-engine reviews, the rejected share of sampled added findings, and the checking share of tokens. Below them is the optional ontology reflection (`oopc reflect`): whether it is scheduled, each edit in force with who proposed and approved it and the misses it fixed and results it lost in the replay, and recent runs.
 
 ## Knowledge graph
 

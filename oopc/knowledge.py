@@ -180,6 +180,11 @@ def _finding_text(finding):
                                                              "conditions", "sourceTitle", "excerpt", "subject"))
 
 
+def _note_text(note):
+    return " ".join([note["title"] or "", note["supports"] or "", note["conditions"] or "", note["locator"] or "",
+                     *note["excerpts"]])
+
+
 def source_key(doi, url):
     """One key per document: its DOI when known (also from a doi.org URL), else its URL without scheme or query."""
     doi = (doi or "").strip().lower().removeprefix("https://doi.org/").removeprefix("doi:")
@@ -470,8 +475,7 @@ def _insert_note(db, identifier, question_id, origin, note, *, created_at):
         json.dumps(note["excerpts"], ensure_ascii=False), note["supports"], note["conditions"], created_at,
         note.get("readUrl", "")))
     if cursor.rowcount:
-        db.execute("INSERT INTO notes_fts VALUES (?,?)", (identifier, " ".join(
-            [note["title"], note["supports"], note["conditions"], note["locator"], *note["excerpts"]])))
+        db.execute("INSERT INTO notes_fts VALUES (?,?)", (identifier, _note_text(note)))
 
 
 def finding_view(row, full=False, compact=False):
@@ -537,42 +541,91 @@ def _match(query, extra=()):
     return " OR ".join('"' + token.replace('"', '""') + '"*' for token in tokens)
 
 
+_GRAPH_NAMES = {}
 _ALIASES = {}
 
 
-def polymer_aliases(root):
-    """Name groups from the graph's polymer records (name, abbreviations, other names, trade names), cached per release.
+def _graph_names(release):
+    """Each graph polymer record's id and names (name, abbreviations, other names, trade names), cached per release.
     A trade name is in the seed only when its scope is one polymer (independent review, 2026-10-14)."""
-    from .util import resolve_release
-    try:
-        release = resolve_release(root)
-    except (ValueError, FileNotFoundError):
-        return {}
-    if str(release) not in _ALIASES:
-        groups, ids = {}, {}
+    if str(release) not in _GRAPH_NAMES:
+        found = []
         database_path = release / "graph.sqlite"
         if database_path.exists():
             db = sqlite3.connect(database_path.as_uri() + "?mode=ro", uri=True)
             try:
                 for (text,) in db.execute("SELECT json FROM records WHERE type='PolymerConcept'"):
                     record = json.loads(text)
-                    names = [record.get("label"), record.get("canonicalName"), *(record.get("abbreviations") or []),
-                             *(record.get("alternateNames") or []),
-                             *(t.get("name") for t in record.get("tradeNames") or [] if isinstance(t, dict))]
-                    names = [n.strip() for n in names if isinstance(n, str) and 2 <= len(n.strip()) <= 60]
-                    names += [n for n in map(_without_generic_tail, names) if n and n not in names]
-                    for name in names:
-                        groups.setdefault(name.lower(), set()).update(n for n in names if n.lower() != name.lower())
-                        if isinstance(record.get("@id"), str):
-                            ids.setdefault(name.lower(), set()).add(record["@id"])
+                    found.append((record.get("@id") if isinstance(record.get("@id"), str) else None,
+                                  [record.get("label"), record.get("canonicalName"), *(record.get("abbreviations") or []),
+                                   *(record.get("alternateNames") or []),
+                                   *(t.get("name") for t in record.get("tradeNames") or [] if isinstance(t, dict))]))
             finally:
                 db.close()
-        _ALIASES[str(release)] = groups
-        _POLYMER_IDS[str(release)] = ids
-    return _ALIASES[str(release)]
+        _GRAPH_NAMES[str(release)] = found
+    return _GRAPH_NAMES[str(release)]
 
 
-_POLYMER_IDS = {}
+ONTOLOGY = "ontology.json"  # The ontology overlay `reflect` writes: reviewed names, polymer ids and property terms.
+_OVERLAY = {}
+
+
+def ontology_edits(root):
+    """The edits in the workspace's ontology overlay (`.oopc/loop/ontology.json`, written by `reflect`), applied and
+    reverted, cached until the file changes. Empty when there is none."""
+    path = folder(root) / ONTOLOGY
+    try:
+        stat = path.stat()
+    except OSError:
+        return []
+    key = (str(path), stat.st_mtime_ns, stat.st_size)
+    if _OVERLAY.get(str(path), (None,))[0] != key:
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            value = {}
+        edits = value.get("edits") if isinstance(value, dict) else None
+        _OVERLAY[str(path)] = (key, [e for e in edits or [] if isinstance(e, dict)])
+    return _OVERLAY[str(path)][1]
+
+
+def ontology_names(root):
+    """The names the overlay adds to graph polymers, as (polymer id, name) pairs, in the order they were applied."""
+    return tuple((e["fields"]["polymer"], e["fields"]["name"]) for e in ontology_edits(root)
+                 if e.get("type") == "name" and e.get("status") == "applied" and isinstance(e.get("fields"), dict)
+                 and isinstance(e["fields"].get("polymer"), str) and isinstance(e["fields"].get("name"), str))
+
+
+def _name_index(root):
+    """Name groups and the polymer ids each name belongs to, from the graph's polymer records and the names the
+    ontology overlay adds to them, cached per release and overlay."""
+    from .util import resolve_release
+    try:
+        release = resolve_release(root)
+    except (ValueError, FileNotFoundError):
+        return {}, {}
+    added = ontology_names(root)
+    key = (str(release), added)
+    if key not in _ALIASES:
+        groups, ids = {}, {}
+        for identifier, names in _graph_names(release):
+            names = names + [name for polymer, name in added if identifier and polymer == identifier]
+            names = [n.strip() for n in names if isinstance(n, str) and 2 <= len(n.strip()) <= 60]
+            names += [n for n in map(_without_generic_tail, names) if n and n not in names]
+            for name in names:
+                groups.setdefault(name.lower(), set()).update(n for n in names if n.lower() != name.lower())
+                if identifier:
+                    ids.setdefault(name.lower(), set()).add(identifier)
+        _ALIASES[key] = (groups, ids)
+    return _ALIASES[key]
+
+
+def polymer_aliases(root):
+    """Name groups from the graph's polymer records (name, abbreviations, other names, trade names) and the names the
+    ontology overlay adds to them."""
+    return _name_index(root)[0]
+
+
 _FAMILIES = {}
 
 
@@ -626,22 +679,21 @@ def _without_generic_tail(name):
 
 def polymer_ids(root, name):
     """The graph polymer ids a name belongs to (empty when the graph has none)."""
-    polymer_aliases(root)
-    from .util import resolve_release
-    try:
-        return _POLYMER_IDS.get(str(resolve_release(root)), {}).get(name.lower(), set())
-    except (ValueError, FileNotFoundError):
-        return set()
+    return _name_index(root)[1].get(name.lower(), set())
 
 
-def expand(root, query):
-    """Other names for polymers named in the query, so "PCL" also finds "polycaprolactone"."""
+def expand(root, query, terms=()):
+    """Other names for polymers named in the query, so "PCL" also finds "polycaprolactone", then the other names of the
+    property terms it names (`terms`, from `_property_terms`), so "Tg" also finds "glass transition"."""
     lower = " " + re.sub(r"[^\w()-]+", " ", (query or "").lower()) + " "
     extra = []
     for name, others in polymer_aliases(root).items():
         if " " + name + " " in lower:
             for other in sorted(others):
                 extra.extend(re.findall(r"[\w-]+", other, flags=re.UNICODE))
+    for term in terms:
+        for other in term["others"]:
+            extra.extend(re.findall(r"[\w-]+", other, flags=re.UNICODE))
     generic = {"poly", "family", "polymer", "polymers", "resin", "resins", "copolymer", "copolymers", "grade", "grades",
                "the", "of", "and", "acid", "type", "general"}
     return list(dict.fromkeys(t for t in extra if len(t) > 1 and t.lower() not in generic))
@@ -698,14 +750,44 @@ def _has_word(text, word):
 
 FILL = 10  # Findings that match only the polymer a query names fill a result up to this many.
 SAME_SOURCE = 12  # Other findings from the sources a search returns, so a source already read is not read again.
+TERMS = ("property_terms", "finding_terms")  # Read by search only when a store has both (`reflect` writes them).
 
 
-def _relevant(rows, about, text, subject, polymers, words, limit):
+def _property_terms(db, query, polymers):
+    """The property terms `query` names, each with its names, its other names as written, the query words that name
+    it and the findings annotated to it. A name counts when it is in the query as whole words, longest names first,
+    outside the words a polymer the query names takes ("density" names nothing in "high-density polyethylene"). A
+    one-letter name (E, ρ) never counts, as no one-letter word does elsewhere in search."""
+    lower = _words(query)
+    for p in polymers:
+        lower = re.sub(r"(?<= )" + re.escape(_words(p["name"]).strip()) + r"(?= )", "|", lower)
+    terms = {}
+    for term, names in db.execute("SELECT term, names FROM property_terms ORDER BY term"):
+        names = json.loads(names or "[]")
+        terms[term] = [n for n in (names if isinstance(names, list) else []) if isinstance(n, str)]
+    found = {}
+    for phrase, term in sorted({(_words(n).strip(), t) for t, names in terms.items() for n in names},
+                               key=lambda item: (-len(item[0]), item)):
+        if len(phrase) > 1 and " " + phrase + " " in lower:
+            found.setdefault(term, set()).update(phrase.split())
+            lower = re.sub(r"(?<= )" + re.escape(phrase) + r"(?= )", "|", lower)
+    named = []
+    for term, words in found.items():
+        names = [n for n in terms[term] if len(_words(n).strip()) > 1]
+        annotated = {i for (i,) in db.execute("SELECT finding_id FROM finding_terms WHERE term=?", (term,))}
+        named.append({"term": term, "words": words, "names": {_words(n).strip() for n in names},
+                      "others": [n for n in names if not set(_words(n).split()) <= words], "findings": annotated})
+    return named
+
+
+def _relevant(rows, about, text, subject, polymers, words, limit, terms=()):
     """Rows about a polymer the query names (when it names one), most query words matched first.
 
     `about` is the text that says what a row is about; `text` is everything the query words may match.
     A row matching the polymer but none of the other words ("PNIPAM cloud point" for "PNIPAM LCST") is
-    kept only to fill a short result, since vocabulary differs between questions and sources."""
+    kept only to fill a short result, since vocabulary differs between questions and sources. The query
+    words naming a property term (`terms`) are also matched by a row annotated to the term or mentioning
+    any of its names."""
     matched, polymer_only = [], []
     for position, row in enumerate(rows):
         topic = _words(about(row))
@@ -713,7 +795,9 @@ def _relevant(rows, about, text, subject, polymers, words, limit):
                                 for p in polymers):
             continue
         body = _words(text(row))
-        covered = sum(_has_word(body, w) for w in words) / len(words) if words else 1
+        named = set().union(*(t["words"] for t in terms
+                              if row["id"] in t["findings"] or any(_mentions(body, n) for n in t["names"])))
+        covered = sum(w in named or _has_word(body, w) for w in words) / len(words) if words else 1
         if covered:
             matched.append((-covered, position, row))
         elif polymers:
@@ -729,7 +813,14 @@ def search(root, q, limit=10, compact=False):
     about that polymer (by any of its names or its graph id), ranked by how many of the other
     query words they match. `limit` (at least 10) is the total of these across statuses. Then come up to
     `SAME_SOURCE` other findings saved from the sources of the findings and notes returned. The result is grouped
-    by status (reviewed, added on a researcher's judgement, awaiting review or inconclusive) only for display."""
+    by status (reviewed, added on a researcher's judgement, awaiting review or inconclusive) only for display.
+
+    A store may also hold property terms (tables `property_terms` and `finding_terms`), read only when both exist
+    and hold a term. For a term the query names (`_property_terms`), findings written with its other names are found
+    too; the query words naming it count as matched in a finding annotated to it or mentioning any of its names; and
+    when the query names a polymer, the findings annotated to the term and filed under that polymer, its families or
+    its members are candidates too. Notes are searched as without terms. Without these tables, or with them empty,
+    a search returns what it returned before they existed."""
     phrase = _match(q, expand(root, q))
     empty = {"reviewed": [], "added": [], "unreviewed": [], "notes": []}
     if not phrase or not database(root).exists():
@@ -739,8 +830,12 @@ def search(root, q, limit=10, compact=False):
     for polymer in polymers:
         polymer["lineage"] = lineage(root, polymer["ids"])
     with connect(root) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN "
+                                               "(?, ?)", TERMS)}
+        terms = _property_terms(db, q, polymers) if set(TERMS) <= tables else []
         rows = db.execute("SELECT f.* FROM findings_fts x JOIN findings f ON f.id=x.id WHERE findings_fts MATCH ? "
-                          "AND f.status != ? ORDER BY rank LIMIT 500", (phrase, UNSUPPORTED)).fetchall()
+                          "AND f.status != ? ORDER BY rank LIMIT 500",
+                          (_match(q, expand(root, q, terms)) if terms else phrase, UNSUPPORTED)).fetchall()
         notes = db.execute("SELECT n.* FROM notes_fts x JOIN notes n ON n.id=x.id WHERE notes_fts MATCH ? "
                            "ORDER BY rank LIMIT 200", (phrase,)).fetchall()
         ids = sorted(set().union(*(p["ids"] for p in polymers))) if polymers else []
@@ -748,12 +843,20 @@ def search(root, q, limit=10, compact=False):
             seen = {row["id"] for row in rows}
             rows += [row for row in db.execute("SELECT * FROM findings WHERE status != ? AND subject IN (%s)"
                                                % ",".join("?" * len(ids)), (UNSUPPORTED, *ids)) if row["id"] not in seen]
+        family = sorted(set().union(*(p["lineage"] for p in polymers))) if terms and polymers else []
+        if family:  # Findings annotated to a property term the query names, filed under the polymer's lineage.
+            seen, asked = {row["id"] for row in rows}, [t["term"] for t in terms]
+            marks = lambda items: ",".join("?" * len(items))
+            rows += [row for row in db.execute("SELECT * FROM findings WHERE status != ? AND subject IN (%s) AND id IN "
+                                               "(SELECT finding_id FROM finding_terms WHERE term IN (%s)) ORDER BY rowid"
+                                               % (marks(family), marks(asked)), (UNSUPPORTED, *family, *asked))
+                     if row["id"] not in seen]
         fields = lambda row, keys: " ".join(str(row[k] or "") for k in keys)
         # A finding is about what its statement and material say, not its source's title: a PCL control in a
         # PHBV-blend paper is a PCL finding.
         rows = _relevant(rows, lambda r: fields(r, ("statement", "material")),
                          lambda r: fields(r, ("statement", "material", "property", "conditions", "source_title", "excerpt")),
-                         lambda r: r["subject"], polymers, words, limit)
+                         lambda r: r["subject"], polymers, words, limit, terms)
         notes = _relevant(notes, lambda n: fields(n, ("title", "supports", "conditions")),
                           lambda n: fields(n, ("title", "supports", "conditions", "locator", "excerpts")),
                           lambda n: "", polymers, words, 3 if compact else limit)
@@ -843,6 +946,7 @@ def apply_titles(root, question_id=None, *, fetch=None, cached_only=False):
             title = titles.get(doi(note["doi"], note["url"]))
             if title and spacing(title) != spacing(note["title"]):
                 db.execute("UPDATE notes SET title=? WHERE id=?", (title, note["id"]))
+                _reindex_note(db, note["id"])
     return counts
 
 
@@ -1114,6 +1218,7 @@ def record_review(root, question_id, *, engine, verdicts, started_at, seconds, u
                 _set_detail(db, identifier, excerptFrom={"reviewer": engine, "at": stamp, "was": row["excerpt"] or ""},
                             needsExcerpt=None)
                 db.execute("UPDATE findings SET excerpt=? WHERE id=?", (given[:LIMITS["excerpt"]], identifier))
+                _reindex(db, identifier)
             if detail.get("ambiguous"):
                 _relabel(root, db, row, detail, verdict.get("material") or "", engine, stamp)
         db.execute("UPDATE deposits SET review_status='reviewed', review_attempts=review_attempts+1, reviewed_at=?, "
@@ -1125,9 +1230,20 @@ def record_review(root, question_id, *, engine, verdicts, started_at, seconds, u
 
 
 def _reindex(db, identifier):
+    """Index a finding for search again from its stored text; every write to a field `_finding_text` reads calls it."""
     row = db.execute("SELECT * FROM findings WHERE id=?", (identifier,)).fetchone()
     db.execute("DELETE FROM findings_fts WHERE id=?", (identifier,))
     db.execute("INSERT INTO findings_fts VALUES (?,?)", (identifier, _finding_text(_row_fields(row))))
+
+
+def _note_row_text(row):
+    return _note_text(dict(row, excerpts=json.loads(row["excerpts"] or "[]")))
+
+
+def _reindex_note(db, identifier):
+    row = db.execute("SELECT * FROM notes WHERE id=?", (identifier,)).fetchone()
+    db.execute("DELETE FROM notes_fts WHERE id=?", (identifier,))
+    db.execute("INSERT INTO notes_fts VALUES (?,?)", (identifier, _note_row_text(row)))
 
 
 def _relabel(root, db, row, detail, material, engine, stamp):

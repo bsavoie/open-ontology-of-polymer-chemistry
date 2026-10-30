@@ -219,7 +219,7 @@ class AccountServerTests(unittest.TestCase):
                 self.assertEqual(self.request("POST", "/api/settings", body, headers=self.headers)[0], 400)
         self.assertEqual(self.request("POST", "/api/settings", {"researchPerWeek": 5}, headers={})[0], 403)
         self.assertEqual(self.request("GET", "/api/loop")[1]["settings"],
-                         {"reviewMode": "all", "spotCheckRate": 0.2, "researchPerWeek": 0})
+                         {"reviewMode": "all", "spotCheckRate": 0.2, "researchPerWeek": 0, "reflectEveryDays": 0})
 
     def test_the_prompt_cannot_be_changed_through_the_app(self):
         for path in ("/api/improvement/adopt", "/api/improvement/revert"):

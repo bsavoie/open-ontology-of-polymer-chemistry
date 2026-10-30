@@ -15,6 +15,9 @@ change and changes the store only with `apply`, after copying the store to `.oop
   findings agree on (P0-9); a polymer id a person approved, a blank included, is never changed.
 - `duplicates`: findings the current duplicate rule would merge are merged into the best-reviewed one; the others'
   rows are kept in `merged`, and their ids still resolve (P0-10).
+- `index`: findings and notes whose search text differs from their stored text are indexed again. Until 2026-10-29 an
+  excerpt a reviewer quoted, and some passes above, changed a finding without its search text, and a Crossref title
+  a note's; search found those by their old text.
 """
 from __future__ import annotations
 
@@ -164,6 +167,7 @@ def excerpts(root, *, apply=False):
                 changes.update(excerptFrom=None, excerptWithdrawn={"excerpt": row["excerpt"], "captured": filled["captured"],
                                                                    "filledAt": filled.get("at"), "at": stamp})
                 db.execute("UPDATE findings SET excerpt=? WHERE id=?", (filled.get("was") or "", row["id"]))
+                knowledge._reindex(db, row["id"])
             knowledge._set_detail(db, row["id"], **changes)
         for question in {r["question_id"] for r in rows}:
             _queue(db, question)
@@ -263,6 +267,7 @@ def polymers(root, *, apply=False):
             for identifier, (subject, old, rule) in changes.items():
                 db.execute("UPDATE findings SET subject=? WHERE id=?", (subject, identifier))
                 knowledge._set_detail(db, identifier, polymerFrom={"rule": rule, "was": old, "at": now()[:10]})
+                knowledge._reindex(db, identifier)
     return report
 
 
@@ -408,6 +413,7 @@ def duplicates(root, *, apply=False):
                 better = next((r["excerpt"] for r in others if (r["excerpt"] or "").strip()), "")
                 if better:
                     db.execute("UPDATE findings SET excerpt=? WHERE id=?", (better, keeper["id"]))
+                    knowledge._reindex(db, keeper["id"])
             db.execute("UPDATE findings SET detail=? WHERE id=?", (json.dumps(detail, ensure_ascii=False), keeper["id"]))
             for row in others:
                 db.execute("INSERT OR REPLACE INTO merged VALUES (?,?,?,?)",
@@ -417,6 +423,37 @@ def duplicates(root, *, apply=False):
     return report
 
 
+# ---------------------------------------------------------------------------
+# Search text that matches the store
+
+def stale_index(root):
+    """The ids of findings and of notes whose search index does not hold exactly their stored text."""
+    out = {}
+    with knowledge.connect(root) as db:
+        for table, text in (("findings", lambda r: knowledge._finding_text(knowledge._row_fields(r))),
+                            ("notes", knowledge._note_row_text)):
+            indexed = {}
+            for identifier, value in db.execute("SELECT id, text FROM %s_fts" % table):
+                indexed.setdefault(identifier, []).append(value)
+            out[table] = [r["id"] for r in db.execute("SELECT * FROM " + table) if indexed.get(r["id"]) != [text(r)]]
+    return out
+
+
+def index(root, *, apply=False):
+    stale = stale_index(root)
+    report = {"findings": len(stale["findings"]), "notes": len(stale["notes"]), "applied": apply,
+              "examples": stale["findings"][:10]}
+    if not apply or not (stale["findings"] or stale["notes"]):
+        return report
+    report["backup"] = str(backup(root, "index"))
+    with knowledge.connect(root) as db:
+        for identifier in stale["findings"]:
+            knowledge._reindex(db, identifier)
+        for identifier in stale["notes"]:
+            knowledge._reindex_note(db, identifier)
+    return report
+
+
 ACTIONS = {"audit": None, "requeue": requeue, "excerpts": excerpts, "titles": titles, "polymers": polymers,
            "disambiguate": disambiguate,
-           "duplicates": duplicates}
+           "duplicates": duplicates, "index": index}

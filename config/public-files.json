@@ -39,6 +39,7 @@
     "oopc/openai_account.py",
     "oopc/otel.py",
     "oopc/parity.py",
+    "oopc/reflect.py",
     "oopc/release.py",
     "oopc/release_verification.py",
     "oopc/reviewer.py",

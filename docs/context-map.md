@@ -12,6 +12,7 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 | The reviewer prompt, the review of an answer's findings, whole-answer checks and their measures | `oopc/reviewer.py` |
 | Captured source text (fetched once after an answer) and Crossref metadata for DOIs | `oopc/sources.py` |
 | Background loop (review, research queue), settings, launchd job | `oopc/loop.py` |
+| Optional reflection (`oopc reflect`): replaying recorded searches for misses, the curator and reviewer sessions, the drop step, the ontology overlay and revert | `oopc/reflect.py` |
 | Parity set, run on demand: plain session beside the researcher, canaries | `oopc/parity.py`, `benchmarks/parity.json` |
 | Weekly summary and comparing two parity runs | `oopc/improve.py` |
 | Ledger of engine calls and their usage | `oopc/calls.py` |
@@ -57,7 +58,8 @@ per-server CSRF token. See [inspector](inspector.md).
 ## Tests
 
 `tools/run_tests.py` runs one process per test file in parallel. The loop is
-covered end to end with a scripted engine in `tests/test_core_loop.py`; engine
+covered end to end with a scripted engine in `tests/test_core_loop.py`, the reflection in
+`tests/test_reflect.py`; engine
 sessions with fake binaries in `tests/test_engines.py`; the importer in
 `tests/test_legacy_import.py`; browser helpers in `tests/*.test.cjs`
 (`npm run check`). Tests never reach this machine's engines.

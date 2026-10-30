@@ -1,7 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.14.0: optional reflection, a redrawn app, the Mac app as a download (2026-10-29)
 
+- An optional ontology reflection, off by default (`oopc reflect`; the owner's
+  request of 2026-10-29): every `reflectEveryDays` days the loop replays the
+  researcher's recorded searches on the store, a curator session proposes
+  names, polymer ids and property terms for what they missed, a reviewer
+  session on the other engine approves or rejects each against its sources, and
+  an edit that loses more cited results than it fixes is dropped. The rest go
+  into a local overlay, `.oopc/loop/ontology.json`, that search reads beside the
+  graph; each keeps its proposer and its reviewer's verdict and reason, and
+  `oopc reflect revert` undoes it. The seed and graph releases never change.
+  `oopc reflect run --dry-run` shows what a run would send, without an engine;
+  the operator page's Loop health lists the edits and runs. In the study (Part
+  C) the same steps raised lookup recall from 0.90 to 0.92 and did not change
+  answers measurably.
+- Search reads property terms when a store has them (the property-term half of
+  the study's `study-freeze-3` search change); without them it returns exactly
+  what it did.
 - The researcher app is redrawn in purple, yellow and gray with bundled Inter
   (OFL), and shows only what serves the loop: token counts and review policy
   left the Ask, answer and Knowledge pages. The About page is an animated
@@ -13,6 +29,8 @@
   spells out Open Ontology of Polymer Chemistry at any width, and the Ask
   page carries the full name above "Ask your knowledge base, improve your
   knowledge base".
+- Recent questions open from a "Recent" tab at the left edge of the Ask page,
+  and one button per engine under the ask box chooses it or opens its sign-in.
 - A question waiting for its engine (the last answer's findings or review)
   says so, and its clock starts when its session does, as its time limit
   always has.
@@ -20,6 +38,9 @@
   one commit, without the development history or the development records.
 - The README says how a Mac gets git and Python and where the Mac app comes
   from; its builder stops with a clear message on Python older than 3.11.
+- The Mac app's disk image is attached to the public repository's release,
+  still signed ad hoc; the app carries the licenses of its bundled Python and
+  the libraries built into it.
 
 ## 0.13.0: answers first, findings after (2026-10-26)
 

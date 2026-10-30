@@ -52,8 +52,10 @@ run has already passed.
 later) that needs no Python or terminal. Drag **OOPC** to Applications and open
 it; the researcher app opens in the default browser. Clicking the Dock icon
 opens it again; quitting OOPC stops the server and any running question. The
-app's menu also shows the data folder and the log. The disk image is not
-published yet: get one from the maintainer, or build it as described below.
+app's menu also shows the data folder and the log. Download the disk image and
+its SHA-256 checksum from the
+[latest release](https://github.com/bsavoie/open-ontology-of-polymer-chemistry/releases/latest),
+or build it as described below.
 
 The prototype is signed ad hoc, not by an Apple developer, so macOS blocks the
 first open: open System Settings → Privacy & Security and choose **Open
@@ -80,17 +82,20 @@ python3.13 tools/build_macos_app.py   # the current release -> build/macos/OOPC.
 
 `--release releases/RELEASE_ID` bundles another release. The app is built from
 committed code only: the builder refuses uncommitted changes to what it bundles
-and records the commit in the app (`Contents/Resources/build.json`). Build a
-disk image you share from a revision published to the public repository, whose
-commit names that revision (`Development-revision`). The script downloads a pinned [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+and records the commit in the app (`Contents/Resources/build.json`). The disk
+image of a release is built from a clone of the public repository, so the
+commit it records is a public one, and attached with its SHA-256 to that
+commit's GitHub release (`gh release create`). The script downloads a pinned [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
 Python and checks its digest, installs the package files the wheel ships into
 it, copies and verifies one release, compiles `packaging/macos/OOPC.swift`, signs
-everything ad hoc and makes a compressed disk image. The bundle is a real Python
+everything ad hoc and makes a compressed disk image. The app carries its
+licenses and those of the bundled Python and the libraries built into it
+(`Contents/Resources/licenses`). The bundle is a real Python
 interpreter rather than a frozen program because engine sessions start
 `sys.executable` for the knowledge tools and the hourly loop job. Nothing under
 `.oopc/` enters the bundle. Build locally: macOS CI runners cost ten times the
-minutes. Distributing beyond a few testers needs a Developer ID signature and
-notarization instead of the ad hoc one.
+minutes. The app is distributed signed ad hoc; a Developer ID signature and
+notarization would remove the Open Anyway step.
 
 ## Install the library or wheel
 

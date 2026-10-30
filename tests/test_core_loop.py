@@ -740,7 +740,8 @@ class CoreLoopTests(unittest.TestCase):
     def test_settings_saved_before_the_simplification_still_read(self):
         atomic_json(self.root / ".oopc/loop/settings.json", {"autoQueue": True, "backgroundResearch": False,
                                                              "researchPerWeek": 10, "weeklyParity": True, "spotCheckRate": 0.3})
-        self.assertEqual(loop.settings(self.root), {"reviewMode": "researcher", "spotCheckRate": 0.3, "researchPerWeek": 0})
+        self.assertEqual(loop.settings(self.root), {"reviewMode": "researcher", "spotCheckRate": 0.3, "researchPerWeek": 0,
+                                                    "reflectEveryDays": 0})
         with self.assertRaises(ValueError):
             loop.update_settings(self.root, {"autoQueue": True})
 

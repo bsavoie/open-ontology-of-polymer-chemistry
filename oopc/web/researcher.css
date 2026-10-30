@@ -71,10 +71,10 @@ h3{font-size:var(--text-base)}
 @keyframes misregister-purple{25%{translate:-1.5px 1.5px}50%{translate:2.5px .5px}75%{translate:-.5px -2px}}
 @keyframes misregister-yellow{25%{translate:2px -1px}50%{translate:-3.5px 0}75%{translate:0 2.5px}}
 .tabs{display:flex;gap:2px;margin-left:auto;align-self:stretch}
-.tabs a,.topbar-link{position:relative;display:flex;align-items:center;color:var(--bar-ink);text-decoration:none;padding:0 13px;font-size:var(--text-sm);font-weight:500;transition:color .2s,text-shadow .2s}
+.tabs a,.topbar-link{position:relative;display:flex;align-items:center;color:var(--bar-ink);text-decoration:none;padding:0 16px;font-size:var(--text-lg);font-weight:500;transition:color .2s,text-shadow .2s}
 .tabs a:hover,.topbar-link:hover{color:#fff;text-shadow:-1px 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent)}
 .tabs a[aria-current=page],.topbar-link[aria-current=page]{color:#fff;text-shadow:-1px 1px 0 var(--yellow)}
-.tabs a[aria-current=page]::after,.topbar-link[aria-current=page]::after{content:"";position:absolute;left:11px;right:15px;bottom:0;height:2px;background:var(--yellow)}
+.tabs a[aria-current=page]::after,.topbar-link[aria-current=page]::after{content:"";position:absolute;left:14px;right:18px;bottom:0;height:2px;background:var(--yellow)}
 .topbar-actions{display:flex;align-items:center;gap:2px;align-self:center;height:28px;padding-left:12px;border-left:1px solid #ffffff1a}
 .topbar-actions .topbar-link{align-self:stretch}
 .icon-button{display:inline-grid;place-items:center;width:36px;height:36px;border:0;border-radius:8px;background:transparent;color:inherit;font-size:20px;line-height:1}
@@ -129,11 +129,29 @@ h3{font-size:var(--text-base)}
 .depth-choice label:hover span{color:var(--ink)}
 .depth-choice input:checked+span{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px #1d1b2614,0 0 0 1px var(--line)}
 .depth-choice input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
-.ask-status{margin:14px 4px 0}
-.ask-status::before{content:"";display:inline-block;width:7px;height:7px;margin-right:9px;vertical-align:1px;border-radius:50%;background:var(--faint)}
-.ask-status.ready::before{background:var(--yellow);box-shadow:0 0 0 3px var(--yellow-light)}
+.ask-status{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 4px 0}
+/* Engine chips: the chosen one carries the ready light; a signed-out one says how to sign in. */
+.engines{display:contents}
+.engine{display:inline-flex;align-items:center;gap:7px;padding:1px 10px 1px 9px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--subtle);font-size:var(--text-sm);font-weight:500;line-height:1.6;transition:border-color .15s,color .15s,background .15s}
+.engine::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.engine:not(.ready)::before{background:none;box-shadow:inset 0 0 0 1.5px var(--faint)}
+.engine:hover:not(:disabled),.engine[aria-pressed=true]{border-color:var(--accent-soft);color:var(--ink)}
+.engine[aria-pressed=true]{background:var(--surface)}
+.engine.ready[aria-pressed=true]::before{background:var(--yellow);box-shadow:0 0 0 3px var(--yellow-light)}
+.engine b{font-weight:600;color:var(--accent)}
+#ask-readiness:not(:empty)::before{content:"· "}
 .ask-status+p{margin:6px 4px 0}
-.recent{margin-top:56px}
+/* Recent questions sit in a drawer under the bar at the left edge, closed behind a tab halfway down the screen;
+   opening slides the drawer in, the tab riding on its edge with its chevron turned back. */
+.recent{position:fixed;z-index:9;top:0;bottom:0;left:0;width:min(340px,calc(100vw - 52px));translate:-100% 0;transition:translate .45s cubic-bezier(.2,.8,.2,1)}
+.recent:has(>[aria-expanded=true]){translate:0 0}
+.recent-panel{height:100%;overflow-y:auto;padding:84px 20px 24px;background:var(--page);border-right:1px solid var(--line);box-shadow:var(--shadow);visibility:hidden;transition:visibility 0s .45s}
+.recent:has(>[aria-expanded=true]) .recent-panel{visibility:visible;transition-delay:0s}
+.recent-tab{position:absolute;top:50%;left:100%;translate:0 -50%;display:flex;flex-direction:column;align-items:center;gap:9px;width:26px;padding:14px 0 12px;border:0;border-radius:0 9px 9px 0;background:var(--accent);color:var(--accent-ink);box-shadow:2px 1.5px 0 var(--yellow);transition:translate .2s}
+.recent-tab:hover{translate:3px -50%}
+.recent-tab span{writing-mode:vertical-rl;font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+.recent-tab::after{content:"";width:6px;height:6px;margin-left:-3px;border:solid currentColor;border-width:0 1.5px 1.5px 0;rotate:-45deg;transition:rotate .3s}
+.recent-tab[aria-expanded=true]::after{rotate:135deg;margin-left:3px}
 
 /* Task lists */
 .task-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden}
@@ -284,8 +302,10 @@ label.spot-rate select{max-width:260px}label.spot-rate input{max-width:120px}lab
 label.runtime-option{display:flex;gap:10px;align-items:flex-start;cursor:pointer}label.runtime-option input{margin-top:3px}
 
 /* Where the spelled-out name would reach the tabs, they fade out of its way (the actions too on phones). */
-@media(hover:hover) and (max-width:960px) and (min-width:641px){.topbar:has(.brand:is(:hover,:focus-visible)) :is(.tabs,.topbar-actions){opacity:0;pointer-events:none}}
+@media(hover:hover) and (max-width:1060px) and (min-width:641px){.topbar:has(.brand:is(:hover,:focus-visible)) :is(.tabs,.topbar-actions){opacity:0;pointer-events:none}}
 @media(hover:hover) and (max-width:640px){.topbar:has(.brand:is(:hover,:focus-visible)) .topbar-actions{opacity:0;pointer-events:none}}
+/* Between phone and desktop widths the tabs step down so the bar still holds them and the actions. */
+@media(max-width:800px) and (min-width:641px){.tabs a,.topbar-link{padding:0 11px;font-size:var(--text-base)}.tabs a[aria-current=page]::after,.topbar-link[aria-current=page]::after{left:9px;right:13px}}
 @media(max-width:900px){
   .loop{grid-template-columns:repeat(2,minmax(0,1fr))}.loop-stage:nth-child(3){border-left:0}.loop-stage:nth-child(n+3){border-top:1px solid var(--soft-line)}.loop-stage:nth-child(2)::after{display:none}
   .polymers-layout{grid-template-columns:1fr;gap:20px}
@@ -297,9 +317,9 @@ label.runtime-option{display:flex;gap:10px;align-items:flex-start;cursor:pointer
 @media(max-width:640px){
   .topbar{height:auto;flex-wrap:wrap;gap:4px 12px;padding:10px 16px 0}
   .brand::before,.wordmark{font-size:18px}
-  .tabs{order:3;flex-basis:100%;overflow-x:auto;gap:0;margin:0 -4px}.tabs a{padding:10px 10px 12px;font-size:var(--text-sm)}
+  .tabs{order:3;flex-basis:100%;overflow-x:auto;gap:0;margin:0 -4px}.tabs a{padding:10px 10px 12px;font-size:var(--text-prose)}
   .tabs a[aria-current=page]::after{left:8px;right:12px}
-  .topbar-actions{margin-left:auto;padding-left:0;border-left:0}.topbar-link{padding:8px 10px}.topbar-link[aria-current=page]::after{display:none}
+  .topbar-actions{margin-left:auto;padding-left:0;border-left:0}.topbar-link{padding:8px 10px;font-size:var(--text-prose)}.topbar-link[aria-current=page]::after{display:none}
   .error-banner{top:0;padding:10px 16px}
   .view{padding:32px 16px 72px}
   .ask h1{font-size:var(--text-xl)}.question-text{font-size:var(--text-lg)}
@@ -308,5 +328,7 @@ label.runtime-option{display:flex;gap:10px;align-items:flex-start;cursor:pointer
   .loop-stage::after{display:none}
   .stage-track{grid-template-columns:1fr}.meters{grid-template-columns:repeat(2,minmax(0,1fr))}
   .task-meta time{margin-left:0}
+  .recent-panel{padding-top:110px}
+  .view:has(>.recent){padding-left:34px}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}.brand .word::before,.brand .word::after{animation:none!important}.spinner,.pulse,.stage-track .current .stage-dot{animation:none}}

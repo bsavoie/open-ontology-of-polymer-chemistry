@@ -1,6 +1,6 @@
 # The core loop
 
-Ask → answer → save → review → reuse, with an occasional measurement.
+Ask → answer → save → review → reuse, with an optional reflection and an occasional measurement.
 
 | Step | What happens | Module |
 | --- | --- | --- |
@@ -9,6 +9,7 @@ Ask → answer → save → review → reuse, with an occasional measurement.
 | Save | Its second turn writes what it read. Findings read in a source are added; figure readings, conversions and combined values wait for review; source notes are stored. | `oopc/ask.py`, `oopc/knowledge.py` |
 | Review | After the answer, its sources are captured and one reviewer session checks its waiting findings and a sample of its added ones. | `oopc/reviewer.py`, `oopc/sources.py` |
 | Reuse | `search_knowledge` returns the most relevant saved findings; an answer cites them by id. | `oopc/knowledge.py` |
+| Reflect (optional, off by default) | Every few days the recorded searches are replayed; reviewed names, polymer ids and property terms fix what they missed. | `oopc/reflect.py` |
 | Measure | On demand, the parity set compares the researcher with a plain session. | `oopc/parity.py`, `oopc/improve.py` |
 
 ## Ask and answer
@@ -24,7 +25,7 @@ with its exact results:
 
 - `search_knowledge`: the most relevant saved findings for a query, then up to
   three source notes. When the query names a polymer (by any name the graph
-  knows, also with a grade number after it, as in EVOH44), only findings about
+  knows or a reflection added, also with a grade number after it, as in EVOH44), only findings about
   that polymer, its broader families or its narrower members are returned (a
   search for HDPE finds polyethylene-family findings, not LDPE ones); findings matching more of the other words come
   first, and ones matching only the polymer fill a short result up to ten.
@@ -148,9 +149,10 @@ section when a method or condition is at stake, and returns `supported`,
 `unsupported` or `uncertain` with one sentence of reason. A source title that is
 misspelled or names another work is unsupported. For a supported finding it
 also quotes the span that shows the value, which fills a missing or bare
-excerpt, and for a finding whose polymer name is ambiguous it writes the
-material out. A Reviewed finding checked again for its label or excerpt keeps
-its review unless the second reviewer finds it unsupported, which makes it
+excerpt (search reads the new excerpt from then on), and for a finding whose
+polymer name is ambiguous it writes the material out. A Reviewed finding
+checked again for its label or excerpt keeps its review unless the second
+reviewer finds it unsupported, which makes it
 Needs checking. Each finding takes the
 verdict. A waiting finding the reviewer skips becomes `uncertain`; a sampled one
 it skips stays added. A review has five minutes and stops sooner when the
@@ -199,10 +201,70 @@ usage, is recorded in `.oopc/loop/calls/`.
 waiting for review, then, if background research is on, asks one question from
 the research queue. Background research is a number of questions a week
 (Settings; 0, the default, turns it off). When it is on, your own answers' open
-questions join the queue; research answers never queue more research. Background
+questions join the queue; research answers never queue more research. Then, if
+reflection is on, it runs once every `reflectEveryDays` days (below). Background
 work keeps a quota reserve (30% for Codex, 0% for Claude Code by the owner's
 decision of 2026-09-29); your own questions have none. `oopc loop install` runs
 the loop hourly with launchd.
+
+## Reflection (optional)
+
+The owner asked on 2026-10-29 for the ontology refinement the Macromolecules
+study tested (Part C) to ship as an optional, scheduled step, though it did not
+change answers measurably there: run once on the frozen store, its 148 edits
+raised lookup recall from 0.90 to 0.92. It is off by default:
+`oopc reflect schedule DAYS` runs it from the loop's tick every DAYS days (the
+setting `reflectEveryDays`; 0 turns it off), and `oopc reflect run` runs it
+once now. `oopc reflect run --dry-run` mines and prints the dossier a curator
+would read, without an engine and without writing anything.
+
+A run has five steps:
+
+1. **Mine** (no engine). Every `search_knowledge` call recorded in the answers
+   finished since the last run is replayed on the store as it is now, and
+   misses are collected: a finding the answer saved again that none of its
+   searches returns; a search or question naming a polymer the graph does not
+   know (so the search could not filter by polymer), and a finding without a
+   polymer id that names no polymer the graph knows; a cited finding that the
+   answer's first search for its polymer did not return; and a search that
+   returned nothing, followed by a web search for the same polymer and
+   property. They are grouped by unknown name, else polymer and property, and
+   the 40 groups with the most misses make the dossier.
+2. **Propose.** One curator session (the preferred engine, web only) reads the
+   dossier and the graph's polymers and proposes edits from a closed list: a
+   name for an existing polymer (with a source that quotes it), a finding's
+   polymer id, or a property term (the names and symbols of one property).
+   Each cites the misses it answers. An edit that breaks a rule (no quote with
+   the name, a name that also means an unrelated polymer and is not marked
+   ambiguous, a polymer id a person approved, an edit reverted before) is
+   refused before review.
+3. **Review.** A fresh reviewer session, on the other engine when it is signed
+   in, opens each edit's sources and approves or rejects it with one sentence of
+   reason.
+4. **Drop.** Each approved edit is applied alone to a private copy of the
+   store, and the past searches it could change are replayed with and without
+   it. An edit that loses more results the answers cited than it fixes misses is
+   dropped (in the study this caught long aliases and broad terms crowding out
+   relevant findings).
+5. **Apply.** The rest take effect. Search reads the overlay's names beside the
+   graph's; a polymer id is set on its finding, and a new name files the unfiled
+   findings that use it (by the same rule a deposit files a finding); property
+   terms fill `property_terms` and `finding_terms`, from which a query naming one
+   of a term's names also finds findings written with the others. With no edit
+   in force, search returns exactly what it did before.
+
+Every edit is kept in `.oopc/loop/ontology.json` with who proposed it, the
+reviewer's verdict and reason, what the replay measured and the findings it
+refiled. `oopc reflect revert ID` undoes one: its names stop being read and each
+finding it refiled goes back to its earlier polymer id and the record of who set
+it (unless something refiled it since); an edit once reverted is never proposed
+again. A refiled finding is indexed for search again from its current text, both
+when an edit is applied and when it is reverted. The wiki seed
+and the graph releases never change: an edit worth keeping for everyone goes
+into the wiki and a new seed, as before. Both sessions are recorded in the calls
+ledger and fail with a named reason, a transient failure tried once more; a run
+that fails is recorded and the loop waits its days before the next. The
+operator page's **Loop health** shows the edits in force and recent runs.
 
 ## Measure
 
@@ -252,8 +314,9 @@ under **Loop health**.
 
 Everything is private, under `.oopc/loop/`: `knowledge.sqlite` (findings, notes,
 deposits, reviews), `questions/<id>/`, `research.json`, `settings.json`,
-`log.jsonl`, `calls/`, `parity/`, `sources/` (captured source text) and
-`crossref/` (DOI metadata). Traces are under `.oopc/runs/`. The retired
+`log.jsonl`, `calls/`, `parity/`, `sources/` (captured source text),
+`crossref/` (DOI metadata), `ontology.json` (the reflection's edits) and
+`reflect/` (each reflection run's record, misses and dossier). Traces are under `.oopc/runs/`. The retired
 0.11 records stay where they were; `oopc import-legacy --apply` copied what was
 useful into the new store once.
 
@@ -272,7 +335,10 @@ under its DOI's Crossref title; `polymers` files findings without a polymer id
 and narrows ones filed under a family to the member they name, listing the
 rest for a person to judge, and never changes a polymer id a person approved; `duplicates` merges findings the current duplicate
 rule would have merged into the best-reviewed one (a merged id still resolves
-to it); `reviews --limit N` reviews what is waiting now.
+to it); `index` indexes findings and notes for search again where their search
+text differs from their stored text (before 2026-10-29 a reviewer's excerpt,
+some of these passes and a note's Crossref title changed a record without it);
+`reviews --limit N` reviews what is waiting now.
 
 `oopc knowledge --export FOLDER` writes a public snapshot of the knowledge:
 `findings.jsonl` (each finding with its polymer id and name, source, locator,

@@ -65,8 +65,10 @@ oopc inspect --open
 ```
 
 On an Apple Silicon Mac, the OOPC app (a prototype) runs the same app with no
-terminal. Its disk image is not published yet: ask the maintainer for one, or
-build it from the clone with Python 3.11 or later
+terminal: download `OOPC-VERSION-arm64.dmg` from the
+[latest release](https://github.com/bsavoie/open-ontology-of-polymer-chemistry/releases/latest)
+and drag OOPC to Applications. It is not signed by Apple, so allow it once
+under System Settings → Privacy & Security → Open Anyway
 ([the Mac app](docs/installation.md#use-the-mac-app-prototype)). The portable
 ZIP and the wheel are also described in [installation](docs/installation.md).
 The same loop runs from the command line:
@@ -80,6 +82,7 @@ python3 -m oopc parity run --engine codex   # on demand: compare with a plain se
 python3 -m oopc parity compare RUN_A RUN_B  # two runs side by side, e.g. before and after a prompt change
 python3 -m oopc improve summary    # the week in numbers
 python3 -m oopc loop install       # optional: run the loop hourly (macOS launchd)
+python3 -m oopc reflect schedule 7 # optional: a reflection on the recorded searches every 7 days (0 = off)
 ```
 
 Everything you ask, the answers, findings and traces stay under `.oopc/` on
