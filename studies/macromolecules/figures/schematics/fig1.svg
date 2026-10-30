@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="7in" height="4.88in" viewBox="0 0 504 351.5" font-family="Arial, Helvetica, sans-serif">
+  <title>Figure 1: an ontology that accumulates source-qualified knowledge</title>
+  <desc>Schematic overview. Values and the finding card are from knowledge snapshot oopc-knowledge-db1fc22ca88a0c0b45b9218b; counts from A1 on KF.</desc>
+  <rect id="background" x="0" y="0" width="504" height="351.5" fill="#ffffff"/>
+  <g id="panel-a">
+    <path d="M 118.19 4.5 L 245 4.5 A 4 4 0 0 1 249 8.5 L 249 158 A 4 4 0 0 1 245 162 L 4.5 162 A 4 4 0 0 1 0.5 158 L 0.5 8.5 A 4 4 0 0 1 4.5 4.5 L 7.5 4.5" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <text x="10.5" y="7.56" font-size="9" font-weight="bold" fill="#1a1a19">a</text>
+    <text x="19.5" y="7.56" font-size="7" font-weight="bold" fill="#1a1a19">One question, many sources</text>
+    <rect x="7" y="55.5" width="50" height="30" rx="6" fill="#ffffff" stroke="#52514e" stroke-width="1"/>
+    <path d="M 21.0 85.5 L 17.0 91.5 L 28.0 85.5" fill="#ffffff" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="17.6" y="84.3" width="9.8" height="2.2" fill="#ffffff"/>
+    <text x="32" y="68" font-size="7" fill="#1a1a19" text-anchor="middle">What is the T<tspan font-size="5.5" dy="1.92">g</tspan><tspan dy="-1.92"></tspan></text>
+    <text x="32" y="77" font-size="7" fill="#1a1a19" text-anchor="middle">of PVC?</text>
+    <line x1="57" y1="70.5" x2="69" y2="30" stroke="#bdbcb4" stroke-width="0.5"/>
+    <rect x="69" y="14.5" width="108" height="31" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <path d="M 73 18.5 L 78.6 18.5 L 81 20.9 L 81 28.5 L 73 28.5 Z" fill="#ffffff" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 78.6 18.5 L 78.6 20.9 L 81 20.9" fill="none" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="75" y1="23.1" x2="79" y2="23.1" stroke="#898781" stroke-width="0.4"/>
+    <line x1="75" y1="25.5" x2="77" y2="25.5" stroke="#898781" stroke-width="0.4"/>
+    <text x="84" y="24" font-size="6.5" font-weight="bold" fill="#1a1a19">PVC film, PRESTIGE 200 µm</text>
+    <text x="84" y="33" font-size="6.5" fill="#52514e">DMA, 1 Hz</text>
+    <text x="172" y="33" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="end">66.10 °C</text>
+    <text x="84" y="40.6" font-size="6.5" fill="#52514e">DMA, 10 Hz</text>
+    <text x="172" y="40.6" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="end">72.51 °C</text>
+    <line x1="57" y1="70.5" x2="69" y2="69" stroke="#bdbcb4" stroke-width="0.5"/>
+    <rect x="69" y="53.5" width="108" height="31" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <path d="M 73 57.5 L 78.6 57.5 L 81 59.9 L 81 67.5 L 73 67.5 Z" fill="#ffffff" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 78.6 57.5 L 78.6 59.9 L 81 59.9" fill="none" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="75" y1="62.1" x2="79" y2="62.1" stroke="#898781" stroke-width="0.4"/>
+    <line x1="75" y1="64.5" x2="77" y2="64.5" stroke="#898781" stroke-width="0.4"/>
+    <text x="84" y="63" font-size="6.5" font-weight="bold" fill="#1a1a19">DSC application note</text>
+    <text x="84" y="72" font-size="6.5" fill="#52514e">neat PVC</text>
+    <text x="172" y="72" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="end">76.0 °C</text>
+    <text x="84" y="79.6" font-size="6.5" fill="#52514e">20 wt% DOP</text>
+    <text x="172" y="79.6" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="end">30.7 °C</text>
+    <line x1="57" y1="70.5" x2="69" y2="108" stroke="#bdbcb4" stroke-width="0.5"/>
+    <rect x="69" y="92.5" width="108" height="31" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <path d="M 73 96.5 L 78.6 96.5 L 81 98.9 L 81 106.5 L 73 106.5 Z" fill="#ffffff" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 78.6 96.5 L 78.6 98.9 L 81 98.9" fill="none" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="75" y1="101.1" x2="79" y2="101.1" stroke="#898781" stroke-width="0.4"/>
+    <line x1="75" y1="103.5" x2="77" y2="103.5" stroke="#898781" stroke-width="0.4"/>
+    <text x="84" y="102" font-size="6.5" font-weight="bold" fill="#1a1a19">SG-5 PVC plasticizer study</text>
+    <text x="84" y="111" font-size="6.5" fill="#52514e">pure PVC, DSC</text>
+    <text x="172" y="111" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="end">87.0 °C</text>
+    <text x="84" y="118.6" font-size="6.5" fill="#52514e">50 phr DEHP, DSC</text>
+    <text x="172" y="118.6" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="end">−4.0 °C</text>
+    <rect x="185.63" y="20" width="53.74" height="13" rx="6.5" fill="#ffffff" stroke="#52514e" stroke-width="1"/>
+    <text x="212.5" y="29.02" font-size="7" font-weight="bold" fill="#52514e" text-anchor="middle">Plain session</text>
+    <polygon points="186.64,31.35 183.14,32.42 183.63,29.26" fill="#bdbcb4"/>
+    <path d="M 178.99 30.15 L 185.34 31.14" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="187.38,32.47 188.11,36.06 185.01,35.27" fill="#bdbcb4"/>
+    <path d="M 178.25 68.03 L 187.05 33.75" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="187.51,32.49 188.68,35.97 185.51,35.57" fill="#bdbcb4"/>
+    <path d="M 178.12 107.01 L 187.34 33.8" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="212.5,48.5 210.4,44.1 214.6,44.1" fill="#52514e"/>
+    <path d="M 212.5 33 L 212.5 46.74" fill="none" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 206.5 50.5 L 214.9 50.5 L 218.5 54.1 L 218.5 65.5 L 206.5 65.5 Z" fill="#ffffff" stroke="#52514e" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 214.9 50.5 L 214.9 54.1 L 218.5 54.1" fill="none" stroke="#52514e" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="208.5" y1="56.3" x2="216.5" y2="56.3" stroke="#52514e" stroke-width="0.4"/>
+    <line x1="208.5" y1="58.7" x2="216.5" y2="58.7" stroke="#52514e" stroke-width="0.4"/>
+    <line x1="208.5" y1="61.1" x2="214.5" y2="61.1" stroke="#52514e" stroke-width="0.4"/>
+    <text x="212.5" y="73.5" font-size="6.5" fill="#52514e" text-anchor="middle">answer</text>
+    <polygon points="212.5,86.5 210.4,82.1 214.6,82.1" fill="#52514e"/>
+    <path d="M 212.5 77.5 L 212.5 84.74" fill="none" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 201.5 90.88 L 201.5 103.12 A 11 2.38 0 0 0 223.5 103.12 L 223.5 90.88" fill="#ffffff" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <ellipse cx="212.5" cy="90.88" rx="11" ry="2.38" fill="#ffffff" stroke="#bdbcb4" stroke-width="0.5"/>
+    <path d="M 201.5 94.96 A 11 2.38 0 0 0 223.5 94.96" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 201.5 99.04 A 11 2.38 0 0 0 223.5 99.04" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="207.5" y1="92.5" x2="217.5" y2="102.5" stroke="#52514e" stroke-width="1" stroke-linecap="round"/>
+    <line x1="217.5" y1="92.5" x2="207.5" y2="102.5" stroke="#52514e" stroke-width="1" stroke-linecap="round"/>
+    <polygon points="146.76,125 149.79,127.07 147.01,128.66" fill="#52514e"/>
+    <path d="M 212.5 109.5 C 212.5 149.5 160.8 149.5 147.42 126.15" fill="none" stroke="#52514e" stroke-width="0.5" stroke-dasharray="2 1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="142.76" y="151.5" font-size="6.5" font-style="italic" fill="#52514e" text-anchor="end">next question</text>
+  </g>
+  <g id="panel-b">
+    <path d="M 374.73 4.5 L 499.5 4.5 A 4 4 0 0 1 503.5 8.5 L 503.5 158 A 4 4 0 0 1 499.5 162 L 259 162 A 4 4 0 0 1 255 158 L 255 8.5 A 4 4 0 0 1 259 4.5 L 262 4.5" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <text x="265" y="7.56" font-size="9" font-weight="bold" fill="#1a1a19">b</text>
+    <text x="274.5" y="7.56" font-size="7" font-weight="bold" fill="#1a1a19">Answering and accumulating</text>
+    <rect x="260.5" y="14.5" width="237.5" height="48" rx="5" fill="#f3f2ee"/>
+    <path d="M 311.97 14.5 L 493 14.5 A 5 5 0 0 1 498 19.5 L 498 57.5 A 5 5 0 0 1 493 62.5 L 265.5 62.5 A 5 5 0 0 1 260.5 57.5 L 260.5 19.5 A 5 5 0 0 1 265.5 14.5 L 266.5 14.5" fill="none" stroke="#898781" stroke-width="0.5" stroke-dasharray="1 1.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <text x="269" y="16.71" font-size="6.5" font-style="italic" fill="#52514e">each question</text>
+    <rect x="266.5" y="33.5" width="34.29" height="13" rx="6.5" fill="#ffffff" stroke="#1a1a19" stroke-width="1"/>
+    <text x="283.64" y="42.52" font-size="7" font-weight="bold" fill="#1a1a19" text-anchor="middle">Ask</text>
+    <rect x="351.86" y="24.5" width="54.78" height="13" rx="6.5" fill="#ffffff" stroke="#1a1a19" stroke-width="1" stroke-dasharray="2.5 1.5"/>
+    <text x="379.25" y="33.52" font-size="7" font-weight="bold" fill="#1a1a19" text-anchor="middle">Web<tspan font-weight="normal"> (optional)</tspan></text>
+    <rect x="351.86" y="42.5" width="54.78" height="13" rx="6.5" fill="#ffffff" stroke="#1a1a19" stroke-width="1"/>
+    <text x="379.25" y="51.52" font-size="7" font-weight="bold" fill="#1a1a19" text-anchor="middle">Reuse</text>
+    <rect x="457.71" y="33.5" width="34.29" height="13" rx="6.5" fill="#ffffff" stroke="#1a1a19" stroke-width="1"/>
+    <text x="474.86" y="42.52" font-size="7" font-weight="bold" fill="#1a1a19" text-anchor="middle">Answer</text>
+    <text x="474.86" y="54.5" font-size="6.5" font-style="italic" fill="#52514e" text-anchor="middle">shown at once</text>
+    <polygon points="350.68,31.21 346.71,34.04 345.98,29.9" fill="#52514e"/>
+    <path d="M 301.97 39.79 L 348.95 31.51" fill="none" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="456.53,39.79 451.84,41.1 452.56,36.96" fill="#52514e"/>
+    <path d="M 407.82 31.21 L 454.8 39.49" fill="none" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="350.68,48.79 345.98,50.1 346.71,45.96" fill="#52514e"/>
+    <path d="M 301.97 40.21 L 348.95 48.49" fill="none" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="456.53,40.21 452.56,43.04 451.84,38.9" fill="#52514e"/>
+    <path d="M 407.82 48.79 L 454.8 40.51" fill="none" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 361.31 76.85 L 361.31 95.15 A 17.94 3.56 0 0 0 397.19 95.15 L 397.19 76.85" fill="#ffffff" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <ellipse cx="379.25" cy="76.85" rx="17.94" ry="3.56" fill="#ffffff" stroke="#0b5bae" stroke-width="1"/>
+    <path d="M 361.31 82.95 A 17.94 3.56 0 0 0 397.19 82.95" fill="none" stroke="#0b5bae" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M 361.31 89.05 A 17.94 3.56 0 0 0 397.19 89.05" fill="none" stroke="#0b5bae" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="401.19" y="80.29" font-size="6.5" font-weight="bold" fill="#0b5bae">ontology</text>
+    <polygon points="379.25,56.6 381.35,61 377.15,61" fill="#0b5bae"/>
+    <path d="M 379.25 73.19 L 379.25 58.36" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="360.31,87.27 355.91,89.37 355.91,85.17" fill="#0a7e3a"/>
+    <path d="M 339.81 87.27 L 358.55 87.27" fill="none" stroke="#0a7e3a" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="336.31" y="89.57" font-size="6.5" font-weight="bold" fill="#0a7e3a" text-anchor="end">initial WOP seed</text>
+    <rect x="260.5" y="109.5" width="237.5" height="48" rx="5" fill="#f3f2ee"/>
+    <path d="M 378.09 109.5 L 493 109.5 A 5 5 0 0 1 498 114.5 L 498 152.5 A 5 5 0 0 1 493 157.5 L 265.5 157.5 A 5 5 0 0 1 260.5 152.5 L 260.5 114.5 A 5 5 0 0 1 265.5 109.5 L 266.5 109.5" fill="none" stroke="#898781" stroke-width="0.5" stroke-dasharray="1 1.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <text x="269" y="111.71" font-size="6.5" font-style="italic" fill="#52514e">after each answer, in the background</text>
+    <rect x="266.5" y="128.5" width="34.29" height="13" rx="6.5" fill="#ffffff" stroke="#1a1a19" stroke-width="1"/>
+    <text x="283.64" y="137.52" font-size="7" font-weight="bold" fill="#1a1a19" text-anchor="middle">Answer</text>
+    <rect x="351.86" y="128.5" width="54.78" height="13" rx="6.5" fill="#ffffff" stroke="#1a1a19" stroke-width="1"/>
+    <text x="379.25" y="137.52" font-size="7" font-weight="bold" fill="#1a1a19" text-anchor="middle">Deposit</text>
+    <rect x="457.71" y="128.5" width="34.29" height="13" rx="6.5" fill="#ffffff" stroke="#1a1a19" stroke-width="1"/>
+    <text x="474.86" y="137.52" font-size="7" font-weight="bold" fill="#1a1a19" text-anchor="middle">Review</text>
+    <polygon points="350.66,135 346.26,137.1 346.26,132.9" fill="#52514e"/>
+    <path d="M 301.99 135 L 348.9 135" fill="none" stroke="#52514e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="456.51,135 452.11,137.1 452.11,132.9" fill="#52514e"/>
+    <path d="M 407.84 135 L 454.75 135" fill="none" stroke="#52514e" stroke-width="1" stroke-dasharray="2.5 1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="379.25,99.81 381.35,104.21 377.15,104.21" fill="#0b5bae"/>
+    <path d="M 379.25 127.9 L 379.25 101.57" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="398.39,92.74 403.26,93.04 401.21,96.72" fill="#0b5bae"/>
+    <path d="M 462.02 128.11 L 399.93 93.6" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+  <g id="panel-c">
+    <path d="M 140.34 171 L 245 171 A 4 4 0 0 1 249 175 L 249 346.5 A 4 4 0 0 1 245 350.5 L 4.5 350.5 A 4 4 0 0 1 0.5 346.5 L 0.5 175 A 4 4 0 0 1 4.5 171 L 7.5 171" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <text x="10.5" y="174.06" font-size="9" font-weight="bold" fill="#1a1a19">c</text>
+    <text x="19.5" y="174.06" font-size="7" font-weight="bold" fill="#1a1a19">Findings filed on polymer identities</text>
+    <rect x="7" y="181" width="48.17" height="12" rx="2.5" fill="#f3f2ee" stroke="#52514e" stroke-width="0.5"/>
+    <text x="31.09" y="188.82" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="middle">PAEK family</text>
+    <path d="M 13.0 193.0 L 13.0 206.5 L 18.0 206.5" fill="none" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <rect x="18" y="201" width="30" height="11" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <text x="33" y="208.32" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="middle">PEEK</text>
+    <rect x="52" y="203.5" width="24.15" height="6" fill="#0a7e3a"/>
+    <rect x="76.15" y="203.5" width="9.22" height="6" fill="#15b194"/>
+    <text x="88.37" y="209" font-size="6.5" fill="#52514e">76</text>
+    <path d="M 13.0 193.0 L 13.0 224.5 L 18.0 224.5" fill="none" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <rect x="18" y="219" width="30" height="11" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <text x="33" y="226.32" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="middle">PEKK</text>
+    <rect x="52" y="221.5" width="16.24" height="6" fill="#0a7e3a"/>
+    <rect x="68.24" y="221.5" width="6.59" height="6" fill="#15b194"/>
+    <text x="77.83" y="227" font-size="6.5" fill="#52514e">52</text>
+    <path d="M 24.0 230.0 L 24.0 240.0 L 30.0 240.0" fill="none" stroke="#898781" stroke-width="0.5" stroke-dasharray="1.5 1" stroke-linejoin="round" stroke-linecap="butt"/>
+    <rect x="30" y="235" width="48.11" height="10" rx="2.5" fill="#ffffff" stroke="#898781" stroke-width="0.5" stroke-dasharray="1.5 1"/>
+    <text x="54.06" y="241.82" font-size="6.5" fill="#1a1a19" text-anchor="middle">Kepstan 6002</text>
+    <path d="M 24.0 243.0 L 24.0 253.0 L 30.0 253.0" fill="none" stroke="#898781" stroke-width="0.5" stroke-dasharray="1.5 1" stroke-linejoin="round" stroke-linecap="butt"/>
+    <rect x="30" y="248" width="51.71" height="10" rx="2.5" fill="#ffffff" stroke="#898781" stroke-width="0.5" stroke-dasharray="1.5 1"/>
+    <text x="55.85" y="254.82" font-size="6.5" fill="#1a1a19" text-anchor="middle">Kimya PEKK-A</text>
+    <path d="M 13.0 193.0 L 13.0 268.5 L 18.0 268.5" fill="none" stroke="#898781" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <rect x="18" y="263" width="30" height="11" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <text x="33" y="270.32" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="middle">SPEEK</text>
+    <rect x="52" y="265.5" width="25.9" height="6" fill="#0a7e3a"/>
+    <rect x="77.9" y="265.5" width="10.1" height="6" fill="#15b194"/>
+    <text x="91" y="271" font-size="6.5" fill="#52514e">82</text>
+    <circle cx="9.5" cy="333.92" r="2.5" fill="#0a7e3a"/>
+    <text x="14" y="336" font-size="6.5" fill="#1a1a19">Reviewed</text>
+    <circle cx="51.04" cy="333.92" r="2.5" fill="#15b194"/>
+    <text x="55.54" y="336" font-size="6.5" fill="#1a1a19">Added</text>
+    <circle cx="9.5" cy="342.42" r="2.5" fill="#eda100"/>
+    <text x="14" y="344.5" font-size="6.5" fill="#1a1a19">Needs checking</text>
+    <circle cx="68.75" cy="342.42" r="2.5" fill="#e34948"/>
+    <text x="73.25" y="344.5" font-size="6.5" fill="#1a1a19">Rejected</text>
+    <rect x="103" y="180" width="141.5" height="12" rx="3" fill="#f3f2ee"/>
+    <rect x="103" y="186" width="141.5" height="6" fill="#f3f2ee"/>
+    <line x1="103" y1="192" x2="244.5" y2="192" stroke="#e1e0d9" stroke-width="0.5"/>
+    <rect x="103" y="180" width="141.5" height="147.22" rx="3" fill="none" stroke="#52514e" stroke-width="1"/>
+    <text x="107" y="188.6" font-size="6.5" font-weight="bold" fill="#52514e">finding:7ec2dd2b46e7-1</text>
+    <text x="107" y="200.97" font-size="6.5" fill="#898781">statement</text>
+    <text x="140.27" y="200.97" font-size="6.5" fill="#1a1a19">Neat Arkema Kepstan 6002 PEKK</text>
+    <text x="140.27" y="208.45" font-size="6.5" fill="#1a1a19">has a midpoint glass transition</text>
+    <text x="140.27" y="215.92" font-size="6.5" fill="#1a1a19">temperature of 155.1 ± 0.5 °C.</text>
+    <text x="107" y="224.7" font-size="6.5" fill="#898781">material</text>
+    <text x="140.27" y="224.7" font-size="6.5" fill="#1a1a19">Neat Arkema Kepstan 6002</text>
+    <text x="140.27" y="232.17" font-size="6.5" fill="#1a1a19">PEKK; T/I 60/40</text>
+    <text x="107" y="240.95" font-size="6.5" fill="#898781">property</text>
+    <text x="140.27" y="240.95" font-size="6.5" fill="#1a1a19">glass transition temperature (Tg)</text>
+    <text x="107" y="249.72" font-size="6.5" fill="#898781">value</text>
+    <text x="140.27" y="249.72" font-size="6.5" font-weight="bold" fill="#1a1a19">155.1 ± 0.5 °C</text>
+    <text x="107" y="258.5" font-size="6.5" fill="#898781">conditions</text>
+    <text x="140.27" y="258.5" font-size="6.5" fill="#1a1a19">Pellets; TA Instruments DSC 250</text>
+    <text x="140.27" y="265.98" font-size="6.5" fill="#1a1a19">in modulated mode; nitrogen;</text>
+    <text x="140.27" y="273.45" font-size="6.5" fill="#1a1a19">second heating; heating and</text>
+    <text x="140.27" y="280.93" font-size="6.5" fill="#1a1a19">cooling 5 °C/min; 5–7 mg.</text>
+    <text x="107" y="289.7" font-size="6.5" fill="#898781">source</text>
+    <text x="140.27" y="289.7" font-size="6.5" fill="#1a1a19">doi:10.1007/s00170-024-13026-8</text>
+    <text x="107" y="298.47" font-size="6.5" fill="#898781">locator</text>
+    <text x="140.27" y="298.47" font-size="6.5" fill="#1a1a19">Table 5, p. 5409, Neat PEKK row,</text>
+    <text x="140.27" y="305.95" font-size="6.5" fill="#1a1a19">Tg (°C) column; §5.1.2 midpoint</text>
+    <text x="140.27" y="313.42" font-size="6.5" fill="#1a1a19">definition</text>
+    <text x="107" y="325.2" font-size="6.5" fill="#898781">status</text>
+    <rect x="140.27" y="318.6" width="34.98" height="9.5" rx="4.75" fill="#0a7e3a"/>
+    <text x="157.76" y="325.5" font-size="6.5" font-weight="bold" fill="#ffffff" text-anchor="middle">Reviewed</text>
+    <polygon points="102,240 98.7,241.6 98.7,238.4" fill="#898781"/>
+    <path d="M 78.11 240 L 100.68 240" fill="none" stroke="#898781" stroke-width="0.5" stroke-dasharray="1.5 1" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+  <g id="panel-d">
+    <path d="M 385.63 171 L 499.5 171 A 4 4 0 0 1 503.5 175 L 503.5 346.5 A 4 4 0 0 1 499.5 350.5 L 259 350.5 A 4 4 0 0 1 255 346.5 L 255 175 A 4 4 0 0 1 259 171 L 262 171" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="butt"/>
+    <text x="265" y="174.06" font-size="9" font-weight="bold" fill="#1a1a19">d</text>
+    <text x="274.5" y="174.06" font-size="7" font-weight="bold" fill="#1a1a19">Improvement on two time scales</text>
+    <text x="261.5" y="186" font-size="6.5" font-weight="bold" fill="#1a1a19">Per question: knowledge grows and is reused</text>
+    <path d="M 289.5 243.0 L 289.50 243.00 L 289.50 242.87 L 294.95 242.20 L 312.26 240.16 L 325.24 231.33 L 346.88 215.95 L 381.50 195.00 L 381.5 243.0 Z" fill="#d8e5f2"/>
+    <path d="M 289.50 243.00 L 289.50 242.87 L 294.95 242.20 L 312.26 240.16 L 325.24 231.33 L 346.88 215.95 L 381.50 195.00" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="289.5" y1="243" x2="384.5" y2="243" stroke="#52514e" stroke-width="0.5"/>
+    <line x1="289.5" y1="193" x2="289.5" y2="243" stroke="#52514e" stroke-width="0.5"/>
+    <text x="384.5" y="251" font-size="6.5" fill="#52514e" text-anchor="end">questions</text>
+    <text x="286.5" y="199" font-size="6.5" fill="#52514e" text-anchor="end">findings</text>
+    <rect x="387" y="193" width="54" height="25" rx="2.5" fill="#f3f2ee"/>
+    <text x="414" y="205" font-size="9" font-weight="bold" fill="#1a1a19" text-anchor="middle">1,092</text>
+    <text x="414" y="213.5" font-size="6.5" fill="#52514e" text-anchor="middle">questions</text>
+    <rect x="445" y="193" width="54" height="25" rx="2.5" fill="#f3f2ee"/>
+    <text x="472" y="205" font-size="9" font-weight="bold" fill="#1a1a19" text-anchor="middle">8,899</text>
+    <text x="472" y="213.5" font-size="6.5" fill="#52514e" text-anchor="middle">findings</text>
+    <rect x="387" y="222" width="54" height="25" rx="2.5" fill="#f3f2ee"/>
+    <text x="414" y="234" font-size="9" font-weight="bold" fill="#1a1a19" text-anchor="middle">1,679</text>
+    <text x="414" y="242.5" font-size="6.5" fill="#52514e" text-anchor="middle">sources</text>
+    <rect x="445" y="222" width="54" height="25" rx="2.5" fill="#f3f2ee"/>
+    <text x="472" y="234" font-size="9" font-weight="bold" fill="#1a1a19" text-anchor="middle">157</text>
+    <text x="472" y="242.5" font-size="6.5" fill="#52514e" text-anchor="middle">polymers</text>
+    <text x="261.5" y="276" font-size="6.5" font-weight="bold" fill="#1a1a19">Per round: the researcher’s prompt is revised</text>
+    <text x="261.5" y="334" font-size="6.5" fill="#898781">prompt</text>
+    <rect x="289.5" y="285" width="42" height="17" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <text x="310.5" y="292" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="middle">round 1</text>
+    <line x1="295.5" y1="295.5" x2="295.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="299.5" y1="295.5" x2="299.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="303.5" y1="295.5" x2="303.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="307.5" y1="295.5" x2="307.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="311.5" y1="295.5" x2="311.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="315.5" y1="295.5" x2="315.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="319.5" y1="295.5" x2="319.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="323.5" y1="295.5" x2="323.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="327.5" y1="295.5" x2="327.5" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <polygon points="347.33,293.5 344.03,295.1 344.03,291.9" fill="#52514e"/>
+    <path d="M 332.5 293.5 L 346.01 293.5" fill="none" stroke="#52514e" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="339.92" cy="314" r="4.8" fill="#ffffff" stroke="#0b5bae" stroke-width="1"/>
+    <path d="M 337.42 314.2 L 339.32 316.1 L 342.42 311.7" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="310.5" y="334" font-size="7" font-weight="bold" fill="#0b5bae" text-anchor="middle">v0</text>
+    <polygon points="362.33,331.5 357.93,333.6 357.93,329.4" fill="#0b5bae"/>
+    <path d="M 317.5 331.5 L 360.57 331.5" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="348.33" y="285" width="42" height="17" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <text x="369.33" y="292" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="middle">round 2</text>
+    <line x1="354.33" y1="295.5" x2="354.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="358.33" y1="295.5" x2="358.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="362.33" y1="295.5" x2="362.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="366.33" y1="295.5" x2="366.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="370.33" y1="295.5" x2="370.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="374.33" y1="295.5" x2="374.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="378.33" y1="295.5" x2="378.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="382.33" y1="295.5" x2="382.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="386.33" y1="295.5" x2="386.33" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <polygon points="406.17,293.5 402.87,295.1 402.87,291.9" fill="#52514e"/>
+    <path d="M 391.33 293.5 L 404.85 293.5" fill="none" stroke="#52514e" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="398.75" cy="314" r="4.8" fill="#ffffff" stroke="#0b5bae" stroke-width="1"/>
+    <path d="M 396.25 314.2 L 398.15 316.1 L 401.25 311.7" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="369.33" y="334" font-size="7" font-weight="bold" fill="#0b5bae" text-anchor="middle">v1</text>
+    <polygon points="421.17,331.5 416.77,333.6 416.77,329.4" fill="#0b5bae"/>
+    <path d="M 376.33 331.5 L 419.41 331.5" fill="none" stroke="#0b5bae" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="407.17" y="285" width="42" height="17" rx="2.5" fill="#ffffff" stroke="#52514e" stroke-width="0.5"/>
+    <text x="428.17" y="292" font-size="6.5" font-weight="bold" fill="#1a1a19" text-anchor="middle">round 3</text>
+    <line x1="413.17" y1="295.5" x2="413.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="417.17" y1="295.5" x2="417.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="421.17" y1="295.5" x2="421.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="425.17" y1="295.5" x2="425.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="429.17" y1="295.5" x2="429.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="433.17" y1="295.5" x2="433.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="437.17" y1="295.5" x2="437.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="441.17" y1="295.5" x2="441.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <line x1="445.17" y1="295.5" x2="445.17" y2="299" stroke="#898781" stroke-width="0.5"/>
+    <polygon points="465,293.5 461.7,295.1 461.7,291.9" fill="#52514e"/>
+    <path d="M 450.17 293.5 L 463.68 293.5" fill="none" stroke="#52514e" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="457.58" cy="314" r="4.8" fill="#ffffff" stroke="#898781" stroke-width="1"/>
+    <line x1="455.68" y1="312.1" x2="459.48" y2="315.9" stroke="#898781" stroke-width="1" stroke-linecap="round"/>
+    <line x1="459.48" y1="312.1" x2="455.68" y2="315.9" stroke="#898781" stroke-width="1" stroke-linecap="round"/>
+    <text x="428.17" y="334" font-size="7" font-weight="bold" fill="#0b5bae" text-anchor="middle">v2</text>
+    <polygon points="480,331.5 476.7,333.1 476.7,329.9" fill="#bdbcb4"/>
+    <path d="M 435.17 331.5 L 478.68 331.5" fill="none" stroke="#bdbcb4" stroke-width="0.5" stroke-dasharray="2 1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="474" y="295.8" font-size="7" fill="#52514e">…</text>
+    <text x="487" y="334" font-size="7" font-weight="bold" fill="#0b5bae" text-anchor="middle">v2</text>
+  </g>
+</svg>
