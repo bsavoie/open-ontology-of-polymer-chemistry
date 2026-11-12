@@ -48,12 +48,13 @@ class ProgressTracker:
         self.codex_web_items = {}
         self.sites, self.turns, self.output_tokens = [], 0, 0
         self.sources = set()  # Distinct documents opened; re-reading one does not add to it.
-        self.last_action, self.last_write = "Starting the research session", 0.0
+        self.last_action, self.last_write = "Reading the question", 0.0
         self.waiting = False
         self._write(force=True)
 
     def wait(self, action):
-        """The session is waiting for its engine's turn (`calls.invoke`): no clock runs, and the action says why."""
+        """The session is waiting for its engine's turn (`calls.invoke`), or a follow-up for the answer before it to be
+        saved and reviewed: no clock runs, and the action says why."""
         with self.lock:
             self.waiting, self.last_action = True, action
             self._write(force=True)
@@ -62,7 +63,7 @@ class ProgressTracker:
         """The session has its engine: its clock starts now, as its time limit does."""
         with self.lock:
             self.started, self.startedAt, self.waiting = time.monotonic(), now(), False
-            self.last_action = "Starting the research session"
+            self.last_action = "Reading the question"
             self._write(force=True)
 
     def __call__(self, line):

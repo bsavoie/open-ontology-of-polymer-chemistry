@@ -26,7 +26,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from . import knowledge, sources
+from . import consistency, knowledge, sources
 from .util import now, read_json
 
 # A reviewer's reason that says it could not read the source, not that the source was ambiguous. Read against all 429
@@ -418,6 +418,7 @@ def duplicates(root, *, apply=False):
             for row in others:
                 db.execute("INSERT OR REPLACE INTO merged VALUES (?,?,?,?)",
                            (row["id"], keeper["id"], stamp, json.dumps(dict(row), ensure_ascii=False)))
+                consistency.merged(db, row["id"], keeper["id"])  # Its conflict links move to the kept finding.
                 db.execute("DELETE FROM findings WHERE id=?", (row["id"],))
                 db.execute("DELETE FROM findings_fts WHERE id=?", (row["id"],))
     return report

@@ -18,7 +18,7 @@ import threading
 import time
 from urllib.parse import urlsplit
 
-from .engines import resolve_codex_binary
+from .engines import codex_environment, resolve_codex_binary
 
 AUTH_HOSTS = frozenset({"auth.openai.com", "auth0.openai.com", "chatgpt.com"})
 MAX_LINE_BYTES = 65_536
@@ -72,7 +72,7 @@ def _account_state(response):
 
 class _StdioTransport:
     """One bounded JSON-lines subprocess. No stderr or raw messages retained."""
-    def __init__(self, binary, *, popen=subprocess.Popen):
+    def __init__(self, binary, *, popen=subprocess.Popen, env=None):
         self._process = None
         self._selector = selectors.DefaultSelector()
         self._buffer = b""
@@ -83,7 +83,7 @@ class _StdioTransport:
         try:
             self._process = popen([binary, "app-server", "--stdio"], stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0,
-                start_new_session=True)
+                start_new_session=True, **({"env": env} if env is not None else {}))
             os.set_blocking(self._process.stdin.fileno(), False)
             os.set_blocking(self._process.stdout.fileno(), False)
             self._selector.register(self._process.stdout, selectors.EVENT_READ)
@@ -199,12 +199,14 @@ class OpenAIAccount:
     method accepts an account, token, URL, login ID, or arbitrary RPC method.
     """
     def __init__(self, *, binary=None, transport_factory=None, refresh_seconds=30,
-                 rpc_timeout=10, login_timeout=600):
+                 rpc_timeout=10, login_timeout=600, home=None):
         for value, maximum in ((refresh_seconds, 300), (rpc_timeout, 30), (login_timeout, 900)):
             if type(value) not in (float, int) or not math.isfinite(value) or not 0 < value <= maximum:
                 raise ValueError("Account service timing must be finite and bounded")
         self._binary = binary
-        self._factory = transport_factory or _StdioTransport
+        # `home`: a person's engine folder on a shared host (`people`); their own `CODEX_HOME`, so their own sign-in.
+        self._factory = transport_factory or (_StdioTransport if home is None else (
+            lambda binary: _StdioTransport(binary, env=codex_environment(home=home))))
         self._refresh_seconds = refresh_seconds
         self._rpc_timeout = rpc_timeout
         self._login_timeout = login_timeout

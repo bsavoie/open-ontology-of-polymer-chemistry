@@ -3,6 +3,10 @@
 Browsing uses an uninstrumented graph reader and never creates trace events.
 Writes (asking, retrying, research queue, loop runs, sign-in, engine choice)
 require the same origin and the per-server CSRF token.
+
+Once people are added to the host (`people`), every API call needs a person signed in (a session cookie): each sees
+only their own questions, answers and traces, uses their own engine accounts, and only the owner changes settings, runs
+the loop, queues background research or reads the operator's views. With nobody added, nothing changes.
 """
 import json
 import mimetypes
@@ -10,18 +14,30 @@ import secrets
 import socket
 import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import engines, knowledge, loop
+from . import consistency, engines, knowledge, loop, people
 from .graph import Graph, release_diff
 from .inspector_summary import read_run_summary
 from .trace import TraceStore
 from .util import canonical, digest, read_json, resolve_release, safe_name
 
 MUTATIONS = {"/api/tasks", "/api/research", "/api/loop/tick", "/api/settings", "/api/account/login", "/api/account/cancel",
-             "/api/runtimes/select", "/api/runtimes/claude-code/login", "/api/runtimes/claude-code/cancel"}
+             "/api/runtimes/select", "/api/runtimes/claude-code/login", "/api/runtimes/claude-code/cancel",
+             "/api/conflicts/settle", "/api/session", "/api/session/end"}
+# Signed out, a shared host's app answers only these (and its static pages, which show the sign-in).
+OPEN = {"/api/session", "/api/session/end"}
+# Only the owner of a shared host changes settings, runs the loop or queues background research, and reads the
+# operator's views of every trace; anyone may read the settings, and the loop's shared counts (`loop_status`).
+OWNER_ONLY = {"/api/settings", "/api/loop/tick", "/api/research"}
+OWNER_ONLY_VIEWS = {"/api/improvement", "/api/parity", "/api/runs"}
+# What the Knowledge tab shows anyone of the loop's status: counts of the shared knowledge, never the owner's research
+# queue, loop log, reflection runs or the review records naming questions.
+SHARED_LOOP = ("knowledge", "reuse", "settings", "spotChecks", "conflicts", "running")
+COOKIE = "oopc_session"
 
 
 class Busy(ValueError):
@@ -29,7 +45,9 @@ class Busy(ValueError):
 
 
 def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service=None, account_service=None,
-                claude_account_service=None, quota_service=None, loop_runner=None):
+                claude_account_service=None, quota_service=None, loop_runner=None, person_accounts=None):
+    """`person_accounts(person, home)`: the Codex and Claude sign-in services of a person of a shared host, kept in
+    their own engine folder (a test seam; real ones by default)."""
     if host not in ("127.0.0.1", "localhost", "::1"):
         raise ValueError("The app binds only to loopback; private questions and traces are local")
     root = Path(root).resolve()
@@ -54,26 +72,70 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
     loop_state = {"thread": None, "last": None}
     connection = {"requested": False}
     csrf_token = secrets.token_urlsafe(32)
+    others_lock, others = threading.Lock(), {}
+
+    def cookie_token(handler):
+        for part in (handler.headers.get("Cookie") or "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == COOKIE:
+                return value
+        return None
+
+    def signed_in_person(handler):
+        """(signed in, person): everyone is signed in, as nobody, on a host nobody was added to. Sign-ins are shared
+        by every instance of the app on this host (`people.session_person`)."""
+        if not people.active(root):
+            return True, None
+        person = people.session_person(root, cookie_token(handler))
+        return person is not None, person
+
+    def accounts_of(person):
+        """The Codex and Claude sign-in services a person uses: the host's own for the owner, for a person set to use
+        them, and for nobody."""
+        if not engines.own_accounts(person):
+            return accounts, claude_accounts
+        with others_lock:
+            if person["id"] not in others:
+                home = people.home(root, person)
+                if person_accounts is not None:
+                    others[person["id"]] = person_accounts(person, home)
+                else:
+                    from .openai_account import OpenAIAccount
+                    others[person["id"]] = (OpenAIAccount(home=home), engines.ClaudeAccounts(home=home))
+            return others[person["id"]]
+
+    def question_visible(question_id, person):
+        """Whether a person may see a question's trace (their own); traces of no question are the owner's."""
+        if person is None:
+            return True
+        if not question_id:
+            return person.get("owner")
+        path = knowledge.folder(root) / "questions" / str(question_id) / "question.json"
+        try:
+            return people.may_see(root, person, read_json(path))
+        except (OSError, ValueError):
+            return person.get("owner")
 
     def quota_hint():
-        import time
-        engine = engines.preferred_engine(root)
+        engine, person = engines.preferred_engine(root), engines.current_person()
+        key = (engine, (person or {}).get("id"))
         with quota_lock:
-            cached = quota_cache.get(engine)
+            cached = quota_cache.get(key)
             if cached is None or time.monotonic() - cached[0] > 60:
-                cached = quota_cache[engine] = (time.monotonic(), read_quota(engine))
+                cached = quota_cache[key] = (time.monotonic(), read_quota(engine))
         summary = cached[1]
         return {"runtime": engine, "remainingPercent": summary.get("remainingPercent"), "status": summary.get("status"),
                 "checkedAt": summary.get("checkedAt"), **({"reason": summary["reason"]} if summary.get("reason") else {})}
 
-    def running_question():
+    def running_question(person=None):
         # A delivered answer whose findings are still being saved has an engine session running too.
         return any(item.get("status") == "running" or (item.get("depositState") or {}).get("status") == "saving"
-                   for item in questions.list()["tasks"])
+                   for item in questions.list(person=person)["tasks"])
 
-    def connect_account():
-        if running_question():
+    def connect_account(person=None):
+        if running_question(person):
             raise Busy("Wait for the running question to finish before connecting an account")
+        accounts, _ = accounts_of(person)
         status = accounts.status()
         if status.get("status") == "login-pending":
             connection["requested"] = True
@@ -114,6 +176,23 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
 
     def local_release(value):
         return resolve_release(root, safe_name(value))
+
+    def sign_in(handler, request):
+        """A person signs in with their name and password; the sign-in lasts `people.SESSION_SECONDS`."""
+        if not isinstance(request, dict) or set(request) != {"name", "password"}:
+            raise ValueError("A name and a password are required")
+        person = people.verify(root, request["name"], request["password"])
+        if person is None:
+            time.sleep(1)  # Guessing stays slow.
+            raise PermissionError("That name and password do not match")
+        token = people.open_session(root, person)
+        cookie = "%s=%s; HttpOnly; SameSite=Strict; Path=/; Max-Age=%d" % (COOKIE, token, people.SESSION_SECONDS)
+        return handler.send({"person": person, "csrfToken": csrf_token}, headers={"Set-Cookie": cookie})
+
+    def sign_out(handler):
+        people.close_session(root, cookie_token(handler))
+        return handler.send({"person": None}, headers={"Set-Cookie": "%s=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0"
+                                                                         % COOKIE})
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -184,7 +263,17 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
                 if len(body) != length:
                     raise ValueError("Incomplete request body")
                 request = json.loads(body, object_pairs_hook=unique_object)
-                with action_lock:
+                signed, person = signed_in_person(self)
+                if path == "/api/session":
+                    return sign_in(self, request)
+                if path == "/api/session/end":
+                    return sign_out(self)
+                if not signed:
+                    return self.send({"error": "Sign in to use this app", "signIn": True}, status=401)
+                if person is not None and not person["owner"] and path in OWNER_ONLY:
+                    raise PermissionError("Only the owner of this host can do that")
+                with action_lock, engines.as_person(person, people.home(root, person)):
+                    accounts, claude_accounts = accounts_of(person)
                     if path == "/api/runtimes/select":
                         if (not isinstance(request, dict) or set(request) != {"runtime", "authorizeRuntimeSelection"}
                                 or request["authorizeRuntimeSelection"] is not True):
@@ -196,20 +285,22 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
                         field = "authorizeAccountConnection" if path.endswith("/login") else "cancelAccountConnection"
                         if not isinstance(request, dict) or set(request) != {field} or request[field] is not True:
                             raise ValueError("Explicit account connection authorization is required")
+                        if person is not None and not person["owner"] and not engines.own_accounts(person):
+                            raise PermissionError("You use this host's engine sign-ins; only its owner connects them")
                         if path.startswith("/api/runtimes/"):
                             result = claude_accounts.start_login() if path.endswith("/login") else claude_accounts.cancel_login()
                         else:
-                            result = connect_account() if path.endswith("/login") else accounts.cancel_login()
+                            result = connect_account(person) if path.endswith("/login") else accounts.cancel_login()
                         return self.send(dict(result, csrfToken=csrf_token), status=202)
                     if (path == "/api/tasks" and connection["requested"]
                             and accounts.status().get("status") == "login-pending"):
                         raise Busy("Finish or cancel the pending account connection before asking")
                     if path == "/api/tasks":
-                        return self.send(questions.submit(request), status=202)
+                        return self.send(questions.submit(request, person=person), status=202)
                     if retry:
                         if request != {"authorizeSubscription": True}:
                             raise ValueError("Explicit retry authorization is required")
-                        return self.send(questions.retry(parts[3]), status=202)
+                        return self.send(questions.retry(parts[3], person=person), status=202)
                     if path == "/api/research":
                         if (not isinstance(request, dict) or set(request) - {"question", "fromQuestion"}
                                 or "question" not in request):
@@ -217,7 +308,13 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
                         return self.send(loop.add_research(root, request["question"],
                                                            from_question=request.get("fromQuestion")), status=201)
                     if path == "/api/settings":
-                        return self.send(dict(loop.update_settings(root, request), csrfToken=csrf_token))
+                        return self.send(dict(loop.update_settings(root, request, person=person), csrfToken=csrf_token))
+                    if path == "/api/conflicts/settle":
+                        if (not isinstance(request, dict) or set(request) - {"id", "resolution", "note"}
+                                or not isinstance(request.get("id"), str)):
+                            raise ValueError("A conflict id and a resolution are required")
+                        return self.send(consistency.settle(root, request["id"], request.get("resolution"),
+                                                            request.get("note") or "", person=person))
                     if path == "/api/loop/tick":
                         if request != {"authorizeSubscription": True}:
                             raise ValueError("Explicit authorization is required to run the loop")
@@ -243,130 +340,16 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
                     return self.send({"error": "Local request target required"}, status=400)
                 path = unquote(parsed.path)
                 q = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
-                if path == "/api/account/status":
-                    return self.send(dict(accounts.status(), csrfToken=csrf_token))
-                if path == "/api/runtimes/quota":
-                    return self.send(quota_hint())
-                if path == "/api/runtimes":
-                    return self.send(dict(engines.engines_status(root, claude_accounts, accounts), csrfToken=csrf_token))
-                if path == "/api/tasks/status":
-                    return self.send(dict(questions.status(), csrfToken=csrf_token))
-                if path == "/api/tasks":
-                    return self.send(questions.list())
-                if path.startswith("/api/tasks/"):
-                    return self.send(questions.get(path.split("/")[3]))
-                if path == "/api/knowledge":
-                    # "Needs checking" groups findings awaiting review with ones the reviewer could not confirm.
-                    status = ([knowledge.UNREVIEWED, knowledge.UNCERTAIN] if q.get("status") == "needs-checking" else
-                              q.get("status") if q.get("status") in knowledge.STATUSES else None)
-                    return self.send({"summary": knowledge.summary(root),
-                                      "findings": knowledge.recent(root, status, min(int(q.get("limit", 50)), 200))})
-                if path == "/api/settings":
-                    return self.send(dict(loop.settings(root), csrfToken=csrf_token))
-                if path == "/api/improvement":
-                    from . import improve
-                    return self.send({"summary": improve.summary(root)})
-                if path == "/api/parity":
-                    from . import parity
-                    return self.send({"report": parity.report(root)})
-                if path == "/api/loop":
-                    return self.send(dict(loop_status(), csrfToken=csrf_token))
-                filters = {key: q[key] for key in ("type", "status", "layer", "predicate", "property", "process",
-                                                   "application", "environment", "source", "facet") if q.get(key)}
-                selected = graph
-                if q.get("release"):
-                    selected_path = local_release(q["release"])
-                    if str(selected_path) not in release_readers:
-                        release_readers[str(selected_path)] = Graph(selected_path)
-                    selected = release_readers[str(selected_path)]
-                if path == "/api/meta":
-                    data = selected.metadata() if selected else {"release_id": None, "counts": {}, "record_count": 0}
-                    data["replayOnly"] = selected is None
-                    data["releases"] = []
-                    for manifest in sorted((root / "releases").glob("*/manifest.json")):
-                        value = read_json(manifest)
-                        data["releases"].append({"release_id": value["release_id"], "counts": value.get("counts", {})})
-                    data["trace_version"] = "oopc-trace-v1"
-                    return self.send(data)
-                if selected is None and path in ("/api/search", "/api/record", "/api/claims", "/api/evidence", "/api/graph"):
-                    return self.send({"error": "This workspace contains replay bundles only; select a graph release for live graph browsing", "replayOnly": True}, status=409)
-                if path == "/api/search":
-                    return self.send(selected.search(q.get("q", ""), limit=q.get("limit", 50), offset=q.get("offset", 0), **filters))
-                if path == "/api/record":
-                    try:
-                        return self.send(selected.get(q["id"]))
-                    except KeyError:
-                        found = knowledge.get(root, q["id"])  # Findings and source notes, labelled with their status.
-                        if found is None:
-                            raise
-                        return self.send(found)
-                if path == "/api/claims":
-                    predicate = filters.pop("predicate", None)
-                    value = selected.claims(subject=q.get("subject"), predicate=predicate, object=q.get("object"),
-                                            limit=q.get("limit", 100), offset=q.get("offset", 0), **filters)
-                    if q.get("subject") and not q.get("offset"):
-                        found = knowledge.about(root, q["subject"])
-                        if found:
-                            value = dict(value, findings=found)
-                    return self.send(value)
-                if path == "/api/evidence":
-                    return self.send(selected.evidence(q["id"]))
-                if path == "/api/graph":
-                    return self.send(selected.neighborhood(q["id"], depth=q.get("depth", 1), limit=q.get("limit", 150),
-                                                           direction=q.get("direction", "both"), offset=q.get("offset"), **filters))
-                if path == "/api/diff":
-                    return self.send(release_diff(local_release(q["from"]), local_release(q["to"])))
-                if path == "/api/runs":
-                    runs = traces.list()
-                    for meta in runs:
-                        meta["inspectorSummary"] = read_run_summary(traces.run(meta["run_id"]), meta)
-                    return self.send({"runs": runs})
-                if path.startswith("/api/runs/"):
-                    parts = path.split("/")
-                    run = traces.run(parts[3])
-                    action = parts[4] if len(parts) > 4 else ""
-                    if action == "events":
-                        return self.send(run.events(q.get("after", 0)))
-                    if action == "payload":
-                        return self.send(run.payload(q["hash"]))
-                    if action == "graph":
-                        return self.send(run.graph(q.get("sequence"), q.get("cumulative", "true") != "false", q.get("agent")))
-                    if action == "artifacts":
-                        return self.send(run.artifacts())
-                    if action == "citation":
-                        return self.send(run.citation(q["id"], event_id=q.get("event"), sequence=q.get("sequence"), agent_id=q.get("agent")))
-                    if action == "ontology":
-                        return self.send(read_json(run.path / "ontology.json"))
-                    if action == "record":
-                        visible = run.graph(q.get("sequence"), agent_id=q.get("agent"))
-                        record = next((r for r in visible["nodes"] + visible["edges"] if r["@id"] == q["id"]), None)
-                        if record is None:
-                            raise KeyError("Record was not observed at this point in the task")
-                        return self.send(record)
-                    if action == "export":
-                        with tempfile.TemporaryDirectory() as directory:
-                            output = Path(directory) / "replay.zip"
-                            run.export(output)
-                            return self.send(output.read_bytes(), "application/zip",
-                                             headers={"Content-Disposition": 'attachment; filename="' + parts[3] + '.zip"'})
-                    if not action:
-                        meta = run.meta()
-                        meta.pop("release_path", None)
-                        meta["inspectorSummary"] = read_run_summary(run, meta)
-                        return self.send(meta)
-                    raise KeyError("Unknown run operation")
-                if path.startswith("/api/"):
-                    raise KeyError("Unknown endpoint")
-                relative = path.lstrip("/") or "index.html"
-                asset = (assets / relative).resolve()
-                if not asset.is_relative_to(assets.resolve()) or not asset.is_file():
-                    return self.send({"error": "Not found"}, status=404)
-                data = asset.read_bytes()
-                etag = '"' + digest(data)[:32] + '"'
-                kind = mimetypes.guess_type(str(asset))[0] or "application/octet-stream"
-                if etag in {tag.strip() for tag in self.headers.get("If-None-Match", "").split(",")}:
-                    return self.send(b"", kind, status=304, headers={"ETag": etag})
-                return self.send(data, kind, headers={"ETag": etag})
+                signed, person = signed_in_person(self)
+                if path == "/api/session":
+                    return self.send({"people": people.active(root), "person": person, "csrfToken": csrf_token})
+                if path.startswith("/api/") and not signed:
+                    return self.send({"error": "Sign in to use this app", "signIn": True}, status=401)
+                if (person is not None and not person["owner"]
+                        and any(path == p or path.startswith(p + "/") for p in OWNER_ONLY_VIEWS)):
+                    raise PermissionError("Only the owner of this host can see that")
+                with engines.as_person(person, people.home(root, person)):
+                    return self.get_as(path, q, person)
             except PermissionError as error:
                 self.send({"error": str(error)}, status=403)
             except (KeyError, FileNotFoundError) as error:
@@ -375,6 +358,145 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
                 self.send({"error": str(error)}, status=400)
             except Exception:
                 self.send({"error": "Operation failed"}, status=500)
+
+        def get_as(self, path, q, person):
+            """A GET as this person (or nobody, on a host nobody was added to)."""
+            accounts, claude_accounts = accounts_of(person)
+            if path == "/api/account/status":
+                return self.send(dict(accounts.status(), csrfToken=csrf_token))
+            if path == "/api/runtimes/quota":
+                return self.send(quota_hint())
+            if path == "/api/runtimes":
+                return self.send(dict(engines.engines_status(root, claude_accounts, accounts), csrfToken=csrf_token))
+            if path == "/api/tasks/status":
+                return self.send(dict(questions.status(), csrfToken=csrf_token))
+            if path == "/api/tasks":
+                return self.send(questions.list(person=person))
+            if path.startswith("/api/tasks/"):
+                return self.send(questions.get(path.split("/")[3], person=person))
+            if path == "/api/knowledge":
+                # "Needs checking" groups findings awaiting review with ones the reviewer could not confirm.
+                status = ([knowledge.UNREVIEWED, knowledge.UNCERTAIN] if q.get("status") == "needs-checking" else
+                          q.get("status") if q.get("status") in knowledge.STATUSES else None)
+                return self.send({"summary": knowledge.summary(root),
+                                  "findings": knowledge.recent(root, status, min(int(q.get("limit", 50)), 200))})
+            if path == "/api/settings":  # With the scope an empty `scope` stands for.
+                from .ask import DEFAULT_SCOPE
+                return self.send(dict(loop.settings(root), defaultScope=DEFAULT_SCOPE, csrfToken=csrf_token))
+            if path == "/api/conflicts":
+                status = q.get("status") if q.get("status") in ("open", "settled") else None
+                return self.send({"conflicts": consistency.conflicts(root, status, min(int(q.get("limit", 50)), 200)),
+                                  "stats": consistency.stats(root)})
+            if path == "/api/improvement":
+                from . import improve
+                return self.send({"summary": improve.summary(root)})
+            if path == "/api/parity":
+                from . import parity
+                return self.send({"report": parity.report(root)})
+            if path == "/api/loop":
+                value = loop_status()
+                if person is not None and not person["owner"]:  # Found in the browser check of 2026-11-05.
+                    value = {key: value[key] for key in SHARED_LOOP if key in value}
+                return self.send(dict(value, csrfToken=csrf_token))
+            filters = {key: q[key] for key in ("type", "status", "layer", "predicate", "property", "process",
+                                               "application", "environment", "source", "facet") if q.get(key)}
+            selected = graph
+            if q.get("release"):
+                selected_path = local_release(q["release"])
+                if str(selected_path) not in release_readers:
+                    release_readers[str(selected_path)] = Graph(selected_path)
+                selected = release_readers[str(selected_path)]
+            if path == "/api/meta":
+                data = selected.metadata() if selected else {"release_id": None, "counts": {}, "record_count": 0}
+                data["replayOnly"] = selected is None
+                data["releases"] = []
+                for manifest in sorted((root / "releases").glob("*/manifest.json")):
+                    value = read_json(manifest)
+                    data["releases"].append({"release_id": value["release_id"], "counts": value.get("counts", {})})
+                data["trace_version"] = "oopc-trace-v1"
+                return self.send(data)
+            if selected is None and path in ("/api/search", "/api/record", "/api/claims", "/api/evidence", "/api/graph"):
+                return self.send({"error": "This workspace contains replay bundles only; select a graph release for live graph browsing", "replayOnly": True}, status=409)
+            if path == "/api/search":
+                return self.send(selected.search(q.get("q", ""), limit=q.get("limit", 50), offset=q.get("offset", 0), **filters))
+            if path == "/api/record":
+                try:
+                    return self.send(selected.get(q["id"]))
+                except KeyError:
+                    found = knowledge.get(root, q["id"])  # Findings and source notes, labelled with their status.
+                    if found is None:
+                        raise
+                    return self.send(found)
+            if path == "/api/claims":
+                predicate = filters.pop("predicate", None)
+                value = selected.claims(subject=q.get("subject"), predicate=predicate, object=q.get("object"),
+                                        limit=q.get("limit", 100), offset=q.get("offset", 0), **filters)
+                if q.get("subject") and not q.get("offset"):
+                    found = knowledge.about(root, q["subject"])
+                    if found:
+                        value = dict(value, findings=found)
+                return self.send(value)
+            if path == "/api/evidence":
+                return self.send(selected.evidence(q["id"]))
+            if path == "/api/graph":
+                return self.send(selected.neighborhood(q["id"], depth=q.get("depth", 1), limit=q.get("limit", 150),
+                                                       direction=q.get("direction", "both"), offset=q.get("offset"), **filters))
+            if path == "/api/diff":
+                return self.send(release_diff(local_release(q["from"]), local_release(q["to"])))
+            if path == "/api/runs":
+                runs = [meta for meta in traces.list()
+                        if question_visible((meta.get("task") or {}).get("questionId"), person)]
+                for meta in runs:
+                    meta["inspectorSummary"] = read_run_summary(traces.run(meta["run_id"]), meta)
+                return self.send({"runs": runs})
+            if path.startswith("/api/runs/"):
+                parts = path.split("/")
+                run = traces.run(parts[3])
+                if not question_visible((run.meta().get("task") or {}).get("questionId"), person):
+                    raise KeyError("Unknown run")  # Another person's trace, as if it did not exist.
+                action = parts[4] if len(parts) > 4 else ""
+                if action == "events":
+                    return self.send(run.events(q.get("after", 0)))
+                if action == "payload":
+                    return self.send(run.payload(q["hash"]))
+                if action == "graph":
+                    return self.send(run.graph(q.get("sequence"), q.get("cumulative", "true") != "false", q.get("agent")))
+                if action == "artifacts":
+                    return self.send(run.artifacts())
+                if action == "citation":
+                    return self.send(run.citation(q["id"], event_id=q.get("event"), sequence=q.get("sequence"), agent_id=q.get("agent")))
+                if action == "ontology":
+                    return self.send(read_json(run.path / "ontology.json"))
+                if action == "record":
+                    visible = run.graph(q.get("sequence"), agent_id=q.get("agent"))
+                    record = next((r for r in visible["nodes"] + visible["edges"] if r["@id"] == q["id"]), None)
+                    if record is None:
+                        raise KeyError("Record was not observed at this point in the task")
+                    return self.send(record)
+                if action == "export":
+                    with tempfile.TemporaryDirectory() as directory:
+                        output = Path(directory) / "replay.zip"
+                        run.export(output)
+                        return self.send(output.read_bytes(), "application/zip",
+                                         headers={"Content-Disposition": 'attachment; filename="' + parts[3] + '.zip"'})
+                if not action:
+                    meta = run.meta()
+                    meta.pop("release_path", None)
+                    meta["inspectorSummary"] = read_run_summary(run, meta)
+                    return self.send(meta)
+                raise KeyError("Unknown run operation")
+            if path.startswith("/api/"):
+                raise KeyError("Unknown endpoint")
+            relative = path.lstrip("/") or "index.html"
+            asset = (assets / relative).resolve()
+            if not asset.is_relative_to(assets.resolve()) or not asset.is_file():
+                return self.send({"error": "Not found"}, status=404)
+            data = asset.read_bytes()
+            etag = '"' + digest(data)[:32] + '"'
+            kind = mimetypes.guess_type(str(asset))[0] or "application/octet-stream"
+            if etag in {tag.strip() for tag in self.headers.get("If-None-Match", "").split(",")}:
+                return self.send(b"", kind, status=304, headers={"ETag": etag})
+            return self.send(data, kind, headers={"ETag": etag})
 
     class AppServer(ThreadingHTTPServer):
         address_family = socket.AF_INET6 if host == "::1" else socket.AF_INET
@@ -390,6 +512,11 @@ def make_server(root, release=None, port=8765, host="127.0.0.1", *, task_service
                             accounts.close()
                         finally:
                             claude_accounts.cancel_login()
+                            for codex, claude in list(others.values()):  # Each person's own sign-in services.
+                                try:
+                                    codex.close()
+                                finally:
+                                    claude.cancel_login()
             finally:
                 super().server_close()
 

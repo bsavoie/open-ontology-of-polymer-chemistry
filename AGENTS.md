@@ -10,22 +10,30 @@ into this project.
 The project is one loop, described in `docs/core-loop.md`:
 
 1. **Ask**: the researcher searches saved knowledge first and uses the web for
-   gaps.
+   gaps. The workspace's scope is a setting (polymer science by default, so
+   the harness can serve other areas). A question outside it but connected to
+   it, however marginally, is answered without saving its findings unless the
+   owner's setting saves them; only one with no connection to it is not
+   researched, and the asker is pointed to another interface. When unsure, the
+   researcher answers.
 2. **Answer**: every reported fact carries a citation; the researcher's own
    reasoning and textbook background are labelled as such.
 3. **Deposit**: findings and source notes are saved; the researcher adds the
    ones it read directly and sends figure readings, conversions and combined
    values for review.
 4. **Review**: after the answer, one reviewer call checks its findings waiting
-   for review and a sample of its added ones against their sources.
+   for review and a sample of its added ones against their sources, and
+   compares its new findings with the most related saved ones; the reviewer
+   settles a conflict unless the owner's setting leaves it to a person.
 5. **Reuse**: the most relevant reviewed and added findings are what the next
    question reads first.
 6. **Reflect** (optional, off by default): every few days the recorded searches
-   are replayed; a curator proposes names, polymer ids and property terms for
-   what they missed, a reviewer checks each against its sources, and the edits
-   that do not lose more than they fix go into a local overlay the owner can
-   revert. The owner asked for it to ship as an option on 2026-10-29, though the
-   study's run of it (Part C) showed no end-to-end gain.
+   are replayed; a curator proposes names, polymer ids, property terms and
+   links between terms used together for what they missed, a reviewer checks
+   each against its sources, and the edits that do not lose more than they fix
+   go into a local overlay the owner can revert. The owner asked for it to ship
+   as an option on 2026-10-29, though the study's run of it (Part C) showed no
+   end-to-end gain.
 7. **Measure**: on demand, a small fixed parity set tracks quality and tokens
    against a direct session.
 
@@ -69,6 +77,9 @@ Questions, traces, source excerpts, credentials and local paths stay in private
 storage under `.oopc/` and never enter a public release. Record actual
 tool-return payloads and explicit traversals; never infer a path between
 successive searches. Browsing the app does not create agent trace events.
+On a host several people share (`oopc/people.py`), each person's questions,
+answers and traces are theirs alone; findings, the review queue, conflicts and
+reflection's edits are shared, each marked with who saved or settled it.
 
 ## Engines and failures
 

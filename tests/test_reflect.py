@@ -4,6 +4,7 @@ import datetime as dt
 import json
 import re
 import unittest
+from unittest import mock
 
 import test_knowledge_search as base
 from oopc import engines, knowledge, loop, reflect
@@ -269,6 +270,216 @@ class Reflection(unittest.TestCase):
         self.assertEqual(len(sessions.calls), 1)
         entry = loop.tick(self.root, runner=sessions, engine="codex")
         self.assertEqual(entry["reflection"], {"status": "not-due"})
+
+    def co_use(self):
+        """Two answers that each cited a PLA tensile strength and an elongation at break from other sources, the
+        second found only by a second search (ten other tensile strengths fill the first search)."""
+        def saved(question, statement, material, prop, doi):
+            [identifier] = self.save(question, [finding(statement, material, "accepted", subject="wop-000001", doi=doi)])
+            with knowledge.connect(self.root) as db:
+                db.execute("UPDATE findings SET property=? WHERE id=?", (prop, identifier))
+            return identifier
+        ids = {"ts1": saved("a", "PLA 4032D tensile strength was 55 MPa.", "PLA 4032D", "tensile strength", "10.1/ts1"),
+               "eb1": saved("b", "PLA 4032D elongation at break was 6%.", "PLA 4032D", "elongation at break", "10.1/eb1"),
+               "ts2": saved("c", "PLA film tensile strength was 60 MPa.", "PLA film", "Tensile strength", "10.1/ts2"),
+               "eb2": saved("d", "PLA film elongation at break was 4%.", "PLA film", "elongation at break (εb)",
+                            "10.1/eb2")}
+        for i in range(10):
+            saved("p%d" % i, "PLA grade %d tensile strength was %d MPa." % (i, 50 + i), "PLA", "tensile strength",
+                  "10.1/pad%d" % i)
+        self.answer("q1", "What are the tensile strength and elongation at break of PLA 4032D?",
+                    ["PLA 4032D tensile strength", "PLA 4032D elongation at break"], cited=[ids["ts1"], ids["eb1"]])
+        self.answer("q2", "How strong and ductile is PLA film?",
+                    ["PLA film tensile strength", "PLA film elongation at break"], cited=[ids["ts2"], ids["eb2"]])
+        return ids
+
+    def test_findings_used_together_are_mined_and_a_link_between_their_terms_returns_them_together(self):
+        ids = self.co_use()
+        self.assertNotIn(ids["eb1"], self.ids("PLA 4032D tensile strength"))
+        record = reflect.run(self.root, runner=Sessions(fail=AssertionError("no engine")), dry_run=True)
+        self.assertEqual(record["missCounts"]["co-use"], 2)
+        [group] = [g for g in record["dossier"] if g["about"].startswith("co-use")]
+        self.assertEqual((group["about"], group["answers"], group["citedTogether"]),
+                         ("co-use: elongation at break + tensile strength", 2, 2))
+        self.assertEqual(group["sides"], {"elongation at break": ["elongation at break", "elongation at break (εb)"],
+                                          "tensile strength": ["tensile strength", "Tensile strength"]})
+        self.assertEqual(group["examples"][0]["found"]["id"], ids["ts1"])
+        self.assertEqual(group["examples"][0]["foundLater"]["id"], ids["eb1"])
+
+        def curate(groups):
+            used = groups["co-use: elongation at break + tensile strength"]
+            return [edit("property-term", used, term="tensile-strength", names=["tensile strength"]),
+                    edit("link", used, term="tensile-strength", linked="elongation-at-break"),
+                    edit("property-term", used, term="elongation-at-break", names=["elongation at break"]),
+                    edit("link", used, term="tensile-strength", linked="tensile-strength"),
+                    edit("link", used, term="tensile-strength", linked="yield-strength")]
+        briefs = []
+
+        def judge(items):
+            briefs.extend(items)
+            return [{"id": e["id"], "verdict": "approved", "reason": "Reported together from one tensile test."}
+                    for e in items]
+        record = reflect.run(self.root, runner=Sessions(curate, judge), engine="codex")
+        why = {p["key"]: p["refused"] for p in record["proposed"]}
+        self.assertEqual([k for k, v in why.items() if not v], ["p01", "p02", "p03"])
+        self.assertIn("a link joins two different property terms", why["p04"])
+        self.assertIn("yield-strength is neither", why["p05"][0])
+        # The reviewer sees both terms' names, proposed in the same run, and the answers that used them together.
+        link = next(b for b in briefs if b["type"] == "link")
+        self.assertEqual(link["terms"], {"tensile-strength": ["tensile strength"],
+                                         "elongation-at-break": ["elongation at break"]})
+        self.assertEqual({e["foundLater"]["property"] for e in link["evidence"]},
+                         {"elongation at break", "elongation at break (εb)"})
+        # Measured once its terms were in force: it fixes both answers' co-use misses and loses nothing.
+        p02 = next(p for p in record["proposed"] if p["key"] == "p02")
+        co_use = {m["id"] for m in reflect.json.loads((knowledge.folder(self.root) / "reflect" / (
+            "mined-%s.json" % record["id"])).read_text())["misses"] if m["kind"] == "co-use"}
+        self.assertLessEqual(co_use, set(p02["effect"]["fixed"]))
+        self.assertEqual(p02["effect"]["lostCount"], 0)
+        self.assertGreater(p02["effect"]["added"], 0)
+        self.assertEqual(len(record["applied"]), 3)
+        self.assertEqual(reflect.links(self.root), [("elongation-at-break", "tensile-strength")])
+        # A search naming a polymer and one term now returns the other's findings for it, from either side.
+        found = self.ids("PLA 4032D tensile strength")
+        self.assertIn(ids["eb1"], found)
+        self.assertIn(ids["eb2"], found)
+        self.assertIn(ids["ts1"], self.ids("PLA elongation at break"))
+        self.assertNotIn(ids["eb1"], self.ids("tensile strength"))  # Not without a polymer.
+        # Reverted, the link no longer adds anything; the terms stay.
+        reflect.revert(self.root, p02["applied"])
+        self.assertNotIn(ids["eb1"], self.ids("PLA 4032D tensile strength"))
+        self.assertEqual(reflect.links(self.root), [])
+        fields, why = reflect.screen(self.root, edit("link", [], term="tensile-strength", linked="elongation-at-break"),
+                                     set(), reflect.Store(self.root))
+        self.assertIn("the same edit was reverted before", why)
+
+    def test_a_link_gets_no_credit_for_a_miss_the_store_no_longer_has_nor_for_misses_of_other_kinds(self):
+        ids = self.co_use()
+
+        def curate(groups):
+            used = groups["co-use: elongation at break + tensile strength"]
+            return [edit("property-term", used, term="tensile-strength", names=["tensile strength"]),
+                    edit("property-term", used, term="elongation-at-break", names=["elongation at break"]),
+                    edit("link", used, term="tensile-strength", linked="elongation-at-break")]
+        approve = lambda items: [{"id": e["id"], "verdict": "approved", "reason": "Yes."} for e in items]  # noqa: E731
+        real = reflect.effect
+
+        def late_finds_only(root, copy, edit_, changes, pool, found, cache):
+            value = real(root, copy, edit_, changes, pool, found, cache)
+            kinds = {m["id"]: m["kind"] for m in found}
+            if edit_["type"] == "link":
+                value["fixed"] = [m for m in value["fixed"] if kinds[m] != "co-use"]
+            return value
+        with mock.patch.object(reflect, "effect", late_finds_only):
+            record = reflect.run(self.root, runner=Sessions(curate, approve), engine="codex")
+        link = next(p for p in record["proposed"] if p["type"] == "link")
+        self.assertTrue(link["effect"]["fixed"])  # It fixes the late finds of the same findings, but no co-use miss.
+        self.assertEqual(link["dropped"], "it fixes no co-use miss")
+        # With the same link already in force, replaying it again fixes nothing: the store no longer misses them.
+        reflect.apply(self.root, {"id": "e-link", "type": "link", "fields": {"term": "tensile-strength",
+                                                                           "linked": "elongation-at-break"}})
+        self.assertIn(ids["eb1"], self.ids("PLA 4032D tensile strength"))
+        found = json.loads((knowledge.folder(self.root) / "reflect" / ("mined-%s.json" % record["id"])).read_text())["misses"]
+        pool = reflect.answers(self.root)
+        for answer in pool:
+            answer["citedResolved"] = set(answer["cited"])
+        copy = reflect.workspace(self.root, self.root / "copy")
+        effect = reflect.effect(self.root, copy, {"type": "link", "fields": {"term": "tensile-strength",
+                                                                           "linked": "elongation-at-break"}},
+                                [], pool, found, {})
+        self.assertEqual((effect["fixed"], effect["lostCount"], effect["added"]), ([], 0, 0))
+
+    def test_a_link_whose_term_was_not_approved_is_not_applied_and_one_that_fixes_nothing_is_dropped(self):
+        ids = self.co_use()
+
+        def curate(groups):
+            used = groups["co-use: elongation at break + tensile strength"]
+            return [edit("property-term", used, term="tensile-strength", names=["tensile strength"]),
+                    edit("property-term", used, term="elongation-at-break", names=["elongation at break"]),
+                    edit("property-term", used, term="density", names=["density"]),
+                    edit("link", used, term="tensile-strength", linked="elongation-at-break"),
+                    edit("link", used, term="tensile-strength", linked="density")]
+        judge = lambda items: [{"id": e["id"], "verdict": "rejected" if e["fields"].get("term") == "elongation-at-break"
+                                else "approved", "reason": "?"} for e in items]  # noqa: E731
+        record = reflect.run(self.root, runner=Sessions(curate, judge), engine="codex")
+        proposed = {p["key"]: p for p in record["proposed"]}
+        self.assertEqual(proposed["p04"]["notApplied"], ["a term it joins is not in force"])
+        # No saved density finding for PLA: the link would add nothing an answer used, so it is dropped.
+        self.assertEqual((proposed["p05"]["dropped"], proposed["p05"]["effect"]["fixed"]), ("it fixes no co-use miss", []))
+        self.assertEqual(len(record["applied"]), 2)
+        self.assertNotIn(ids["eb1"], self.ids("PLA 4032D tensile strength"))
+
+    def _bundle_run(self, link_loses=0):
+        """A run proposing two terms and the link between them, where the elongation term alone loses a cited result
+        (as the Tg term did in the 2026-11-05 trial) and the link, measured with it, loses `link_loses`."""
+        def curate(groups):
+            used = groups["co-use: elongation at break + tensile strength"]
+            return [edit("property-term", used, term="tensile-strength", names=["tensile strength"]),
+                    edit("property-term", used, term="elongation-at-break", names=["elongation at break"]),
+                    edit("link", used, term="tensile-strength", linked="elongation-at-break")]
+        approve = lambda items: [{"id": e["id"], "verdict": "approved", "reason": "Yes."} for e in items]  # noqa: E731
+        real = reflect.effect
+
+        def effect(root, copy, edit_, changes, pool, found, cache):
+            value = real(root, copy, edit_, changes, pool, found, cache)
+            if edit_["fields"].get("term") == "elongation-at-break" and edit_["type"] == "property-term":
+                value.update(lostCount=1, lost=[["q1", "lost"]])
+            if edit_["type"] == "link":
+                value["lostCount"] = link_loses
+            return value
+        with mock.patch.object(reflect, "effect", effect):
+            record = reflect.run(self.root, runner=Sessions(curate, approve), engine="codex")
+        return record, {p["key"]: p for p in record["proposed"]}
+
+    def test_a_term_dropped_alone_is_kept_with_the_link_that_needs_it_and_reverting_it_reverts_the_link(self):
+        ids = self.co_use()
+        record, proposed = self._bundle_run()
+        term, link = proposed["p02"], proposed["p03"]
+        self.assertNotIn("dropped", term)  # Lost one result alone; kept with the link, which fixes the co-use misses.
+        self.assertEqual(term["effect"]["lostCount"], 1)
+        self.assertTrue(link["effect"]["fixed"])
+        edits = {e["id"]: e for e in knowledge.ontology_edits(self.root)}
+        self.assertEqual(len(record["applied"]), 3)
+        self.assertEqual(edits[term["applied"]]["with"], [link["applied"]])
+        self.assertEqual(edits[link["applied"]]["with"], [term["applied"]])
+        self.assertLess(record["applied"].index(term["applied"]), record["applied"].index(link["applied"]))
+        self.assertIn(ids["eb1"], self.ids("PLA 4032D tensile strength"))
+        # The term out of force takes its link with it; the other term stays.
+        entry = reflect.revert(self.root, term["applied"])
+        self.assertEqual(entry["alsoReverted"], [link["applied"]])
+        self.assertEqual(reflect.links(self.root), [])
+        self.assertEqual(list(reflect.terms(self.root)), ["tensile-strength"])
+        self.assertNotIn(ids["eb1"], self.ids("PLA 4032D tensile strength"))
+
+    def test_a_link_and_the_term_it_needs_are_dropped_together(self):
+        self.co_use()
+        record, proposed = self._bundle_run(link_loses=5)
+        self.assertEqual(proposed["p03"]["dropped"],
+                         "it loses more cited results than it fixes misses, with the terms it needs")
+        self.assertEqual(proposed["p02"]["dropped"], "it loses more cited results than it fixes misses")
+        self.assertEqual(len(record["applied"]), 1)  # The tensile-strength term, kept on its own.
+        self.assertEqual((list(reflect.terms(self.root)), reflect.links(self.root)), (["tensile-strength"], []))
+
+    def test_a_test_condition_saved_as_a_finding_is_never_counted_as_used_together(self):
+        ids = self.co_use()
+        mined = lambda: reflect.run(self.root, runner=Sessions(fail=AssertionError("no engine")),  # noqa: E731
+                                    dry_run=True)["missCounts"].get("co-use", 0)
+        self.assertEqual(mined(), 2)
+        with knowledge.connect(self.root) as db:  # q2's second finding is the test's temperature: no property.
+            db.execute("UPDATE findings SET property='tensile test temperature' WHERE id=?", (ids["eb2"],))
+        self.assertEqual(mined(), 1)
+        self.assertTrue(reflect.CONDITION.search("DSC heating rate"))
+        self.assertFalse(reflect.CONDITION.search("heat deflection temperature"))
+
+    def test_an_unfiled_finding_is_offered_by_names_a_name_edit_could_add(self):
+        long = "Alternating copolymer derived from 1,4-butanediol diacrylate and cyclooctene, extruded film"
+        saved = {material: self.save("u%d" % i, [finding("The %s had a modulus of %d MPa." % (material, 100 + i),
+                                                         material, "accepted", doi="10.1/u%d" % i)])[0]
+                 for i, material in enumerate([long, "Derakane Momentum 470-300", "Polyethersulfone, BASF"])}
+        names = {m["finding"]: m["names"] for m in reflect.unfiled(self.root, reflect.Store(self.root), "", {})}
+        self.assertNotIn(saved[long], names)  # Longer than any name search reads: no name edit could fix it.
+        self.assertEqual(names[saved["Derakane Momentum 470-300"]], ["Derakane Momentum 470-300"])
+        self.assertEqual(names[saved["Polyethersulfone, BASF"]], ["Polyethersulfone"])  # A company is no name.
 
     def test_search_reads_names_from_the_overlay_only_while_they_are_applied(self):
         self.assertEqual(knowledge.polymer_ids(self.root, "Vinylite"), set())

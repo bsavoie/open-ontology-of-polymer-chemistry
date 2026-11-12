@@ -14,7 +14,7 @@ import zipfile
 ASSETS = {"web/index.html", "web/researcher.js", "web/researcher.css", "web/operator.html", "web/app.js", "web/style.css",
           "web/vendor/cytoscape.min.js", "web/vendor/cytoscape.LICENSE", "web/vendor/openchemlib.js", "web/vendor/openchemlib.LICENSE",
           "web/vendor/InterVariable.woff2", "web/vendor/InterVariable-Italic.woff2", "web/vendor/inter.LICENSE",
-          "web/about.html", "web/about.css", "web/about.js"}
+          "web/about.css", "web/about.js"}
 WINDOWS_DEVICES = {"CON", "PRN", "AUX", "NUL"} | {
     prefix + number for prefix in ("COM", "LPT") for number in "123456789¹²³"}
 

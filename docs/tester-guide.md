@@ -37,14 +37,25 @@ time limit, and web searches and pages read against the depth's budget. These ar
 evidence that a conclusion is correct. You can leave and come back from **History**.
 
 A finished answer shows its numbered sources and, under **What this answer
-added**, the findings it saved: each fact it read in a source, with the locator
-and a short excerpt. By default facts the research agent read directly in a
+saved**, what went into the knowledge base. The findings are written after the
+answer appears, so the section first says they are being saved; then it lists
+each source the research agent read, with its note on what the source gave or
+lacked, and the facts it read there, each with its locator and, under
+**Details**, the material, conditions and a short quote. Facts an earlier
+question had already saved are listed separately. By default facts the research agent read directly in a
 source's text or a table are **Added** at once, and ones it read off a figure,
 converted or combined **Need checking**, saying which. Its own reasoning is labelled
 "Interpretation:" and textbook background "Background:"; everything else it
 reports is cited. To require review of every
 finding, choose **Review every finding first** under Settings → Adding findings. Imported polymer pages
 keep their seed status; citing an imported source does not verify it.
+
+To ask a follow-up, use the box under the latest answer. The follow-up is a
+question of its own, researched, saved and reviewed like any other, but it is
+told the questions and answers before it and the status of the findings they
+used, so a finding rejected since is known. The page shows the whole
+conversation, and an answer says at the top when a finding behind it was
+rejected after it was written.
 
 If a question fails, the page says why (time limit, usage limit, sign-in, or a
 session that stopped twice) and offers **Try again**.

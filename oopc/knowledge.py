@@ -20,6 +20,10 @@ the other findings saved from the same sources; unsupported ones are hidden.
 A finding that repeats one already known (same source and the same fact) is not
 saved again; the deposit records which existing finding it matched.
 
+The same review also compares an answer's findings with the saved findings most
+related to them (`consistency`); the conflicts it finds are kept in `conflicts`,
+and findings left standing in one carry `conflictsWith`, which search shows.
+
 Source notes record what each source a researcher actually read supports. They
 are leads for later questions, never reviewed facts.
 
@@ -27,13 +31,15 @@ Everything lives in one private SQLite file under `.oopc/loop/`.
 """
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from .util import now, private_sqlite, sqlite_close, sqlite_open
 
@@ -63,8 +69,26 @@ CREATE TABLE IF NOT EXISTS deposits (question_id TEXT PRIMARY KEY, origin TEXT, 
 CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, question_id TEXT, engine TEXT, started_at TEXT,
     finished_at TEXT, status TEXT, reason TEXT, seconds REAL, usage TEXT, notes TEXT);
 CREATE TABLE IF NOT EXISTS merged (id TEXT PRIMARY KEY, into_id TEXT, merged_at TEXT, row TEXT);
+CREATE TABLE IF NOT EXISTS conflicts (id TEXT PRIMARY KEY, question_id TEXT, finding_id TEXT, other_id TEXT,
+    reading TEXT, reason TEXT, engine TEXT, found_at TEXT, status TEXT, resolution TEXT, settled_by TEXT,
+    settled_at TEXT, note TEXT);
+CREATE INDEX IF NOT EXISTS findings_subject ON findings(subject);
 """
-ADDED_COLUMNS = {"deposits": {"duplicates": "INTEGER DEFAULT 0", "duplicate_of": "TEXT"}, "notes": {"read_url": "TEXT"}}
+# `consistency`: whether an answer's findings were compared with saved knowledge (`consistency.STATES`).
+ADDED_COLUMNS = {"deposits": {"duplicates": "INTEGER DEFAULT 0", "duplicate_of": "TEXT", "consistency": "TEXT",
+                              "consistency_compared": "INTEGER", "review_claim": "TEXT",
+                              "person": "TEXT"},
+                 "notes": {"read_url": "TEXT"}, "conflicts": {"settled_person": "TEXT"}}
+
+
+# A property worded as a test's setting or a specimen's dimension (a heating rate, a test temperature, a film's
+# thickness): no property of the material, so neither used beside another (`reflect`) nor in tension with another
+# (`consistency`): specimens and settings differ by design.
+TEST_SETTING = re.compile(r"\b(?:heating|cooling|strain|crosshead|pulling|loading|scan) rate|\bspecimen|\bsample "
+                          r"(?:mass|size|weight|preparation)|conditioning|\bconditions?\b|\btest(?:ing)? (?:temperature|"
+                          r"method|speed)|geometry|dimensions|thickness|gauge length|duration|atmosphere|humidity|\bmedium\b|"
+                          r"\breactor\b|\bprocessing (?:method|history)|preparation|mou?ld(?:ing)? |annealing|instrument|"
+                          r"\bidentity\b|\bstatus\b", re.I)
 
 
 def folder(root):
@@ -76,18 +100,34 @@ def database(root):
 
 
 @contextmanager
-def connect(root):
+def connect(root, write=False):
+    """One transaction on the store. Several processes share it (the app, `oopc ask`, the loop's tick, parallel
+    questions), so it runs in WAL mode, where readers never wait for a writer. With `write`, the transaction takes the
+    write lock before its first read (`BEGIN IMMEDIATE`): a write that depends on what it read, such as a deposit's
+    duplicate check or a review's status change, then cannot interleave with another writer's (two answers saving one
+    fact at once saved it twice before, 2026-11-05). Writers wait their turn for up to 30 seconds."""
     path = database(root)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     db = sqlite_open(private_sqlite(path), timeout=30)
     db.row_factory = sqlite3.Row
     try:
+        if db.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+            try:
+                db.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.OperationalError:  # Another connection is busy; the next one switches it.
+                pass
         db.executescript(SCHEMA)
         for table, columns in ADDED_COLUMNS.items():
             present = {row[1] for row in db.execute("PRAGMA table_info(" + table + ")")}
             for name, kind in columns.items():
                 if name not in present:
-                    db.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, name, kind))
+                    try:
+                        db.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, name, kind))
+                    except sqlite3.OperationalError as error:  # Another connection added it first.
+                        if "duplicate column name" not in str(error):
+                            raise
+        if write:
+            db.execute("BEGIN IMMEDIATE")
         with db:
             yield db
     finally:
@@ -185,24 +225,55 @@ def _note_text(note):
                      *note["excerpts"]])
 
 
+# Link parameters that name the document itself, where one address serves many documents (`createsheet.php?FILENAME=`,
+# `ZyPURL.cgi?Dockey=`, CiteSeerX's `download?doi=`, `paperinformation?paperid=`). Every other parameter (a view, a
+# language, a version, a page, tracking) leaves the document the same (CL-23, 2026-11-06: with every parameter dropped,
+# two Ensinger data sheets were one source, as were 5 CiteSeerX papers and 2 EPA documents in KF).
+DOCUMENT_PARAMETERS = frozenset({"doi", "dockey", "docid", "documentid", "id", "fid", "file", "filename", "path",
+                                 "contentkey", "paperid", "articleid", "partnumber"})
+
+
 def source_key(doi, url):
-    """One key per document: its DOI when known (also from a doi.org URL), else its URL without scheme or query."""
+    """One key per document: its DOI when known (also from a doi.org URL), else its URL without scheme or fragment, and
+    without query parameters other than those that name the document (`DOCUMENT_PARAMETERS`, sorted). The app's
+    `sourceKey` (researcher.js) is the same rule."""
     doi = (doi or "").strip().lower().removeprefix("https://doi.org/").removeprefix("doi:")
     doi = doi or (re.match(r"^https?://(?:dx\.)?doi\.org/(.+)$", (url or "").strip().lower()) or [None, ""])[1]
     if doi:
         return "doi:" + doi
-    url = re.sub(r"^https?://(www\.)?", "", (url or "").strip().lower()).split("#")[0].split("?")[0].rstrip("/")
-    return "url:" + url if url else ""
+    url, _, query = re.sub(r"^https?://(www\.)?", "", (url or "").strip().lower()).split("#")[0].partition("?")
+    url = url.rstrip("/")
+    if not url:
+        return ""
+    named = sorted("%s=%s" % pair for pair in parse_qsl(query) if pair[0] in DOCUMENT_PARAMETERS)
+    return "url:" + url + ("?" + "&".join(named) if named else "")
 
 
 def _tokens(text):
     return set(re.findall(r"[a-z0-9]+(?:\.[0-9]+)?", (text or "").lower()))
 
 
+def same_unit(first, second):
+    """Whether two units, as written, name one unit ("MPa" and "N/mm²", "°C" and "degC", "µm" and "μm"). A missing unit
+    matches any: a finding may give its unit only in its statement."""
+    first, second = " ".join((first or "").split()), " ".join((second or "").split())
+    if not first or not second:
+        return True
+    from . import units
+    known = units.get_unit(first), units.get_unit(second)
+    if all(known):
+        return known[0] is known[1]
+    plain = lambda unit: re.sub(r"[\s°]", "", unit.lower()).replace("μ", "µ")  # noqa: E731
+    return plain(first) == plain(second)
+
+
 def same_fact(a, b):
-    """Same source and the same numbers, and either a near-identical statement or the same
-    property, value, unit and material."""
+    """Same source, the same unit and the same numbers, and either a near-identical statement or the same
+    property, value, unit and material. The same numbers in other units ("6.00 GPa" and "6.00 MPa") are two readings,
+    one of them wrong, never one fact (planted-conflict check, 2026-11-05)."""
     if not source_key(a["sourceDoi"], a["sourceUrl"]) or source_key(a["sourceDoi"], a["sourceUrl"]) != source_key(b["sourceDoi"], b["sourceUrl"]):
+        return False
+    if not same_unit(a.get("unit"), b.get("unit")):
         return False
     # Rows of one table read alike and differ only in their numbers: different numbers, different facts.
     # Read as written, with their signs (a table's −134.3 J/g and its text's 134.3 J/g are two readings): not through
@@ -210,6 +281,11 @@ def same_fact(a, b):
     numbers = lambda f: {re.sub(r"^[−–]", "-", n) for n in
                          re.findall(SIGN + r"\d+(?:\.\d+)?", (f["statement"] or "") + " " + (f["value"] or ""))}
     if numbers(a) != numbers(b):
+        return False
+    from .consistency import _outcome, opposite
+    if opposite(_outcome(a.get("value")), _outcome(b.get("value"))):
+        # "Reported insoluble in acetone" and "reported soluble in acetone" share most words but are two readings of
+        # one source, one of them wrong: both are kept, so the comparison can find the wrong one (2026-11-05).
         return False
     first, second = _tokens(a["statement"]), _tokens(b["statement"])
     overlap = len(first & second) / len(first | second) if first and second else 0
@@ -252,12 +328,13 @@ def sampled(identifier, rate):
 
 
 def deposit(root, question_id, answer, *, engine, origin="ask", review_mode="researcher", spot_check_rate=0.2,
-            question=""):
+            question="", person=None):
     """Save a finished answer's findings and notes. Idempotent per question.
 
     With `review_mode="researcher"`, findings the researcher did not flag are
     accepted at once and flagged ones wait for review; with `"all"` every finding
-    waits for review. A sample of accepted findings joins the same review.
+    waits for review. A sample of accepted findings joins the same review. `person`: who asked, on a host several
+    people share (`people`); each finding records them as who saved it (`savedBy`).
     """
     raw_findings = answer.get("findings") if isinstance(answer.get("findings"), list) else []
     raw_notes = answer.get("sources") if isinstance(answer.get("sources"), list) else []
@@ -265,7 +342,7 @@ def deposit(root, question_id, answer, *, engine, origin="ask", review_mode="res
     notes = [n for n in (clean_note(item) for item in raw_notes[:MAX_NOTES]) if n]
     dropped = len(raw_findings[:MAX_FINDINGS]) - len(findings)
     stamp = now()
-    with connect(root) as db:
+    with connect(root, write=True) as db:
         if db.execute("SELECT 1 FROM deposits WHERE question_id=?", (question_id,)).fetchone():
             return deposit_summary(root, question_id)
         kept, duplicate_of = [], []
@@ -296,12 +373,14 @@ def deposit(root, question_id, answer, *, engine, origin="ask", review_mode="res
         identifiers = ["finding:%s-%d" % (question_id[:12], index) for index in range(1, len(findings) + 1)]
         spot = [status == ACCEPTED and sampled(identifier, spot_check_rate) for identifier, status in zip(identifiers, statuses)]
         db.execute("INSERT INTO deposits (question_id, origin, engine, deposited_at, findings, notes, dropped, review_status, "
-                   "duplicates, duplicate_of) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                   "duplicates, duplicate_of, person) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                    (question_id, origin, engine, stamp, len(findings), len(notes), dropped,
                     "pending" if UNREVIEWED in statuses or any(spot) else "nothing-to-review", len(duplicate_of),
-                    json.dumps([d for d in duplicate_of if d])))
+                    json.dumps([d for d in duplicate_of if d]), (person or {}).get("id")))
         for identifier, finding, status, sample in zip(identifiers, findings, statuses, spot):
             detail = {"reviewMode": review_mode, "needsReview": finding["needsReview"]}
+            if person:
+                detail["savedBy"] = {"id": person["id"], "name": person["name"]}
             if finding["reviewFlag"]:
                 detail["reviewFlag"] = finding["reviewFlag"]
             for key in ("asWritten", "ambiguous"):
@@ -313,6 +392,7 @@ def deposit(root, question_id, answer, *, engine, origin="ask", review_mode="res
                             status=status, producer_engine=engine, created_at=stamp, detail=detail)
         for index, note in enumerate(notes, 1):
             _insert_note(db, "note:%s-%d" % (question_id[:12], index), question_id, origin, note, created_at=stamp)
+        annotate_terms(db, identifiers)  # Under the property terms in force, as a reflection would file them.
     return deposit_summary(root, question_id)
 
 
@@ -497,8 +577,14 @@ def finding_view(row, full=False, compact=False):
     detail = json.loads(row["detail"]) if row["detail"] else {}
     if detail.get("reviewFlag"):
         value["reviewFlag"] = cut(detail["reviewFlag"], 160)
+    if detail.get("conflictsWith"):
+        value["conflictsWith"] = list(detail["conflictsWith"])  # Findings a consistency review found it disagrees with.
+    if isinstance(detail.get("savedBy"), dict):  # Who asked the question that saved it, on a shared host.
+        value["savedBy"] = detail["savedBy"].get("name")
     if not compact:
         value["producerEngine"] = row["producer_engine"]
+        if detail.get("spotCheck"):
+            value["spotCheck"] = detail["spotCheck"]  # An added finding sampled for review: pending, then its verdict.
     if detail.get("originalStatement") and not compact:
         value["originalStatement"] = detail["originalStatement"]  # An imported label rewritten as a sentence.
     if detail.get("titleAsWritten") and not compact:
@@ -533,6 +619,18 @@ def stem(word):
         if len(word) >= 6 and word.endswith(suffix) and len(word) - len(suffix) >= 4:
             return word[:-len(suffix)]
     return word
+
+
+PROPERTY_FILLER = {"value", "values", "measured", "reported", "of", "the", "at", "a", "an", "and", "in", "by", "for",
+                   "per", "as", "from", "on", "to", "with"}
+
+
+def property_words(text):
+    """A property's wording as stemmed words, without what it gives in parentheses, punctuation or filler words:
+    "Glass transition temperature (Tg)" and "glass-transition temperatures" read alike."""
+    text = re.sub(r"\([^()]*\)", " ", (text or "").lower())
+    return frozenset(stem(w) for w in re.findall(r"[^\W_]+", text, flags=re.UNICODE)
+                     if len(w) > 1 and w not in PROPERTY_FILLER)
 
 
 def _match(query, extra=()):
@@ -751,6 +849,27 @@ def _has_word(text, word):
 FILL = 10  # Findings that match only the polymer a query names fill a result up to this many.
 SAME_SOURCE = 12  # Other findings from the sources a search returns, so a source already read is not read again.
 TERMS = ("property_terms", "finding_terms")  # Read by search only when a store has both (`reflect` writes them).
+LINKED = 5  # Findings of a property term linked to one the query names (`reflect` links terms used together).
+
+
+def names_property(text, names):
+    """Whether a property, as written, uses one of a property term's names (a whole-word mention, two letters or more)."""
+    words = _words(text)
+    return any(len(_words(n).strip()) > 1 and _mentions(words, _words(n).strip()) for n in names)
+
+
+def annotate_terms(db, identifiers):
+    """Annotate these findings (`finding_terms`) to the property terms in force (`property_terms`, written by
+    `reflect`) whose names their property uses; nothing when no term is in force."""
+    if not identifiers or db.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN (?, ?)",
+                                     TERMS).fetchone()[0] < 2:
+        return 0
+    terms = [(term, json.loads(names or "[]")) for term, names in db.execute("SELECT term, names FROM property_terms")]
+    pairs = [(identifier, term) for identifier, wording in db.execute(
+        "SELECT id, property FROM findings WHERE status != ? AND id IN (%s)" % ",".join("?" * len(identifiers)),
+        (UNSUPPORTED, *identifiers)) for term, names in terms if names_property(wording or "", names)]
+    db.executemany("INSERT OR IGNORE INTO finding_terms VALUES (?, ?)", pairs)
+    return len(pairs)
 
 
 def _property_terms(db, query, polymers):
@@ -819,8 +938,10 @@ def search(root, q, limit=10, compact=False):
     and hold a term. For a term the query names (`_property_terms`), findings written with its other names are found
     too; the query words naming it count as matched in a finding annotated to it or mentioning any of its names; and
     when the query names a polymer, the findings annotated to the term and filed under that polymer, its families or
-    its members are candidates too. Notes are searched as without terms. Without these tables, or with them empty,
-    a search returns what it returned before they existed."""
+    its members are candidates too. Notes are searched as without terms. When the store also links terms
+    (`term_links`), a query naming a polymer and a linked term gets, after the same-source findings, up to `LINKED`
+    findings of the other term about that polymer, its families or members (`_linked`). Without these tables, or
+    with them empty, a search returns what it returned before they existed."""
     phrase = _match(q, expand(root, q))
     empty = {"reviewed": [], "added": [], "unreviewed": [], "notes": []}
     if not phrase or not database(root).exists():
@@ -831,7 +952,7 @@ def search(root, q, limit=10, compact=False):
         polymer["lineage"] = lineage(root, polymer["ids"])
     with connect(root) as db:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN "
-                                               "(?, ?)", TERMS)}
+                                               "(?, ?, ?)", (*TERMS, "term_links"))}
         terms = _property_terms(db, q, polymers) if set(TERMS) <= tables else []
         rows = db.execute("SELECT f.* FROM findings_fts x JOIN findings f ON f.id=x.id WHERE findings_fts MATCH ? "
                           "AND f.status != ? ORDER BY rank LIMIT 500",
@@ -861,9 +982,15 @@ def search(root, q, limit=10, compact=False):
                           lambda n: fields(n, ("title", "supports", "conditions", "locator", "excerpts")),
                           lambda n: "", polymers, words, 3 if compact else limit)
         rows += _same_source(db, rows, notes)
+        if terms and polymers and "term_links" in tables:
+            rows += _linked(db, rows, notes, terms, set().union(*(p["lineage"] for p in polymers)))
+        rejected = _rejected(db, rows)
     views, titled = {}, set()
     for row in rows:
         views[row["id"]] = finding_view(row, compact=compact)
+        if views[row["id"]].get("conflictsWith"):
+            views[row["id"]]["conflictsWith"] = [i for i in views[row["id"]]["conflictsWith"] if i not in rejected]
+            views[row["id"]] = {k: v for k, v in views[row["id"]].items() if v != []}
         key = source_key(row["source_doi"], row["source_url"])
         if compact and key in titled:  # A source's title is given once per result.
             views[row["id"]]["source"].pop("title", None)
@@ -872,6 +999,34 @@ def search(root, q, limit=10, compact=False):
             "added": [views[r["id"]] for r in rows if r["status"] == ACCEPTED],
             "unreviewed": [views[r["id"]] for r in rows if r["status"] in {UNREVIEWED, UNCERTAIN}],
             "notes": [note_view(n, compact=compact) for n in notes]}
+
+
+def _linked(db, rows, notes, terms, family):
+    """Up to `LINKED` findings of the property terms linked to the ones a query names, filed under the polymer it
+    names, its families or members, that `rows` does not hold: those from sources already returned first, then
+    reviewed ones, then in the order saved."""
+    named = [t["term"] for t in terms]
+    marks = lambda items: ",".join("?" * len(items))  # noqa: E731
+    linked = sorted({b for (b,) in db.execute("SELECT linked FROM term_links WHERE term IN (%s)" % marks(named), named)}
+                    - set(named))
+    if not linked or not family:
+        return []
+    family, seen = sorted(family), {r["id"] for r in rows}
+    read = {source_key(r["source_doi"], r["source_url"]) for r in rows} | {source_key(n["doi"], n["url"]) for n in notes}
+    found = [row for row in db.execute("SELECT * FROM findings WHERE status != ? AND subject IN (%s) AND id IN (SELECT "
+                                       "finding_id FROM finding_terms WHERE term IN (%s)) ORDER BY rowid"
+                                       % (marks(family), marks(linked)), (UNSUPPORTED, *family, *linked))
+             if row["id"] not in seen]
+    found.sort(key=lambda r: (source_key(r["source_doi"], r["source_url"]) not in read, r["status"] != SUPPORTED))
+    return found[:LINKED]
+
+
+def _rejected(db, rows):
+    """The findings that rows' `conflictsWith` names and that have since been judged unsupported."""
+    named = sorted({i for row in rows if row["detail"] and "conflictsWith" in row["detail"]
+                    for i in json.loads(row["detail"]).get("conflictsWith") or []})
+    return {i for (i,) in db.execute("SELECT id FROM findings WHERE status=? AND id IN (%s)" % ",".join("?" * len(named)),
+                                     (UNSUPPORTED, *named))} if named else set()
 
 
 def _same_source(db, rows, notes):
@@ -988,6 +1143,25 @@ def for_question(root, question_id):
     return [finding_view(r) for r in rows]
 
 
+def notes_for_question(root, question_id):
+    """The source notes an answer saved: every source it read, including ones that lacked what it looked for."""
+    if not database(root).exists():
+        return []
+    with connect(root) as db:
+        rows = db.execute("SELECT * FROM notes WHERE question_id=? ORDER BY rowid", (question_id,)).fetchall()
+    return [note_view(r) for r in rows]
+
+
+def already_known(root, question_id, limit=30):
+    """The saved findings an answer's deposit matched instead of saving its own again (a merged one resolved)."""
+    found = {}
+    for identifier in ((deposit_summary(root, question_id) or {}).get("duplicateOf") or [])[:limit]:
+        finding = get(root, identifier)
+        if finding and finding.get("statement"):
+            found.setdefault(finding["id"], finding)
+    return list(found.values())
+
+
 def recent(root, status=None, limit=50):
     """Newest first; `status` is one status or a list of them."""
     if not database(root).exists():
@@ -1023,8 +1197,16 @@ def deposit_summary(root, question_id):
         counts = dict(db.execute("SELECT status, COUNT(*) FROM findings WHERE question_id=? GROUP BY status",
                                  (question_id,)).fetchall())
         waiting = db.execute("SELECT COUNT(*) FROM findings WHERE question_id=? AND " + TO_REVIEW, (question_id,)).fetchone()[0]
+        conflicts = dict(db.execute("SELECT status, COUNT(*) FROM conflicts WHERE question_id=? GROUP BY status",
+                                    (question_id,)).fetchall())
+        by_person = db.execute("SELECT COUNT(*) FROM findings WHERE question_id=? AND status=? AND reviewer_engine=?",
+                               (question_id, UNSUPPORTED, "person")).fetchone()[0]
     given_up = row["review_attempts"] >= MAX_REVIEW_ATTEMPTS
-    return {"findings": row["findings"], "notes": row["notes"], "dropped": row["dropped"],
+    # `waiting`: values in tension that a review is still to compare (never once its attempts are used up).
+    consistency = {"state": row["consistency"], "compared": row["consistency_compared"] or 0,
+                   "conflicts": sum(conflicts.values()), "open": conflicts.get("open", 0),
+                   "waiting": row["consistency"] == "tension" and not given_up} if row["consistency"] else None
+    return {"consistency": consistency, "rejectedByPerson": by_person, "findings": row["findings"], "notes": row["notes"], "dropped": row["dropped"],
             "duplicates": row["duplicates"] or 0, "duplicateOf": json.loads(row["duplicate_of"] or "[]"),
             "reviewStatus": row["review_status"], "reviewAttempts": row["review_attempts"], "reviewedAt": row["reviewed_at"],
             "reviewEngine": row["review_engine"], "reviewError": row["review_error"], "counts": counts,
@@ -1134,7 +1316,7 @@ def import_snapshot(root, folder):
                          % (manifest["graphRelease"], release))
     if "oopc-knowledge-" + digest({"graphRelease": release, "findings": findings, "notes": notes})[:24] != manifest["snapshotId"]:
         raise ValueError("The snapshot's content does not match its id")
-    with connect(root) as db:
+    with connect(root, write=True) as db:
         if db.execute("SELECT (SELECT COUNT(*) FROM findings) + (SELECT COUNT(*) FROM notes)").fetchone()[0]:
             raise ValueError("This workspace already holds knowledge; a snapshot only starts an empty one")
         detail = {"snapshot": manifest["snapshotId"]}
@@ -1157,13 +1339,16 @@ def import_snapshot(root, folder):
 
 
 def review_queue(root):
-    """Answers with findings waiting for review, oldest first; a review that failed twice is not retried."""
+    """Answers with findings waiting for review, or whose findings' values are in tension with saved ones
+    (`consistency.screen`), oldest first; a review that failed twice is not retried."""
     if not database(root).exists():
         return []
     with connect(root) as db:
-        rows = db.execute("SELECT d.question_id FROM deposits d WHERE d.review_attempts < ? AND EXISTS (SELECT 1 FROM "
-                          "findings f WHERE f.question_id=d.question_id AND " + TO_REVIEW.replace("status", "f.status")
-                          .replace("detail", "f.detail") + ") ORDER BY d.deposited_at", (MAX_REVIEW_ATTEMPTS,)).fetchall()
+        # One pass over the findings (a correlated EXISTS beside the OR would scan them once per deposit).
+        rows = db.execute("SELECT d.question_id FROM deposits d WHERE d.review_attempts < ? AND (d.consistency='tension' "
+                          "OR d.question_id IN (SELECT f.question_id FROM findings f WHERE "
+                          + TO_REVIEW.replace("status", "f.status").replace("detail", "f.detail")
+                          + ")) ORDER BY d.deposited_at", (MAX_REVIEW_ATTEMPTS,)).fetchall()
     return [row[0] for row in rows]
 
 
@@ -1182,14 +1367,17 @@ def _set_detail(db, identifier, **changes):
     db.execute("UPDATE findings SET detail=? WHERE id=?", (json.dumps(detail, ensure_ascii=False), identifier))
 
 
-def record_review(root, question_id, *, engine, verdicts, started_at, seconds, usage, notes=""):
+def record_review(root, question_id, *, engine, verdicts, started_at, seconds, usage, notes="", conflicts=None,
+                  compared=None, resolution="reviewer"):
     """Apply one review. Each finding takes its verdict; a flagged finding the reviewer skipped becomes uncertain,
     and a sampled added finding it skipped stays added. A Reviewed finding checked again for its label or excerpt
     (`recheck`) keeps its review unless this one finds it unsupported, which makes it Needs checking. A finding saved
     with a usable excerpt missing takes the span its reviewer quoted; one whose polymer name was ambiguous takes the
-    material its reviewer wrote out, and stays Needs checking when the reviewer could not settle it."""
+    material its reviewer wrote out, and stays Needs checking when the reviewer could not settle it. When the review
+    also compared the answer's findings with saved ones (`compared`, how many), its `conflicts` are recorded after
+    the verdicts, in the same transaction, and settled by `resolution` (`consistency.record`)."""
     stamp = now()
-    with connect(root) as db:
+    with connect(root, write=True) as db:
         rows = db.execute("SELECT * FROM findings WHERE question_id=? AND " + TO_REVIEW, (question_id,)).fetchall()
         for row in rows:
             identifier, status, detail = row["id"], row["status"], json.loads(row["detail"] or "{}")
@@ -1221,8 +1409,12 @@ def record_review(root, question_id, *, engine, verdicts, started_at, seconds, u
                 _reindex(db, identifier)
             if detail.get("ambiguous"):
                 _relabel(root, db, row, detail, verdict.get("material") or "", engine, stamp)
+        if compared is not None:
+            from . import consistency
+            consistency.record(db, question_id, conflicts or [], verdicts, engine=engine, stamp=stamp,
+                               resolution=resolution, compared=compared)
         db.execute("UPDATE deposits SET review_status='reviewed', review_attempts=review_attempts+1, reviewed_at=?, "
-                   "review_engine=?, review_error=NULL WHERE question_id=?", (stamp, engine, question_id))
+                   "review_engine=?, review_error=NULL, review_claim=NULL WHERE question_id=?", (stamp, engine, question_id))
         db.execute("INSERT INTO reviews VALUES (?,?,?,?,?,?,?,?,?,?)", (
             "review:%s:%s" % (question_id[:12], stamp), question_id, engine, started_at, stamp, "completed", "",
             seconds, json.dumps(usage or {}), (notes or "")[:2000]))
@@ -1263,12 +1455,52 @@ def _relabel(root, db, row, detail, material, engine, stamp):
                    (UNCERTAIN, "Its polymer name (%s) is still ambiguous." % names, engine, stamp, row["id"]))
 
 
+REVIEW_CLAIM_SECONDS = 3600  # A claim this old is stale even if its process lives (reviews take minutes).
+
+
+def _claim_live(claim):
+    """Whether a review claim's process still runs it: alive, on this machine, and not past `REVIEW_CLAIM_SECONDS`."""
+    if not isinstance(claim, dict) or not isinstance(claim.get("pid"), int):
+        return False
+    try:
+        age = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(claim["at"])).total_seconds()
+    except (KeyError, TypeError, ValueError):
+        return False
+    if age > REVIEW_CLAIM_SECONDS:
+        return False
+    try:
+        os.kill(claim["pid"], 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:  # Another user's live process.
+        return True
+    return True
+
+
+def claim_review(root, question_id):
+    """Take an answer's review for this process, in one write transaction, so two processes (or two of this one's
+    threads) never both start a session for it. False when the answer waits for no review or another live process is
+    reviewing it. `record_review`, `record_review_failure` and `release_review` give the claim up."""
+    with connect(root, write=True) as db:
+        row = db.execute("SELECT review_claim FROM deposits WHERE question_id=?", (question_id,)).fetchone()
+        if row is None or _claim_live(json.loads(row[0] or "null")) or question_id not in review_queue(root):
+            return False
+        db.execute("UPDATE deposits SET review_claim=? WHERE question_id=?",
+                   (json.dumps({"pid": os.getpid(), "at": now()}), question_id))
+    return True
+
+
+def release_review(root, question_id):
+    with connect(root, write=True) as db:
+        db.execute("UPDATE deposits SET review_claim=NULL WHERE question_id=?", (question_id,))
+
+
 def record_review_failure(root, question_id, *, engine, reason, message, started_at, seconds=None, usage=None):
     """A failed review is retried once on a later run; after that its sampled findings stay added, unchecked."""
     stamp = now()
-    with connect(root) as db:
-        db.execute("UPDATE deposits SET review_status='failed', review_attempts=review_attempts+1, review_error=? "
-                   "WHERE question_id=?", (reason + ": " + message[:300], question_id))
+    with connect(root, write=True) as db:
+        db.execute("UPDATE deposits SET review_status='failed', review_attempts=review_attempts+1, review_error=?, "
+                   "review_claim=NULL WHERE question_id=?", (reason + ": " + message[:300], question_id))
         attempts = db.execute("SELECT review_attempts FROM deposits WHERE question_id=?", (question_id,)).fetchone()[0]
         if attempts >= MAX_REVIEW_ATTEMPTS:
             for (identifier,) in db.execute("SELECT id FROM findings WHERE question_id=? AND status=? AND "
@@ -1325,7 +1557,8 @@ KNOWLEDGE_SPECS = {
                          "added findings (saved on an earlier researcher's judgement), findings that still need checking, "
                          "and source notes (leads; readUrl is where a source was read before). After these come the other "
                          "findings saved from the same sources. Cite reviewed and added findings by id instead of "
-                         "re-reading their sources. Call this first.",
+                         "re-reading their sources. A finding with conflictsWith disagrees with those findings by a "
+                         "reviewer's comparison: report both with their sources. Call this first.",
                          {"q": {"type": "string"}, "limit": {"type": "integer", "minimum": 10, "maximum": 25}}, ["q"]),
 }
 

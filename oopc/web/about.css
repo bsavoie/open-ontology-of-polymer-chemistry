@@ -1,7 +1,8 @@
-/* About page: the two loops, drawn and animated by about.js, and a few numbers. Tokens come from researcher.css. */
+/* The About tab: the two loops in the hero, then one section per step, each with a figure that about.js animates.
+   Tokens come from researcher.css, so every figure follows the theme. */
 .about{max-width:1180px;margin:0 auto;padding:40px 28px 72px;outline:none}
 .about-hero{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:40px;align-items:center;min-height:calc(100dvh - 160px)}
-.hero-text h1{font-size:var(--text-display);line-height:1.1;letter-spacing:-.025em;max-width:460px}
+.hero-text h1{font-size:var(--text-display);line-height:1.1;letter-spacing:-.025em;max-width:480px;text-wrap:balance}
 .about-lede{font-size:var(--text-lg);line-height:1.55;text-wrap:pretty;color:var(--subtle);margin:20px 0 30px;max-width:470px}
 .loop-key{list-style:none;padding:0;margin:0 0 34px;display:flex;flex-direction:column;gap:16px;max-width:470px}
 .loop-key li{display:grid;grid-template-columns:26px 1fr;column-gap:12px;font-size:var(--text-sm);line-height:1.5;color:var(--subtle)}
@@ -13,10 +14,12 @@
 .key-mark.expand::before,.key-mark.expand::after{content:"";position:absolute;border-radius:50%}
 .key-mark.expand::before{inset:7px;background:var(--accent)}
 .key-mark.expand::after{inset:2px;border:1.5px solid var(--accent-soft)}
-.hero-actions{margin:0}
+.hero-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;margin:0}
 .hero-actions .primary-button{padding:12px 26px}
+.hero-actions .secondary-button{padding:11px 20px;text-decoration:none}
+.about .secondary-button:not(:disabled):hover{text-decoration:none}
 
-/* The figure. Colours come from here, so the drawing follows the theme. */
+/* The loop figure */
 .loop-figure{margin:0}
 #loop-art{display:block;width:100%;max-width:620px;height:auto;margin-inline:auto;overflow:visible}
 #loop-art .ring{fill:none;stroke:var(--line);stroke-width:1.5}
@@ -42,35 +45,128 @@
 #loop-art .comet-glow{fill:var(--yellow);opacity:.22}
 #loop-art.fading .finding{opacity:0}
 
-/* Numbers */
-.about-numbers{margin-top:24px;padding:28px 0 0;border-top:1px solid var(--line)}
-.about-numbers dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin:0}
-.about-numbers div{display:flex;flex-direction:column-reverse;gap:2px}
-.about-numbers dt{font-size:var(--text-sm);color:var(--subtle)}
-.about-numbers dd{margin:0;font-size:var(--text-xl);font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.about-numbers div:first-child dd{color:var(--accent)}
+/* Sections: text beside a figure, alternating sides */
+.chapter{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:56px;align-items:center;padding:76px 0;border-top:1px solid var(--line)}
+.chapter.flip{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}
+.chapter.flip .chapter-text{order:2}
+.chapter-step{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.chapter-step .optional{padding:1px 8px;border-radius:999px;background:var(--yellow-light);color:var(--yellow-ink);letter-spacing:.04em}
+.chapter-text h2{margin:0 0 16px;font-size:var(--text-xl);line-height:1.15;letter-spacing:-.02em;text-wrap:balance}
+.chapter-text p{max-width:500px;margin:0 0 14px;font-size:var(--text-prose);line-height:1.6;color:var(--subtle);text-wrap:pretty}
+.chapter-text .hero-actions{margin-top:24px}
+.chapter-text code{font:500 .9em var(--mono);color:var(--ink);background:var(--canvas);border:1px solid var(--soft-line);border-radius:5px;padding:1px 5px}
+.chapter-figure{margin:0;min-width:0}
+.chapter-figure figcaption{margin-top:12px;font-size:var(--text-xs);color:var(--faint)}
+.chapter-figure>svg{display:block;width:100%;height:auto;overflow:visible}
 
-/* Labels */
-.about-labels{margin-top:64px}
+/* 1 · Seed */
+#seed-art .wiki-page{fill:var(--surface);stroke:var(--line);stroke-width:1.3}
+#seed-art .wiki-line{fill:var(--soft-line)}
+#seed-art .wiki-label{fill:var(--faint);font:500 13px var(--sans)}
+#seed-art .seed-edge{stroke:var(--line);stroke-width:1.2}
+#seed-art .seed-node{fill:var(--surface);stroke:var(--faint);stroke-width:1.3}
+#seed-art .seed-node.root{stroke:var(--subtle);stroke-width:1.6}
+#seed-art .seed-name{fill:var(--subtle);font:500 12px var(--sans)}
+.seed-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:18px 0 0;text-align:center}
+.seed-counts div{display:flex;flex-direction:column-reverse;gap:2px}
+.seed-counts dd{margin:0;font-size:var(--text-xl);font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.seed-counts dt{font-size:var(--text-sm);color:var(--subtle)}
+
+/* 2 · Findings */
+.findings-art{display:flex;flex-direction:column;gap:14px}
+.finding-card{position:relative;overflow:hidden;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  opacity:0;translate:0 14px;transition:opacity .5s,translate .6s cubic-bezier(.2,.8,.2,1),border-color .4s}
+.finding-card.in{opacity:1;translate:0 0}
+.finding-card.reviewed{border-color:var(--accent-soft)}
+.finding-card header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.finding-polymer{font-size:var(--text-sm);font-weight:600;color:var(--accent)}
+.finding-value{margin:0;font-size:var(--text-base);font-weight:500;line-height:1.45;color:var(--ink)}
+.finding-source{margin:6px 0 0;font-size:var(--text-sm);color:var(--subtle)}
+.finding-review{max-height:0;overflow:hidden;margin:0;font-size:var(--text-sm);color:var(--accent);opacity:0;transition:max-height .45s,margin .45s,opacity .45s}
+.finding-card.reviewed .finding-review{max-height:4.5em;margin-top:10px;opacity:1}
+/* The reviewer reading the source: a band of light sweeps the card. */
+.finding-card::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--accent) 14%,transparent) 50%,transparent 70%);translate:-100% 0;pointer-events:none}
+.finding-card.scanning::after{animation:review-sweep 1s ease-in-out}
+@keyframes review-sweep{to{translate:100% 0}}
+
+/* Who vouches for a fact */
+.about-labels{padding:0 0 76px}
 .about-labels h2{margin-bottom:16px}
 .about-labels dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0}
 .about-labels div{padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
 .about-labels dd{margin:10px 0 0;font-size:var(--text-sm);line-height:1.5;color:var(--subtle)}
 
-.about-footer{max-width:1180px;margin:0 auto;padding:0 28px 48px;font-size:var(--text-xs);color:var(--faint)}
+/* 3 · Live numbers */
+.about-numbers{padding:26px 28px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+.numbers-title{margin:0 0 18px;font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.about-numbers dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 24px;margin:0}
+.about-numbers div{display:flex;flex-direction:column-reverse;gap:2px}
+.about-numbers dt{font-size:var(--text-sm);color:var(--subtle)}
+.about-numbers dd{margin:0;font-size:var(--text-display);font-weight:600;line-height:1.1;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.about-numbers div:first-child dd{color:var(--accent)}
+
+/* 4 · Reflect */
+.reflect-art ol{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0;padding:0;counter-reset:step}
+.reflect-art li{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  opacity:.38;transition:opacity .45s,border-color .45s,box-shadow .45s}
+.reflect-art li.on{opacity:1;border-color:var(--accent-soft);box-shadow:var(--shadow)}
+.reflect-art li.done{border-color:var(--line);box-shadow:none}
+.reflect-art .step-label{counter-increment:step;font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.reflect-art .step-label::before{content:counter(step) " · "}
+.reflect-art li.on .step-label{color:var(--accent)}
+.reflect-art li:first-child.on .step-label{color:var(--yellow-ink)}
+.reflect-art code{font:500 var(--text-sm) var(--mono);padding:3px 8px;border-radius:6px;background:var(--canvas);border:1px solid var(--soft-line);color:var(--ink)}
+.reflect-art strong{font-size:var(--text-base);font-weight:600;color:var(--ink)}
+.reflect-art .step-note{font-size:var(--text-sm);line-height:1.45;color:var(--subtle)}
+
+/* 5 · Engines */
+#engines-art .engine-box rect{fill:var(--surface);stroke:var(--line);stroke-width:1.3}
+#engines-art .engine-name{fill:var(--ink);font:600 17px var(--sans)}
+#engines-art .engine-via{fill:var(--faint);font:400 13px var(--sans)}
+#engines-art .engine-path{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 5}
+#engines-art .store path,#engines-art .store ellipse{fill:var(--surface);stroke:var(--accent-soft);stroke-width:1.6}
+#engines-art .store-name{fill:var(--ink);font:600 15px var(--sans)}
+#engines-art .stored{fill:var(--faint)}
+#engines-art .stored.reviewed{fill:var(--accent)}
+#engines-art .flight{fill:var(--yellow)}
+
+/* 6 · Share: a link preview with the wordmark as the top bar prints it */
+.share{display:flex;flex-direction:column;gap:16px;padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);
+  opacity:0;translate:0 14px;transition:opacity .5s,translate .6s cubic-bezier(.2,.8,.2,1)}
+.share.in{opacity:1;translate:0 0}
+.share-preview{display:flex;align-items:center;gap:16px}
+.share-mark{isolation:isolate;display:inline-flex;align-items:baseline;flex:none;padding:12px 16px;border-radius:12px;background:var(--bar);font-size:26px;font-weight:700;line-height:1.3;letter-spacing:.03em}
+.share-preview p{margin:0;font-size:var(--text-sm);line-height:1.5;color:var(--subtle)}
+.share-preview strong{display:block;margin-bottom:2px;font-size:var(--text-base);font-weight:600;color:var(--ink)}
+.share-link{display:flex;gap:8px}
+.share-link input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--canvas);font:400 var(--text-sm) var(--mono);color:var(--ink)}
+.share-link .primary-button{flex:none}
+.share-actions{display:flex;flex-wrap:wrap;gap:10px;margin:0}
+.share-actions .secondary-button{text-decoration:none}
+
+.about-footer{padding:28px 0 0;border-top:1px solid var(--line);font-size:var(--text-xs);color:var(--faint)}
 .about-footer p{margin:0;max-width:760px}
 
 @media(max-width:960px){
   .about-hero{grid-template-columns:1fr;gap:16px;min-height:0}
   .loop-figure{order:-1;max-width:520px;width:100%;margin-inline:auto}
-  .about-numbers dl,.about-labels dl{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chapter,.chapter.flip{grid-template-columns:1fr;gap:28px;padding:56px 0}
+  .chapter.flip .chapter-text{order:0}
+  .about-labels{padding-bottom:56px}
+  .about-labels dl{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:640px){
   .about{padding:20px 16px 56px}
   .hero-text h1{font-size:var(--text-xl)}
   .about-lede{font-size:var(--text-prose)}
-  .about-numbers dd{font-size:var(--text-title)}
   #loop-art .stage-label{font-size:21px}
-  .about-labels dl{grid-template-columns:1fr}
-  .about-footer{padding:0 16px 40px}
+  /* The drawings scale to about half on a phone, so their text grows to stay legible. */
+  #seed-art .wiki-label{font-size:21px}#seed-art .seed-name{font-size:20px}
+  #engines-art .engine-name{font-size:26px}#engines-art .engine-via{font-size:18px}#engines-art .store-name{font-size:22px}
+  .chapter-text h2{font-size:var(--text-title)}
+  .seed-counts dd{font-size:var(--text-title)}
+  .about-numbers{padding:20px}
+  .about-numbers dd{font-size:var(--text-xl)}
+  .reflect-art ol,.about-labels dl{grid-template-columns:1fr}
+  .share{padding:18px}.share-link{flex-direction:column}
 }

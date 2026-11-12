@@ -83,7 +83,44 @@ def host_engines_allowed():
     return "unittest" not in sys.modules or os.environ.get("OOPC_ALLOW_HOST_ENGINES") == "1"
 
 
+# The person whose engine work this thread does (`as_person`): their engine folder holds their own sign-ins.
+_PERSON = threading.local()
+
+
+@contextmanager
+def as_person(person, home=None):
+    """Engine work in this thread for one person of a shared host (`people`): sessions, sign-in checks, quota reads and
+    saved sessions use their own accounts, kept in `home` (its `codex` and `claude` folders become `CODEX_HOME` and
+    `CLAUDE_CONFIG_DIR`). With no `home` (the owner, or a host nobody was added to), the host's own, as before."""
+    previous = (getattr(_PERSON, "person", None), getattr(_PERSON, "home", None))
+    _PERSON.person, _PERSON.home = person, (Path(home) if home else None)
+    try:
+        yield
+    finally:
+        _PERSON.person, _PERSON.home = previous
+
+
+def current_person():
+    return getattr(_PERSON, "person", None)
+
+
+def own_accounts(person):
+    """Whether a person of a shared host signs their engines in themselves, in a folder of their own: not the owner,
+    nor a person set to use the host's sign-ins (`people.set_engines`), nor nobody."""
+    return bool(person) and not person.get("owner") and not person.get("hostEngines")
+
+
+def current_home():
+    return getattr(_PERSON, "home", None)
+
+
 def preferred_engine(root):
+    person = current_person()
+    if person and not person.get("owner"):  # A person of a shared host chooses their own engine.
+        from .people import runtime
+        chosen = runtime(root, person)
+        if chosen in ENGINES:
+            return chosen
     path = Path(root) / PREFERENCE
     try:
         value = read_json(path) if path.is_file() and not path.is_symlink() else {}
@@ -96,6 +133,10 @@ def preferred_engine(root):
 def select_engine(root, engine):
     if engine not in ENGINES:
         raise ValueError("Choose a supported subscription engine")
+    person = current_person()
+    if person and not person.get("owner"):
+        from .people import choose_runtime
+        return choose_runtime(root, person, engine)
     path = Path(root) / PREFERENCE
     if path.is_symlink():
         raise ValueError("Engine preference cannot follow symlink storage")
@@ -188,12 +229,19 @@ def resolve_claude_binary():
     return max(versions)[1] if versions else "claude"
 
 
-def codex_environment(base=None):
-    return {k: v for k, v in (base if base is not None else os.environ).items() if k not in API_KEYS}
+def codex_environment(base=None, home=None):
+    """Worker environment without API keys; a person's own `CODEX_HOME` when this thread works for one (`as_person`)
+    or `home` is given."""
+    environment = {k: v for k, v in (base if base is not None else os.environ).items() if k not in API_KEYS}
+    home = home or current_home()
+    if home:
+        environment["CODEX_HOME"] = str(Path(home) / "codex")
+    return environment
 
 
-def claude_environment(base=None):
-    """Worker environment without API keys, provider overrides or host session credentials."""
+def claude_environment(base=None, home=None):
+    """Worker environment without API keys, provider overrides or host session credentials; a person's own
+    `CLAUDE_CONFIG_DIR` when this thread works for one (`as_person`) or `home` is given."""
     environment = {}
     for key, value in (base if base is not None else os.environ).items():
         upper = key.upper()
@@ -203,6 +251,9 @@ def claude_environment(base=None):
             continue
         environment[key] = value
     environment["DISABLE_AUTOUPDATER"] = "1"
+    home = home or current_home()
+    if home:
+        environment["CLAUDE_CONFIG_DIR"] = str(Path(home) / "claude")
     return environment
 
 
@@ -952,6 +1003,8 @@ def engine_home(engine):
     ~/.claude). Under tests only a folder the test set itself is used (with `OOPC_TEST_ENGINE_HOMES=1`), never an
     inherited one or the default, so tests never touch this machine's sessions."""
     variable, default = ("CODEX_HOME", ".codex") if engine == CODEX else ("CLAUDE_CONFIG_DIR", ".claude")
+    if current_home():  # A person of a shared host: their own engine folder.
+        return current_home() / ("codex" if engine == CODEX else "claude")
     if not host_engines_allowed():
         if os.environ.get("OOPC_TEST_ENGINE_HOMES") == "1" and os.environ.get(variable):
             return Path(os.environ[variable])
@@ -1029,8 +1082,8 @@ def _claude_login_url(value):
 class ClaudeAccounts:
     """Sign-in through the official `claude auth login --claudeai` flow; only the CLI handles credentials."""
 
-    def __init__(self, binary=None):
-        self.binary = binary
+    def __init__(self, binary=None, home=None):
+        self.binary, self.home = binary, home  # `home`: a person's engine folder (`as_person`).
         self._lock = threading.Lock()
         self._process = None
         self._login_url = None
@@ -1045,7 +1098,8 @@ class ClaudeAccounts:
         with self._lock:
             pending = self._process is not None and self._process.poll() is None
             url = self._login_url
-        status = claude_auth_status(self._binary())
+        with as_person(current_person(), self.home or current_home()):
+            status = claude_auth_status(self._binary())
         if not status.get("available"):
             return {"status": "unavailable", "account": None, "message": "Claude Code could not report its sign-in status."}
         if is_subscription(status):
@@ -1066,7 +1120,7 @@ class ClaudeAccounts:
                 self._login_url = None
                 self._process = subprocess.Popen([self._binary(), "auth", "login", "--claudeai"], stdin=subprocess.PIPE,
                                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                                 env=claude_environment(), start_new_session=True)
+                                                 env=claude_environment(home=self.home), start_new_session=True)
                 threading.Thread(target=self._read_login, args=(self._process,), daemon=True).start()
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:

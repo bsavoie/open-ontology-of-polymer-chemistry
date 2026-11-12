@@ -1,5 +1,61 @@
 # Changelog
 
+## Unreleased
+
+## 0.15.0: review, reflection and cumulative research (2026-11-12)
+
+- The README and app's About tab explain review defaults, finding statuses,
+  consistency checks and conflict settlement, and optional reflection with
+  source review, search replay and reversible local edits. Both link to the
+  Wiki of Open Polymer Data's public repository and explain the pinned seed.
+- The review after an answer compares its new findings with related saved
+  findings (up to eight per new finding by default), checking both sources for
+  apparent conflicts. The reviewer settles conflicts by default; the owner can
+  leave settlement to a person. Conflicts retain both findings, the reading,
+  reason and who settled them; source disagreements stay linked for reuse.
+- Optional reflection also proposes links between property terms repeatedly
+  used together. A separate reviewer checks proposals against their sources;
+  replay drops edits that lose more cited results than the misses they fix,
+  and links must recover a missed connection. Edits stay local and reversible.
+- The workspace scope is configurable. Connected questions outside it are
+  answered without saving findings by default; unrelated questions link to
+  another interface. The owner can choose to save connected answers too.
+- People sharing a host can have separate sign-ins, questions, answers and
+  traces while sharing findings, reviews, conflicts and reflection edits, each
+  with attribution. Settings also support parallel research sessions.
+
+- An answer says what it saved from the moment it is shown. Under **What this
+  answer saved**, it first says the findings are being saved (the second turn
+  writes them after the answer), then how many were saved from how many
+  sources, how many were added, wait for a reviewer or are being spot-checked,
+  and what the review found. Findings are grouped under the source they were
+  read in, with each source's note (including sources that did not open or
+  lacked the value) and, under **Details**, the material, property, conditions,
+  the polymer it is filed under and the quote from the source. Facts the answer
+  read that an earlier question had saved are listed with a link to that
+  question. The answer's status at the top jumps to this section.
+- History and Recent rows say how many findings an answer saved, or that it is
+  still saving them.
+- A question can follow an answered one (`parentId` when asking;
+  `oopc ask --follow ID`), continuing its conversation from the latest answer.
+  It is a new session with its own save and review, so what it finds is
+  checked like any answer. It waits for the answer before it to be saved and
+  reviewed, then is told the conversation so far: the earlier questions and
+  answers, and the findings they cited or saved with their status now, so a
+  finding rejected since is known. The earlier answers are context, not
+  sources. These instructions (`FOLLOW_UP`) are added only to follow-ups: a
+  question asked on its own has exactly the prompt it had. A follow-up's
+  findings are filed by the whole conversation's questions.
+- An answer's page shows its whole conversation, first question first, each
+  with its answer, sources and what it saved, and ends with a box for a
+  follow-up to the latest answer (with the depth and engine buttons of the Ask
+  page). While that answer's findings are saved or checked, the box says a
+  follow-up will start once they are. History and Recent list a conversation
+  once, under its first question with its latest follow-up and the number of
+  questions.
+- An answer says at the top when a reviewer has since rejected a saved finding
+  it cites, or one it saved, since a value it reports may then be wrong.
+
 ## 0.14.1: the Mac app's icon and update check (2026-10-29)
 
 - The Mac app has an icon in Finder, the Dock and the app switcher: the OOPC

@@ -22,7 +22,7 @@ import json
 import re
 import time
 
-from . import calls, engines, knowledge, sources
+from . import calls, consistency, engines, knowledge, sources
 from .util import locked, now
 
 REVIEW_SECONDS = 300  # Reviews and checks took at most about 2.5 minutes; a stalled session stops sooner.
@@ -59,6 +59,13 @@ REVIEW_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["
                  "properties": {"id": {"type": "string"}, "verdict": _VERDICT, "reason": {"type": "string"},
                                 "excerpt": {"type": "string"}, "material": {"type": "string"}}}},
     "notes": {"type": "string"}}}
+# A review that also compares the answer's findings with saved ones returns the pairs that conflict.
+CONSISTENCY_SCHEMA = json.loads(json.dumps(REVIEW_SCHEMA))
+CONSISTENCY_SCHEMA["required"] = ["verdicts", "conflicts", "notes"]
+CONSISTENCY_SCHEMA["properties"]["conflicts"] = {"type": "array", "items": {
+    "type": "object", "additionalProperties": False, "required": ["finding", "with", "reading", "reason"],
+    "properties": {"finding": {"type": "string"}, "with": {"type": "string"},
+                   "reading": {"type": "string", "enum": list(consistency.READINGS)}, "reason": {"type": "string"}}}}
 KINDS = ("source-fact", "inference", "background", "provenance", "completeness", "unspecified")
 CATEGORIES = ("none", "contradiction", "attribution", "source-access", "inference", "provenance",
               "completeness", "bibliography", "unspecified")
@@ -114,8 +121,9 @@ CHECK_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["v
     "notes": {"type": "string"}}}
 
 
-def review_prompt(findings, root=None):
-    """`root`, when given, adds each finding's passages of its source's captured text."""
+def review_prompt(findings, root=None, compare=None):
+    """`root`, when given, adds each finding's passages of its source's captured text; `compare`, a tranche from
+    `consistency.tranche`, adds the comparison with saved knowledge and its instructions."""
     items = []
     for f in findings:
         item = {"id": f["id"], "statement": f.get("statement"), "material": f.get("material"),
@@ -127,10 +135,16 @@ def review_prompt(findings, root=None):
             item["capturedText"] = sources.evidence(root, f["source"], f.get("value"), f.get("statement"),
                                                     f.get("locator"), f.get("conditions"), limit=2500)
         items.append({k: v for k, v in item.items() if v})
-    return (INSTRUCTION + "Review every finding below and return one verdict per finding id. Group reads by document. "
+    compared = consistency.section(root, compare, {f["id"] for f in findings}) if compare and compare["new"] else None
+    scope = ("Review every finding in findings below and return one verdict per finding id there; compare the ones "
+             "under consistency as told above. " if compared else
+             "Review every finding below and return one verdict per finding id. ")
+    body = json.dumps({"findings": items}, ensure_ascii=False, indent=1)
+    if compared:  # One finding a line: the comparison is most of a review prompt.
+        body = body[:-1].rstrip() + ',\n "consistency": ' + consistency.render(compared) + "\n}"
+    return (INSTRUCTION + (consistency.INSTRUCTION if compared else "") + scope + "Group reads by document. "
             "A source's readUrl, when given, is where a researcher read it: use it to open the document, confirm it is "
-            "the same one, and judge only what it says.\n\n"
-            + json.dumps({"findings": items}, ensure_ascii=False, indent=1))
+            "the same one, and judge only what it says.\n\n" + body)
 
 
 def with_captures(root, cited, answer_text=""):
@@ -184,13 +198,30 @@ def choose(producer=None, *, failed=None, preferred=None, runner_engine=None, re
 
 
 def review(root, question_id, *, runner=None, engine=None, reserve_percent=0, timeout=REVIEW_SECONDS):
-    """Review an answer's findings waiting for review in one session. A second reviewer for the same workspace
-    waits its turn rather than starting a duplicate session; a failure is recorded with its reason and raised, and
-    the retry prefers an engine other than the one that failed."""
-    with locked(knowledge.folder(root) / "review.lock"):
-        findings, producer = knowledge.findings_to_review(root, question_id)
-        if not findings or question_id not in knowledge.review_queue(root):
-            return knowledge.deposit_summary(root, question_id)
+    """Review an answer's findings waiting for review in one session, and compare its findings with the saved ones
+    most related to them (`consistency`) while its comparison is waiting; an answer with nothing to source-check is
+    reviewed only when values are in tension. The answer's review is claimed first (`knowledge.claim_review`): a second
+    reviewer of the same answer, in this process or another, returns at once instead of starting a duplicate session,
+    and reviews of different answers run side by side. `review.lock` is held only while the review reads the findings
+    and while it records its verdicts, never through the engine session, so maintenance that rewrites findings
+    (reflection, upkeep) never meets a review half-read or half-written. A failure is recorded with its reason and
+    raised, and the retry prefers an engine other than the one that failed."""
+    from .loop import settings
+    if not knowledge.claim_review(root, question_id):
+        return knowledge.deposit_summary(root, question_id)
+    lock, recorded = knowledge.folder(root) / "review.lock", False
+    try:
+        with locked(lock):
+            findings, producer = knowledge.findings_to_review(root, question_id)
+            preferences = settings(root)
+            compare = consistency.tranche(root, question_id, preferences["consistencyDepth"])
+            if compare is None or not compare["new"]:
+                consistency.unchecked(root, question_id, compare)  # The check is off, or nothing saved is related now.
+                compare = None
+            if not findings and not (compare and compare["tension"]):
+                if compare:
+                    consistency.unchecked(root, question_id, compare)  # Nothing to source-check, nothing in tension.
+                return knowledge.deposit_summary(root, question_id)
         engine = choose(producer, failed=knowledge.failed_review_engine(root, question_id),
                         preferred=engines.preferred_engine(root), runner_engine=engine, reserve_percent=reserve_percent)
         if engine is None:
@@ -200,20 +231,33 @@ def review(root, question_id, *, runner=None, engine=None, reserve_percent=0, ti
             lead = knowledge.read_url(root, source.get("doi"), source.get("url"))
             if lead and lead != source.get("url"):
                 finding["source"] = dict(source, readUrl=lead)
-        capture_sources(root, [f.get("source") or {} for f in findings])
+        tense = {i for pair in (compare or {}).get("tension", ()) for i in pair}
+        rows = dict((compare or {}).get("rows") or {}, **((compare or {}).get("saved") or {}))
+        capture_sources(root, [f.get("source") or {} for f in findings]
+                        + [{"url": rows[i]["source_url"], "doi": rows[i]["source_doi"]} for i in sorted(tense)])
         started, clock = now(), time.monotonic()
         try:
             result = calls.invoke(root, "review", question_id, runner or engines.run_session, engine,
-                                  review_prompt(findings, root), REVIEW_SCHEMA, tools=None, web=True, timeout=timeout,
-                                  idle=IDLE_SECONDS)
+                                  review_prompt(findings, root, compare), CONSISTENCY_SCHEMA if compare else REVIEW_SCHEMA,
+                                  tools=None, web=True, timeout=timeout, idle=IDLE_SECONDS)
         except engines.EngineError as error:
             knowledge.record_review_failure(root, question_id, engine=engine, reason=error.reason, message=str(error),
                                             started_at=started, seconds=error.seconds, usage=error.usage)
+            recorded = True
             raise
         verdicts = parse_verdicts(result["answer"], {f["id"] for f in findings})
-        return knowledge.record_review(root, question_id, engine=result["engine"], verdicts=verdicts, started_at=started,
-                                       seconds=round(time.monotonic() - clock, 2), usage=result.get("usage"),
-                                       notes=str(result["answer"].get("notes") or ""))
+        with locked(lock):
+            summary = knowledge.record_review(root, question_id, engine=result["engine"], verdicts=verdicts,
+                                              started_at=started, seconds=round(time.monotonic() - clock, 2),
+                                              usage=result.get("usage"), notes=str(result["answer"].get("notes") or ""),
+                                              conflicts=consistency.parse(result["answer"], compare) if compare else None,
+                                              compared=len(compare["saved"]) if compare else None,
+                                              resolution=preferences["conflictResolution"])
+        recorded = True
+        return summary
+    finally:
+        if not recorded:
+            knowledge.release_review(root, question_id)
 
 
 def capture_sources(root, cited):

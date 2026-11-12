@@ -21,27 +21,69 @@ def new_tokens(usage):
     return max(0, usage["input_tokens"] - usage["cached_input_tokens"]) + usage["output_tokens"]
 
 
+def slots(root):
+    """How many sessions each engine runs at once on this workspace (the `parallelQuestions` setting, 1 by default)."""
+    from .loop import settings
+    try:
+        return settings(root)["parallelQuestions"]
+    except (OSError, ValueError, KeyError):
+        return 1
+
+
+def _slot(path, engine, count, progress):
+    """A free session slot of `engine` (a lock file: `<engine>.lock`, then `<engine>-2.lock` ...), waiting for one when
+    all `count` are busy; returns the held lock's context manager, entered."""
+    names = [engine + ".lock"] + ["%s-%d.lock" % (engine, n) for n in range(2, count + 1)]
+    told = False
+    while True:
+        for name in names:
+            held = locked(path / name, blocking=False)
+            try:
+                held.__enter__()
+            except BlockingIOError:
+                continue
+            return held, name
+        if count == 1:  # One slot: wait on it, as sessions always did.
+            if hasattr(progress, "wait") and not told:
+                progress.wait(WAITING.get(_busy(engine), "Waiting for the engine to finish another task"))
+            held = locked(path / names[0])
+            held.__enter__()
+            return held, names[0]
+        if hasattr(progress, "wait") and not told:
+            progress.wait(WAITING.get(_busy(engine), "Waiting for the engine to finish another task"))
+            told = True
+        time.sleep(0.2)
+
+
+def _busy(engine):
+    return next((phase for (name, _), phase in list(_BUSY.items()) if name == engine), None)
+
+
 def invoke(root, phase, owner, runner, engine, prompt, schema, **options):
     """Run one engine session and record the attempt, its outcome and its usage. Sessions on one engine take turns,
     background ones (an answer's findings, its review) included: a question asked right after another, often a follow-up,
-    then reads the findings the last answer saved (2026-10-26: letting it start sooner made that a race)."""
+    then reads the findings the last answer saved (2026-10-26: letting it start sooner made that a race). With
+    `parallelQuestions` above 1, that many sessions of one engine run at once (`slots`); a follow-up still waits for the
+    answer before it (`ask.Questions._await_parent`)."""
     identifier = uuid.uuid4().hex
     path = Path(root) / ".oopc" / "loop" / "calls" / (identifier + ".json")
+    person = engines.current_person()
     item = {"callId": identifier, "phase": phase, "owner": owner, "engine": engine, "pid": os.getpid(),
             "startedAt": now(), "outcome": "running", "usage": None, "newTokens": None}
+    if person:
+        item["person"] = person["id"]
     atomic_json(path, item, private=True)
     clock, started, progress = time.monotonic(), None, options.get("progress")
     try:
         with ExitStack() as turn:
-            lock = path.parent / (engine + ".lock")
-            try:
-                turn.enter_context(locked(lock, blocking=False))
-            except BlockingIOError:
-                if hasattr(progress, "wait"):  # A live question shows what it waits for; its clock has not started.
-                    progress.wait(WAITING.get(_BUSY.get(engine), "Waiting for the engine to finish another task"))
-                turn.enter_context(locked(lock))
-            _BUSY[engine] = phase
-            turn.callback(_BUSY.pop, engine, None)
+            # A live question shows what it waits for while every slot is busy; its clock has not started.
+            # A person of a shared host with their own sign-ins has slots of their own: their sessions run on their own
+            # subscription. One who uses the host's sign-ins shares the host's slots, as they share its account.
+            mine = engine + ("@" + person["id"] if engines.own_accounts(person) else "")
+            held, name = _slot(path.parent, mine, slots(root), progress)
+            turn.callback(held.__exit__, None, None, None)
+            _BUSY[(mine, name)] = phase
+            turn.callback(_BUSY.pop, (mine, name), None)
             if hasattr(progress, "begin"):
                 progress.begin()
             started = time.monotonic()

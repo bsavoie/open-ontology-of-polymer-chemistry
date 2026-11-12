@@ -121,14 +121,14 @@ def answer_ontology(root, question, engine, *, runner, timeout, depth, web=True,
     saved). A failed second turn is recorded beside the answer, which is still checked. `phases` name the two turns in
     the call ledger and `owner` their owner there (default: the trace's run id); the Macromolecules study's researcher
     arm uses its own, with its own trace `title` and `task`."""
-    from .ask import ANSWER_SCHEMA, deposit_turn, researcher_prompt, saved_session
+    from .ask import ANSWER_SCHEMA, deposit_turn, researcher_prompt, saved_session, workspace_scope
     from .trace import TraceStore
     release = resolve_release(root)
     run = TraceStore(root).create(release, title or "Parity · " + question["id"] + " · " + question["question"][:60],
                                   capabilities={"external_source_access": web},
                                   task=task or {"parity": question["id"], "notice": "Parity arm; findings are not saved."})
     tools = knowledge.research_tools(root, release, run.path.name, "researcher")
-    prompt = researcher_prompt(question["question"], depth)
+    prompt = researcher_prompt(question["question"], depth, scope=workspace_scope(root))
     work, result, deposit, failed = engines.session_folder(run.path.name), None, None, None
     owner = owner or run.path.name
     try:
@@ -380,14 +380,14 @@ def run(root, *, engine, checker=None, runner=None, only=None, canaries=False, p
     runner = runner or engines.run_session
     parity = load_set()
     depth = parity.get("depth", "standard")
-    from .ask import DEPTHS, prompt_version
+    from .ask import DEPTHS, prompt_version, workspace_scope
     timeout = DEPTHS[depth]["seconds"]
     checker = checker or engine
     stamp = now().replace(":", "").replace("-", "").split(".")[0]
     target = folder(root) / "runs" / (stamp + "-" + engine)
     target.mkdir(parents=True, exist_ok=True, mode=0o700)
     model = engines.ENGINES[engine]["model"]
-    meta = {"engine": engine, "model": model, "checker": checker, "prompt": prompt_version(), "depth": depth, "startedAt": now(),
+    meta = {"engine": engine, "model": model, "checker": checker, "prompt": prompt_version(scope=workspace_scope(root)), "depth": depth, "startedAt": now(),
             "set": parity["format"], "questions": [q["id"] for q in parity["questions"]]}
     atomic_json(target / "run.json", meta, private=True)
     say = progress or (lambda message: None)

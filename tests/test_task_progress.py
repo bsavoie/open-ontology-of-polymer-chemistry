@@ -109,7 +109,7 @@ class TrackerTests(unittest.TestCase):
         self.assertFalse(started["waiting"])
         self.assertTrue(started["startedAt"])
         self.assertLess(started["elapsedSeconds"], 1)
-        self.assertEqual(started["lastAction"], "Starting the research session")
+        self.assertEqual(started["lastAction"], "Reading the question")
 
 
 class SourceCountTests(unittest.TestCase):

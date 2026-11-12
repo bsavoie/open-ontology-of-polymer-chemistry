@@ -7,12 +7,15 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 
 | Concern | Files |
 | --- | --- |
-| Questions: queue, the researcher prompt (the only one, in two parts: the answer, then its findings) and schema, retries, the background deposit turn and review | `oopc/ask.py` |
+| Questions: queue, the researcher prompt (the only one, in two parts: the answer, then its findings, with `FOLLOW_UP` for a follow-up) and schema, its scope and what a question outside it gets, retries, the background deposit turn and review, follow-up questions and the conversation they are told | `oopc/ask.py` |
 | Findings, notes, search, the review queue, the researcher's knowledge tools and the public knowledge snapshot | `oopc/knowledge.py` |
 | The reviewer prompt, the review of an answer's findings, whole-answer checks and their measures | `oopc/reviewer.py` |
+| The consistency check: which saved findings each new finding is compared with, and the conflicts reviews find and how they are settled | `oopc/consistency.py` |
+| People sharing one host: who they are, their passwords' hashes, their engine folders, whose questions are whose; the app's sign-in and owner-only actions | `oopc/people.py`, `oopc/server.py` |
+| Several sessions on one store: WAL, write transactions, review claims, question locks, parallel slots | `oopc/knowledge.py` (`connect`, `claim_review`), `oopc/ask.py` (`_holding`, `_drain_locked`), `oopc/calls.py` (`slots`) |
 | Captured source text (fetched once after an answer) and Crossref metadata for DOIs | `oopc/sources.py` |
-| Background loop (review, research queue), settings, launchd job | `oopc/loop.py` |
-| Optional reflection (`oopc reflect`): replaying recorded searches for misses, the curator and reviewer sessions, the drop step, the ontology overlay and revert | `oopc/reflect.py` |
+| Background loop (review, research queue), settings (the scope among them), launchd job | `oopc/loop.py` |
+| Optional reflection (`oopc reflect`): replaying recorded searches for misses (co-use among them), the curator and reviewer sessions, the drop step, the ontology overlay (names, polymer ids, property terms, links) and revert | `oopc/reflect.py` |
 | Parity set, run on demand: plain session beside the researcher, canaries | `oopc/parity.py`, `benchmarks/parity.json` |
 | Weekly summary and comparing two parity runs | `oopc/improve.py` |
 | Ledger of engine calls and their usage | `oopc/calls.py` |
@@ -42,8 +45,8 @@ described in [the core loop](core-loop.md); invariants are in [AGENTS.md](../AGE
 
 | Surface | Files | Audience |
 | --- | --- | --- |
-| Researcher app (home, `/`): Ask, Polymers, Knowledge, History, Settings | `index.html`, `researcher.js`, `researcher.css` | Polymer researchers |
-| About page (`/about.html`, linked from the top bar): an animated figure of the two loops (accumulation round the ring, expansion across the polymers), live counts and the status labels | `about.html`, `about.js`, `about.css` | Students and new researchers |
+| Researcher app (home, `/`): Ask, Polymers, Knowledge, History, About, Settings | `index.html`, `researcher.js`, `researcher.css` | Polymer researchers |
+| About tab (`#/about`; its page is the `about-view` template in `index.html`): the two loops animated in the hero, then the seed, findings and review, reuse with live counts, reflection, engines and sharing, each with an animated figure | `index.html`, `about.js`, `about.css` | Students and new researchers |
 | Developer inspector (`/operator.html`, unlinked from the app): graph, ontology, task replay, loop health | `operator.html`, `app.js`, `style.css` | Maintainers |
 | Bundled libraries | `vendor/cytoscape.*`, `vendor/openchemlib.*` | — |
 
@@ -58,8 +61,8 @@ per-server CSRF token. See [inspector](inspector.md).
 ## Tests
 
 `tools/run_tests.py` runs one process per test file in parallel. The loop is
-covered end to end with a scripted engine in `tests/test_core_loop.py`, the reflection in
-`tests/test_reflect.py`; engine
+covered end to end with a scripted engine in `tests/test_core_loop.py`, the consistency check in
+`tests/test_consistency.py`, the reflection in `tests/test_reflect.py`, people in `tests/test_people.py`, several sessions on one store in `tests/test_parallel_sessions.py`; engine
 sessions with fake binaries in `tests/test_engines.py`; the importer in
 `tests/test_legacy_import.py`; browser helpers in `tests/*.test.cjs`
 (`npm run check`). Tests never reach this machine's engines.

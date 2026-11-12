@@ -28,8 +28,9 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from . import engines, knowledge, reviewer
+from . import consistency, engines, knowledge, reviewer
 from .util import atomic_json, locked, now, read_json
 
 REVIEWS_PER_TICK = 3
@@ -89,7 +90,11 @@ def add_research(root, question, *, from_question=None):
 # ----- settings -----
 
 REVIEW_MODES = ("researcher", "all")
-DEFAULT_SETTINGS = {"reviewMode": "researcher", "spotCheckRate": 0.2, "researchPerWeek": 0, "reflectEveryDays": 0}
+DEFAULT_SETTINGS = {"reviewMode": "researcher", "spotCheckRate": 0.2, "researchPerWeek": 0, "reflectEveryDays": 0,
+                    "consistencyDepth": 8, "conflictResolution": "reviewer", "parallelQuestions": 1, "scope": "",
+                    "redirectUrl": "", "saveOutsideScope": False}
+MAX_PARALLEL = 8
+MAX_SCOPE = 2000
 
 
 def settings(root):
@@ -98,7 +103,21 @@ def settings(root):
     `spotCheckRate`: the share of added findings also sent for review.
     `researchPerWeek`: how many queued questions the loop may ask a week; 0 turns background
     research off, and only then do answers' open questions stop joining the queue.
-    `reflectEveryDays`: how often the loop runs an ontology reflection (`reflect`); 0 turns it off."""
+    `reflectEveryDays`: how often the loop runs an ontology reflection (`reflect`); 0 turns it off.
+    `consistencyDepth`: how many related saved findings the review compares each new finding with
+    (`consistency`); 0 turns the comparison off.
+    `conflictResolution`: `reviewer` lets the reviewer settle the conflicts it finds; `person` leaves them for a
+    person to settle.
+    `parallelQuestions`: how many questions run at once on this workspace, and how many sessions each engine runs at
+    once (1, the default, runs them one after another as before; up to `MAX_PARALLEL`). Parallel sessions share each
+    subscription's limits.
+    `scope`: what the researcher answers and saves, filled into its instructions (`ask.workspace_scope`); a question
+    with no connection to it is not researched. Empty, the default, is polymer science and engineering
+    (`ask.DEFAULT_SCOPE`).
+    `redirectUrl`: where a question with no connection to the scope is sent; empty, the default, is the chat of the
+    engine that ran it (`ask.redirect_url`).
+    `saveOutsideScope`: whether an answer to a question outside the scope but connected to it saves its findings, as
+    one in scope does; off, the default, saves nothing from it."""
     path = _folder(root) / "settings.json"
     value = dict(DEFAULT_SETTINGS)
     if path.exists():
@@ -109,7 +128,7 @@ def settings(root):
     return value
 
 
-def update_settings(root, changes):
+def update_settings(root, changes, person=None):
     if not isinstance(changes, dict) or not changes or set(changes) - set(DEFAULT_SETTINGS):
         raise ValueError("Unknown setting")
     if "reviewMode" in changes and changes["reviewMode"] not in REVIEW_MODES:
@@ -123,9 +142,36 @@ def update_settings(root, changes):
     if "reflectEveryDays" in changes and (type(changes["reflectEveryDays"]) is not int
                                           or not 0 <= changes["reflectEveryDays"] <= 365):
         raise ValueError("reflectEveryDays must be a whole number from 0 to 365")
-    value = dict(settings(root), **changes)
+    from .consistency import MAX_DEPTH, RESOLUTIONS
+    if "consistencyDepth" in changes and (type(changes["consistencyDepth"]) is not int
+                                          or not 0 <= changes["consistencyDepth"] <= MAX_DEPTH):
+        raise ValueError("consistencyDepth must be a whole number from 0 to %d" % MAX_DEPTH)
+    if "conflictResolution" in changes and changes["conflictResolution"] not in RESOLUTIONS:
+        raise ValueError("conflictResolution must be reviewer or person")
+    if "parallelQuestions" in changes and (type(changes["parallelQuestions"]) is not int
+                                           or not 1 <= changes["parallelQuestions"] <= MAX_PARALLEL):
+        raise ValueError("parallelQuestions must be a whole number from 1 to %d" % MAX_PARALLEL)
+    if "scope" in changes:  # Empty restores the default.
+        if not isinstance(changes["scope"], str) or len(changes["scope"].strip()) > MAX_SCOPE:
+            raise ValueError("Describe the scope in at most %d characters" % MAX_SCOPE)
+        changes = dict(changes, scope=" ".join(changes["scope"].split()))
+        if 0 < len(changes["scope"]) < 10:
+            raise ValueError("Describe the scope in at least 10 characters, or leave it empty for the default")
+    if "saveOutsideScope" in changes and type(changes["saveOutsideScope"]) is not bool:
+        raise ValueError("saveOutsideScope must be true or false")
+    if "redirectUrl" in changes:
+        url = changes["redirectUrl"].strip() if isinstance(changes["redirectUrl"], str) else None
+        parts = urlsplit(url) if url else None
+        if url is None or (url and (parts.scheme not in ("http", "https") or not parts.netloc or len(url) > 500
+                                    or any(c.isspace() for c in url))):
+            raise ValueError("Other questions go to a web address (http or https), or leave it empty for the engine's chat")
+        changes = dict(changes, redirectUrl=url)
     _folder(root).mkdir(parents=True, exist_ok=True, mode=0o700)
-    atomic_json(_folder(root) / "settings.json", value, private=True)
+    with locked(_folder(root) / "settings.lock"):  # Two processes changing settings at once both keep their change.
+        value = dict(settings(root), **changes)
+        atomic_json(_folder(root) / "settings.json", value, private=True)
+    if person:  # On a shared host, who changed what (only the owner may).
+        _log(root, {"at": now(), "event": "settings", "by": person["name"], "changes": changes})
     return value
 
 
@@ -217,6 +263,7 @@ def status(root):
     from .ask import reuse_stats
     return {"reflection": reflect.status(root, 5), "knowledge": knowledge.summary(root), "reviews": knowledge.reviews(root, 10), "reuse": reuse_stats(root),
             "settings": settings(root), "spotChecks": knowledge.spot_check_stats(root),
+            "conflicts": consistency.stats(root),
             "research": {"queue": research_queue(root)[-20:], "askedThisWeek": asked_this_week(root),
                          "weeklyLimit": settings(root)["researchPerWeek"]},
             "log": recent_log(root, 10), "schedule": schedule_status(), "reservePercent": dict(RESERVE_PERCENT)}

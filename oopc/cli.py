@@ -22,6 +22,9 @@ def deposit_outcome(task):
     if state.get("status") == "saved":
         return "Findings saved: %d findings and %d source notes (%d already known)." % (
             deposit.get("findings") or 0, deposit.get("notes") or 0, deposit.get("duplicates") or 0)
+    if state.get("status") == "skipped":
+        return "Findings not saved: the question is outside this workspace's scope (%s)." % (
+            (state.get("message") or "no detail").rstrip(". "))
     if state.get("status") == "failed":
         return "Findings not saved (%s): %s. The answer stands." % (
             state.get("reason"), (state.get("message") or "no detail").rstrip(". "))
@@ -153,6 +156,8 @@ def parser():
     ask.add_argument("question")
     ask.add_argument("--seconds", type=int, choices=[300, 600, 1200], default=600)
     ask.add_argument("--engine", choices=["codex", "claude-code"])
+    ask.add_argument("--follow", metavar="QUESTION_ID",
+                     help="Ask a follow-up to an answered question, the latest one in its conversation")
     sub.add_parser("questions", help="List recent questions")
     knowledge = sub.add_parser("knowledge", help="Knowledge summary, or findings by status")
     knowledge.add_argument("--status", choices=["supported", "accepted", "unreviewed", "uncertain", "unsupported"])
@@ -161,8 +166,37 @@ def parser():
                            help="Write a public snapshot (findings and source notes; no questions, traces or excerpts)")
     knowledge.add_argument("--import", dest="import_snapshot", metavar="FOLDER",
                            help="Start this workspace's empty knowledge store from a public snapshot")
+    conflicts = sub.add_parser("conflicts", help="Conflicts reviews found between new and saved findings")
+    cs = conflicts.add_subparsers(dest="conflicts_action")
+    q = cs.add_parser("list", help="Open conflicts (the default), or settled ones")
+    q.add_argument("--settled", action="store_true")
+    q = cs.add_parser("settle", help="Settle an open conflict")
+    q.add_argument("id")
+    q.add_argument("resolution", choices=["new-misread", "saved-misread", "sources-disagree", "no-conflict"])
+    q.add_argument("--note", default="")
+    people_parser = sub.add_parser("people", help="The people who share this host's knowledge (each signs in to the app)")
+    pp = people_parser.add_subparsers(dest="people_action", required=True)
+    pp.add_parser("list")
+    for action, text in (("add", "Add a person (the first one added is the owner); asks for their password"),
+                         ("password", "Set a person's password"), ("remove", "Remove a person (never the owner)")):
+        q = pp.add_parser(action, help=text)
+        q.add_argument("name")
+        if action != "remove":
+            q.add_argument("--password-stdin", action="store_true",
+                           help="Read the password from standard input instead of asking for it")
+        if action == "add":
+            q.add_argument("--host-engines", action="store_true",
+                           help="Their engine sessions use this host's own sign-ins, not a folder of their own")
+    q = pp.add_parser("engines", help="Whose engine sign-ins a person's sessions use: the host's, or their own")
+    q.add_argument("name")
+    q.add_argument("use", choices=("host", "own"))
     research = sub.add_parser("research", help="Add a question to the research queue")
     research.add_argument("question")
+    scope = sub.add_parser("scope", help="What the researcher answers and saves; unrelated questions are sent elsewhere")
+    scope.add_argument("text", nargs="?", help="A new scope (an empty string restores the default)")
+    scope.add_argument("--redirect", help="Where unrelated questions are sent (an empty string: the engine's own chat)")
+    scope.add_argument("--save-outside", choices=("yes", "no"),
+                       help="Whether answers outside the scope save their findings (default no)")
     loop = sub.add_parser("loop", help="Run or schedule the background loop")
     ls = loop.add_subparsers(dest="loop_action", required=True)
     ls.add_parser("tick", help="Review what is waiting, then work the research queue once")
@@ -200,7 +234,8 @@ def parser():
     q.add_argument("--engine", choices=["codex", "claude-code"], required=True)
     improve = sub.add_parser("improve", help="This week's loop summary")
     im = improve.add_subparsers(dest="improve_action", required=True)
-    im.add_parser("summary")
+    q = im.add_parser("summary")
+    q.add_argument("--days", type=int, default=7, help="How many days back to read (default 7)")
     upkeep = sub.add_parser("upkeep", help="One-off store cleanups before a freeze (a report unless --apply)")
     upkeep.add_argument("action", choices=["audit", "requeue", "excerpts", "titles", "polymers", "disambiguate", "duplicates",
                                            "index", "reviews"])
@@ -257,7 +292,8 @@ def main(argv=None):
             from .ask import Questions
             service = Questions(root)
             view = service.submit({"question": args.question, "budgetSeconds": args.seconds, "authorizeSubscription": True,
-                                   **({"runtime": args.engine} if args.engine else {})})
+                                   **({"runtime": args.engine} if args.engine else {}),
+                                   **({"parentId": args.follow} if args.follow else {})})
             service.wait()
             answered = service.get(view["id"])
             emit(answered)
@@ -280,9 +316,44 @@ def main(argv=None):
             if args.status:
                 return emit({"findings": knowledge.recent(root, args.status, args.limit)})
             return emit(knowledge.summary(root))
+        if command == "conflicts":
+            from . import consistency
+            if args.conflicts_action == "settle":
+                return emit(consistency.settle(root, args.id, args.resolution, args.note))
+            return emit({"conflicts": consistency.conflicts(root, "settled" if getattr(args, "settled", False) else "open"),
+                         "stats": consistency.stats(root)})
+        if command == "people":
+            from . import people
+            if args.people_action == "list":
+                return emit({"people": people.everyone(root)})
+            if args.people_action == "remove":
+                return emit(people.remove(root, args.name))
+            if args.people_action == "engines":
+                return emit(people.set_engines(root, args.name, args.use == "host"))
+            if args.password_stdin:
+                password = sys.stdin.readline().rstrip("\n")
+            else:
+                import getpass
+                password = getpass.getpass("Password for %s: " % args.name)
+                if getpass.getpass("Again: ") != password:
+                    raise ValueError("The two passwords differ")
+            if args.people_action == "add":
+                return emit(people.add(root, args.name, password, host_engines=args.host_engines))
+            return emit(people.set_password(root, args.name, password))
         if command == "research":
             from .loop import add_research
             return emit(add_research(root, args.question))
+        if command == "scope":
+            from . import loop
+            from .ask import workspace_scope
+            changes = {key: value for key, value in (("scope", args.text), ("redirectUrl", args.redirect))
+                       if value is not None}
+            if args.save_outside:
+                changes["saveOutsideScope"] = args.save_outside == "yes"
+            value = loop.update_settings(root, changes) if changes else loop.settings(root)
+            return emit({"scope": workspace_scope(root), "default": not value["scope"],
+                         "redirectUrl": value["redirectUrl"] or "the chat of the engine that ran the question",
+                         "saveOutsideScope": value["saveOutsideScope"]})
         if command == "loop":
             from . import loop
             if args.loop_action == "tick":
@@ -321,7 +392,7 @@ def main(argv=None):
             return emit(parity.run_canaries(root, args.engine, runner=run_session))
         if command == "improve":
             from . import improve
-            return emit(improve.summary(root))
+            return emit(improve.summary(root, days=args.days))
         if command == "upkeep":
             from . import upkeep
             if args.action == "audit":

@@ -293,6 +293,8 @@ def capture(root, source, *, fetch=None, retry_days=RETRY_DAYS):
              "attempts": attempts, "attemptedAt": now()}
     if record:
         value.update(record, capturedAt=value["attemptedAt"])
+    elif path.exists() and read_json(path).get("text"):  # Another process captured it meanwhile: keep its text.
+        return read_json(path)
     atomic_json(path, value, private=True)
     return value
 

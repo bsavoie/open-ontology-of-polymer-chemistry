@@ -41,19 +41,19 @@ class TaskFixture:
     def status(self):
         return {"available": True}
 
-    def list(self):
+    def list(self, person=None):
         return {"tasks": copy.deepcopy(self.items), "omitted": 0}
 
-    def submit(self, request):
+    def submit(self, request, person=None):
         if self.before_submit:
             self.before_submit()
         self.actions.append("submit")
         return {"taskId": self.identifier, "status": "queued"}
 
-    def get(self, identifier):
+    def get(self, identifier, person=None):
         self.actions.append("get")
         return {"taskId": identifier, "status": "failed"}
 
-    def retry(self, identifier):
+    def retry(self, identifier, person=None):
         self.actions.append("retry")
         return {"taskId": identifier, "status": "queued"}

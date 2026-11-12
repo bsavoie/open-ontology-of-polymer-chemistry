@@ -2,7 +2,9 @@
 
 - `summary` reads the recorded answers: how many reused saved findings, how many
   needed no web at all, tokens, failures by reason, the spot-check error rate,
-  review backlog and the latest parity guardrail.
+  review backlog and the latest parity guardrail; and what the scope held back:
+  questions declined as unrelated (`outOfScope`) and answers outside the scope
+  whose findings were not saved (`notSavedOutsideScope`).
 - `compare` puts two parity runs side by side over the questions checked in both,
   for example the runs before and after a change to the researcher's
   instructions. Those instructions live in code (`oopc.ask.RESEARCHER` for the
@@ -30,7 +32,7 @@ def summary(root, days=7, moment=None):
     since = (moment - dt.timedelta(days=days)).isoformat()
     base = questions_folder(root)
     answered, failed, web, tokens, reuse = 0, {}, [], [], 0
-    zero_web = 0
+    zero_web = outside = not_saved = 0
     for path in sorted(base.glob("*/question.json")) if base.exists() else []:
         item = read_json(path)
         if item.get("origin") == "legacy" or (item.get("submittedAt") or "") < since:
@@ -40,9 +42,14 @@ def summary(root, days=7, moment=None):
             failed[reason] = failed.get(reason, 0) + 1
         if item["status"] != "completed" or not (path.parent / "result.json").exists():
             continue
+        if item.get("outOfScope"):  # Not researched: counted apart, not as an answer.
+            outside += 1
+            continue
         result = read_json(path.parent / "result.json")
         value = effort(result, read_progress(path.parent / "progress.json"))
         answered += 1
+        # Answered outside the scope: by default its findings were not saved (`ask`, `saveOutsideScope`).
+        not_saved += (item.get("depositState") or {}).get("reason") == "outside-scope"
         web_calls = (value.get("webSearches") or 0) + (value.get("pagesRead") or 0) + (value.get("unclassifiedWebCalls") or 0)
         web.append(web_calls)
         zero_web += web_calls == 0
@@ -55,7 +62,8 @@ def summary(root, days=7, moment=None):
         reuse += cited["supported"] + cited["added"] > 0
     from .parity import report as parity_report
     latest = parity_report(root)
-    return {"days": days, "answered": answered, "failed": failed, "reusedSavedFindings": reuse,
+    return {"days": days, "answered": answered, "outOfScope": outside, "notSavedOutsideScope": not_saved,
+            "failed": failed, "reusedSavedFindings": reuse,
             "answeredWithoutWeb": zero_web, "medianWebCalls": statistics.median(web) if web else None,
             "medianNewTokens": statistics.median(tokens) if tokens else None,
             "knowledge": knowledge.summary(root), "spotChecks": knowledge.spot_check_stats(root),

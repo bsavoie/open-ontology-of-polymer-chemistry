@@ -1,4 +1,5 @@
-"""The about page: its figure is described for screen readers, its seed numbers are current, and the page ships."""
+"""The About tab: it is a tab of the app, its figures are described for screen readers, its seed numbers are
+current, and its files ship."""
 import fnmatch
 import importlib.util
 import json
@@ -10,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "oopc" / "web"
-PAGE_FILES = ["about.html", "about.css", "about.js"]
+PAGE_FILES = ["about.css", "about.js"]
 
 
 def load_tool(name):
@@ -20,18 +21,25 @@ def load_tool(name):
     return module
 
 
-class Figure(HTMLParser):
-    """The loop figure's svg and the text of its title and description."""
+def about_template():
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    match = re.search(r'<template id="about-view">(.*?)</template>', html, re.S)
+    assert match, "index.html holds the About tab's template"
+    return match.group(1)
+
+
+class Figures(HTMLParser):
+    """Each svg figure's attributes and the text of the elements its aria-labelledby names."""
 
     def __init__(self):
         super().__init__()
-        self.svg, self.inside, self.text = None, None, {}
+        self.svgs, self.inside, self.text = [], None, {}
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
-        if tag == "svg" and attrs.get("id") == "loop-art":
-            self.svg = attrs
-        if self.svg and tag in ("title", "desc"):
+        if tag == "svg":
+            self.svgs.append(attrs)
+        if tag in ("title", "desc"):
             self.inside = attrs.get("id")
 
     def handle_endtag(self, tag):
@@ -44,13 +52,21 @@ class Figure(HTMLParser):
 
 
 class AboutPageTests(unittest.TestCase):
-    def test_the_animated_figure_is_named_and_described(self):
-        figure = Figure()
-        figure.feed((WEB / "about.html").read_text(encoding="utf-8"))
-        self.assertIsNotNone(figure.svg, "about.html holds the loop figure")
-        self.assertEqual(figure.svg.get("role"), "img")
-        for label in figure.svg["aria-labelledby"].split():
-            self.assertTrue(figure.text.get(label, "").strip(), f"#{label} names or describes the figure")
+    def test_about_is_a_tab_of_the_app(self):
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<a href="#/about" data-tab="about">About</a>', html)
+        self.assertLess(html.index('src="/about.js"'), html.index('src="/researcher.js"'), "about.js loads before the router")
+        self.assertIn('"about"', re.search(r"const TABS = \[(.*?)\]", (WEB / "researcher.js").read_text(encoding="utf-8")).group(1))
+
+    def test_every_figure_is_named_and_described(self):
+        figures = Figures()
+        figures.feed(about_template())
+        self.assertEqual({svg["id"] for svg in figures.svgs}, {"loop-art", "seed-art", "engines-art"})
+        for svg in figures.svgs:
+            self.assertEqual(svg.get("role"), "img")
+            for label in svg["aria-labelledby"].split():
+                with self.subTest(figure=svg["id"], label=label):
+                    self.assertTrue(figures.text.get(label, "").strip(), f"#{label} names or describes the figure")
 
     def test_page_ships_with_the_package_and_release(self):
         package_data = json.loads(re.search(r"^oopc = (\[.*\])$", (ROOT / "pyproject.toml").read_text(), re.M).group(1))
@@ -61,7 +77,6 @@ class AboutPageTests(unittest.TestCase):
                 self.assertTrue(any(fnmatch.fnmatch(f"web/{name}", pattern) for pattern in package_data))
                 self.assertIn(f"web/{name}", assets)
                 self.assertIn(f"oopc/web/{name}", public)
-        self.assertIn('href="/about.html"', (WEB / "index.html").read_text(encoding="utf-8"))
 
     def test_seed_numbers_match_the_current_release(self):
         pointer = ROOT / "releases" / "current.json"
@@ -69,12 +84,13 @@ class AboutPageTests(unittest.TestCase):
             self.skipTest("No seed release in this checkout")
         release = ROOT / "releases" / json.loads(pointer.read_text())["release_id"] / "graph.sqlite"
         with sqlite3.connect(f"file:{release}?mode=ro", uri=True) as db:
-            families = db.execute("SELECT count(*) FROM records WHERE type = 'PolymerConcept'").fetchone()[0]
+            identities = db.execute("SELECT count(*) FROM records WHERE type = 'PolymerConcept'").fetchone()[0]
             structures = db.execute("SELECT count(*) FROM records WHERE type = 'Structure'").fetchone()[0]
             records = db.execute("SELECT count(*) FROM records").fetchone()[0]
-        html = (WEB / "about.html").read_text(encoding="utf-8")
-        for stated in (f"{families} polymer families", f"{structures} chemical structures", f"{records:,} records"):
+        html = about_template()
+        for stated in (f"{identities} polymer identities", f"{structures} chemical structures", f"{records:,} records"):
             self.assertIn(stated, html)
+        self.assertEqual(re.findall(r'data-to="(\d+)"', html), [str(identities), str(structures), str(records)])
 
 
 if __name__ == "__main__":

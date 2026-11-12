@@ -122,6 +122,25 @@ class KnowledgeSearch(unittest.TestCase):
         self.assertEqual(subject("Dynea phenol–formaldehyde novolac, cured"), "wop-000007")  # "resin family" left off.
         self.assertEqual(subject("silicone sealant"), "")  # A lone "silicone" is not "Silicone resin".
 
+    def test_a_link_parameter_that_names_the_document_keeps_two_documents_apart(self):
+        """CL-23: one address serves many documents (data sheets by FILENAME, EPA documents by Dockey, CiteSeerX papers
+        by doi=); a parameter that only changes the view, language or version leaves the document the same."""
+        key = knowledge.source_key
+        sheet = "https://www.ensinger-online.com/modules/public/sheet/createsheet.php?FILENAME=%s&FL=0&SID=1379&ZOOM=1.2"
+        self.assertEqual(key("", sheet % "TECAFINE_PMP.PDF"),
+                         "url:ensinger-online.com/modules/public/sheet/createsheet.php?filename=tecafine_pmp.pdf")
+        self.assertNotEqual(key("", sheet % "TECAFINE_PMP.PDF"), key("", sheet % "TECASON_S.PDF"))
+        self.assertEqual(key("", "http://citeseerx.ist.psu.edu/viewdoc/download?rep=rep1&doi=10.1.1.46.1&type=pdf"),
+                         key("", "https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.46.1"))
+        self.assertNotEqual(key("", "https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=9101377C.TXT"),
+                            key("", "https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=2000LMVK.TXT"))
+        self.assertEqual(key("", "https://www.Example.org/paper/?lang=en&v=3#t"), "url:example.org/paper")
+        self.assertEqual(key("10.1/ABC", "https://example.org/a?id=1"), "doi:10.1/abc")  # A DOI names it outright.
+        reading = lambda name: {"statement": "Density 0.83 g/cm³ (ISO 1183).", "material": "", "property": "density",
+                                "value": "0.83", "unit": "g/cm³", "sourceDoi": "", "sourceUrl": sheet % name}
+        self.assertFalse(knowledge.same_fact(reading("TECAFINE_PMP.PDF"), reading("TECASON_S.PDF")))
+        self.assertTrue(knowledge.same_fact(reading("TECAFINE_PMP.PDF"), reading("TECAFINE_PMP.PDF")))
+
     def test_the_same_number_for_a_more_specific_material_is_the_same_fact(self):
         fact = lambda statement, material, value, unit="°C", doi="10.1/m": {
             "statement": statement, "material": material, "property": "", "value": value, "unit": unit,
@@ -135,12 +154,26 @@ class KnowledgeSearch(unittest.TestCase):
                        fact("Selvol 203 film dissolved completely.", "PVA Selvol 203", "100", "%"))
         self.assertFalse(knowledge.same_fact(*other_grade))
         self.assertFalse(knowledge.same_fact(first, dict(again, unit="K")))
+        # The same number and sentence in another unit is another reading (one of them wrong), never a repeat; one unit
+        # written two ways, or a unit given only in the sentence, is a repeat.
+        stiff = fact("Udel GF-120 had a tensile modulus of 6.00 GPa (ASTM D638).", "Udel GF-120", "6.00", "GPa")
+        self.assertFalse(knowledge.same_fact(stiff, dict(stiff, statement=stiff["statement"].replace("GPa", "MPa"),
+                                                         unit="MPa")))
+        self.assertTrue(knowledge.same_fact(dict(stiff, unit="MPa"), dict(stiff, unit="N/mm²")))
+        self.assertTrue(knowledge.same_fact(stiff, dict(stiff, unit="")))
+        self.assertTrue(knowledge.same_fact(first, dict(first, unit="degC")))
+        self.assertTrue(knowledge.same_unit("µm", "μm") and knowledge.same_unit("J/g", "J / g"))
         # A paper's table gives −134.3 J/g and its text +134.3 J/g: two readings to keep apart (independent review,
         # 2026-10-14), though their numbers differ only in sign.
         table = fact("Neat POM had a tabulated second-heating melting enthalpy of −134.3 J/g.", "Neat POM", "−134.3", "J/g")
         prose = fact("Neat POM had a second-heating melting enthalpy of 134.3 J/g in the text.", "Neat POM", "134.3", "J/g")
         self.assertFalse(knowledge.same_fact(table, prose))
         self.assertTrue(knowledge.same_fact(table, dict(table, value="-134.3")))  # A hyphen for the minus sign.
+        # Opposite outcomes in words from one source are two readings, one of them wrong (2026-11-05), never a repeat.
+        insoluble = fact("Cotton-fiber CTA was reported insoluble in acetone.", "CF CTA, DS 2.86", "insoluble", "")
+        soluble = dict(insoluble, statement="Cotton-fiber CTA was reported soluble in acetone.", value="soluble")
+        self.assertFalse(knowledge.same_fact(insoluble, soluble))
+        self.assertTrue(knowledge.same_fact(insoluble, dict(insoluble, statement=insoluble["statement"] + " ")))
         # A unit's exponent is not a number of the fact, and 1.0 mm is not said to be the 1 mm of another sentence.
         modulus = fact("Ard 100 film had a tensile modulus of 100 kg/mm² at 100 °C.", "Ard 100 film", "100", "kg/mm²")
         yielded = fact("Ard 100 film had a tensile yield strength of 2.0 kg/mm² at 100 °C.", "Ard 100 film", "2.0", "kg/mm²")
@@ -216,6 +249,22 @@ class KnowledgeSearch(unittest.TestCase):
         self.assertEqual(service.list()["tasks"], [])  # Nothing was queued.
         # The research queue has no one to ask: the research agent states its reading instead.
         self.assertEqual(ask("What is the Tg of PEI by DMA?", origin="research")["status"], "queued")
+        service.wait(10)
+
+    def test_a_follow_up_is_not_asked_about_a_name_its_conversation_settled(self):
+        from oopc.ask import NeedsClarification, Questions
+        service = Questions(self.root, reviews=False)
+        folder = knowledge.folder(self.root) / "questions"
+        for identifier, question in (("a" * 32, "What is the Tg of PEI (polyetherimide) by DMA?"),
+                                     ("b" * 32, "What is the Tg of HDPE by DSC?")):
+            atomic_json(folder / identifier / "question.json", {"id": identifier, "question": question, "origin": "ask",
+                        "status": "completed", "submittedAt": "2026-10-30T00:00:00+00:00", "attempts": []})
+            atomic_json(folder / identifier / "result.json", {"answer": {"answer": "x", "citations": []}})
+        follow = lambda parent: service.submit({"question": "And the PEI modulus?", "depth": "quick", "runtime": "codex",
+                                                "parentId": parent, "authorizeSubscription": True})
+        with self.assertRaises(NeedsClarification):
+            follow("b" * 32)
+        self.assertEqual(follow("a" * 32)["parentId"], "a" * 32)
         service.wait(10)
 
 

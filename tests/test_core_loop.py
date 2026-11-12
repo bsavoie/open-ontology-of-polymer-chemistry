@@ -12,7 +12,8 @@ from unittest import mock
 import uuid
 
 from oopc import calls, engines, knowledge, loop, reviewer, sources
-from oopc.ask import ANSWER_SCHEMA, DEPOSIT, Questions, reuse_stats
+from oopc.ask import (ANSWER_SCHEMA, CHAT_SITES, DEFAULT_SCOPE, DEPOSIT, FOLLOW_UP, QuestionUnavailable, Questions,
+                      prompt_version, redirect_url, researcher_prompt, reuse_stats, workspace_scope)
 from oopc.release import build_release
 from oopc.trace import TraceStore
 from oopc.util import atomic_json, locked
@@ -34,10 +35,11 @@ def save_session(engine, folder):
     """What an engine saves for a session it can resume: a Codex rollout under $CODEX_HOME (a Claude Code transcript
     under $CLAUDE_CONFIG_DIR), with its id recorded in the session's working folder as `engines.run_session` does."""
     identifier = str(uuid.uuid4())
+    home = engines.engine_home(engine)  # A person's own folder when the session runs as one (`engines.as_person`).
     if engine == "codex":
-        path = Path(os.environ["CODEX_HOME"]) / "sessions/2026/10/25" / ("rollout-2026-10-25T00-00-00-%s.jsonl" % identifier)
+        path = home / "sessions/2026/10/25" / ("rollout-2026-10-25T00-00-00-%s.jsonl" % identifier)
     else:
-        path = Path(os.environ["CLAUDE_CONFIG_DIR"]) / "projects/-scripted" / (identifier + ".jsonl")
+        path = home / "projects/-scripted" / (identifier + ".jsonl")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("{}\n")
     engines._record_session(folder, engine, identifier)
@@ -114,7 +116,8 @@ class CoreLoopTests(unittest.TestCase):
         # The release folder is named by its identity when resolved by id.
         release_id = json.loads((self.root / "releases/fixture/manifest.json").read_text())["release_id"]
         (self.root / "releases/fixture").rename(self.root / "releases" / release_id)
-        loop.update_settings(self.root, {"spotCheckRate": 0})
+        # Spot checks and the consistency check send findings to review; tests that need them turn them on.
+        loop.update_settings(self.root, {"spotCheckRate": 0, "consistencyDepth": 0})
         # Saved sessions and their working folders stay inside the test's folder.
         (self.root / "tmp").mkdir()
         for patch in (mock.patch.dict(os.environ, {"CODEX_HOME": str(self.root / "codex-home"),
@@ -147,6 +150,9 @@ class CoreLoopTests(unittest.TestCase):
         self.assertTrue(first.calls[0]["tools"])
         [finding] = done["findings"]
         self.assertEqual(finding["status"], "unreviewed")
+        # Its page also lists the sources it read and the facts it found already saved (none yet).
+        self.assertEqual([(n["title"], n["supports"]) for n in done["notes"]], [("Annealing of PLA films", "crystallinity")])
+        self.assertEqual(done["alreadyKnown"], [])
 
         review = ScriptedEngine({"verdicts": [{"id": finding["id"], "verdict": "supported",
                                                "reason": "Table 2 reports 45% after 1 h at 100 °C."}], "notes": ""})
@@ -654,6 +660,9 @@ class CoreLoopTests(unittest.TestCase):
                           "Does annealing raise PLA crystallinity?")
         self.assertEqual((second["deposit"]["findings"], second["deposit"]["duplicates"]), (1, 1))
         self.assertEqual(second["deposit"]["duplicateOf"], [first["findings"][0]["id"]])
+        # The answer's page shows the saved finding it matched, and which question saved it.
+        self.assertEqual([(f["id"], f["questionId"]) for f in second["alreadyKnown"]],
+                         [(first["findings"][0]["id"], first["id"])])
         self.assertEqual([f["value"] for f in second["findings"]], ["52"])
         # Rows of one table read alike but are different facts.
         row30 = dict(confident, statement="Neat PLA 3100HP (30 s cycle) showed DSC Tg 58.6 °C and Tm 176.4 °C on first heating.",
@@ -702,11 +711,43 @@ class CoreLoopTests(unittest.TestCase):
         findings = service.get(view["id"])["findings"]
         # A sampled finding the reviewer skipped stays added on the researcher's judgement.
         self.assertEqual([f["status"] for f in findings], ["unsupported", "accepted", "supported"])
+        self.assertEqual([f.get("spotCheck") for f in findings], ["unsupported", "not-assessed", None])
         self.assertEqual(findings[0]["review"]["engine"], "claude-code")
         self.assertEqual(knowledge.spot_check_stats(self.root),
                          {"checked": 1, "supported": 0, "unsupported": 1, "uncertain": 0, "pending": 0, "failed": 0,
                           "unsupportedRate": 1.0})
         self.assertEqual(knowledge.review_queue(self.root), [])
+
+    def test_a_new_value_in_tension_with_saved_knowledge_is_reviewed_with_its_comparison(self):
+        loop.update_settings(self.root, {"consistencyDepth": 8})
+        confident = dict(FINDING, needsReview=False, reviewFlag="")
+        first = self.ask(Questions(self.root, runner=ScriptedEngine(answer("x", [], [confident]))),
+                         "What crystallinity does annealed PLA reach?")
+        self.assertEqual(first["deposit"]["consistency"]["state"], "none")  # Nothing saved to compare with yet.
+        other = dict(confident, statement="PLA film annealed at 100 °C for 1 h reached 85% crystallinity by DSC.",
+                     value="85", sourceUrl="https://example.org/other", sourceDoi="10.1234/example.2",
+                     excerpt="85% crystallinity")
+        seen = {}
+
+        def review(tools):
+            seen["prompt"] = engine.calls[-1]["prompt"]
+            new = "finding:%s-1" % seen["id"][:12]
+            return {"verdicts": [], "conflicts": [{"finding": new, "with": first["findings"][0]["id"],
+                                                   "reading": "sources-disagree", "reason": "Table 2s differ."}],
+                    "notes": ""}
+        engine = ScriptedEngine(answer("y", [], [other]), review)
+        service = Questions(self.root, runner=engine, review_engine="claude-code")
+        view = service.submit({"question": "How crystalline does PLA get on annealing?", "depth": "quick",
+                               "authorizeSubscription": True, "runtime": "codex"})
+        seen["id"] = view["id"]
+        service.wait(10, reviews=True)
+        # Nothing waited for a source check, but 85% beside a saved 45% sent the answer to review.
+        self.assertIs(engine.calls[-1]["schema"], reviewer.CONSISTENCY_SCHEMA)
+        self.assertIn(first["findings"][0]["statement"], seen["prompt"])
+        done = service.get(view["id"])
+        self.assertEqual(done["deposit"]["consistency"], {"state": "checked", "compared": 1, "conflicts": 1, "open": 0,
+                                                          "waiting": False})
+        self.assertEqual(done["findings"][0]["conflictsWith"], [first["findings"][0]["id"]])
 
     def test_a_research_answer_finishes_its_review_before_the_tick_ends(self):
         loop.update_settings(self.root, {"spotCheckRate": 1, "researchPerWeek": 1})
@@ -741,7 +782,9 @@ class CoreLoopTests(unittest.TestCase):
         atomic_json(self.root / ".oopc/loop/settings.json", {"autoQueue": True, "backgroundResearch": False,
                                                              "researchPerWeek": 10, "weeklyParity": True, "spotCheckRate": 0.3})
         self.assertEqual(loop.settings(self.root), {"reviewMode": "researcher", "spotCheckRate": 0.3, "researchPerWeek": 0,
-                                                    "reflectEveryDays": 0})
+                                                    "reflectEveryDays": 0, "consistencyDepth": 8,
+                                                    "conflictResolution": "reviewer", "parallelQuestions": 1, "scope": "",
+                                                    "redirectUrl": "", "saveOutsideScope": False})
         with self.assertRaises(ValueError):
             loop.update_settings(self.root, {"autoQueue": True})
 
@@ -757,6 +800,227 @@ class CoreLoopTests(unittest.TestCase):
                        material="PLA film")
         done = self.ask(Questions(self.root, runner=ScriptedEngine(answer("x", [], [unnamed]))), "Another crystallinity question?")
         self.assertEqual(done["findings"][0]["subject"], "wop-000001")
+
+    def follow(self, service, parent, question, runtime="codex"):
+        return service.submit({"question": question, "depth": "quick", "authorizeSubscription": True, "runtime": runtime,
+                               "parentId": parent})
+
+    def test_a_follow_up_is_told_the_conversation_with_its_findings_status_now(self):
+        unnamed = dict(FINDING, subject="", material="4032D film", statement="The annealed 4032D film melted at 170 °C.",
+                       property="melting temperature", value="170", unit="°C", excerpt="Tm of 170 °C",
+                       derivation="read")
+        engine = ScriptedEngine(
+            answer("Crystallinity reached 45% `https://example.org/pla-annealing`.", ["https://example.org/pla-annealing"],
+                   [FINDING]),
+            {"verdicts": [], "notes": ""},  # The review right after the first answer, left inconclusive.
+            answer("It melted at 170 °C `https://example.org/pla-annealing`.", ["https://example.org/pla-annealing"],
+                   [unnamed]))
+        service = Questions(self.root, runner=engine, review_engine="codex")
+        first = self.ask(service, "How does annealing change PLA crystallinity?")
+        [saved] = first["findings"]
+        with knowledge.connect(self.root) as db:  # A later review rejected it.
+            db.execute("UPDATE findings SET status='unsupported', review_reason='Table 2 reports 41%.' WHERE id=?",
+                       (saved["id"],))
+        second = self.follow(service, first["id"], "What about its melting point?")
+        service.wait(10, reviews=True)
+        done = service.get(second["id"])
+
+        # A question asked on its own keeps its prompt exactly; the follow-up's adds the conversation before its question.
+        self.assertEqual(engine.calls[0]["prompt"], researcher_prompt("How does annealing change PLA crystallinity?", "quick"))
+        self.assertNotIn(FOLLOW_UP, engine.calls[0]["prompt"])
+        prompt = [c for c in engine.calls if c["schema"] is ANSWER_SCHEMA and not c["resume"]][1]["prompt"]
+        self.assertIn(FOLLOW_UP, prompt)
+        self.assertIn("Earlier question 1: How does annealing change PLA crystallinity?\nAnswer 1:\nCrystallinity reached 45%",
+                      prompt)
+        self.assertIn("- `%s` Rejected: %s (reviewer: Table 2 reports 41%%.)" % (saved["id"], FINDING["statement"]), prompt)
+        self.assertTrue(prompt.endswith("Follow-up question:\nWhat about its melting point?"))
+        told = self.root / ".oopc/loop/questions" / done["id"] / "conversation.txt"
+        self.assertIn("Earlier question 1:", told.read_text())
+        self.assertEqual(told.stat().st_mode & 0o777, 0o600)
+        stored = json.loads((told.parent / "result.json").read_text())
+        self.assertEqual(stored["promptVersion"], prompt_version(follow_up=True))
+        self.assertNotEqual(prompt_version(follow_up=True), prompt_version())
+        self.assertEqual(TraceStore(self.root).run(done["runId"]).meta()["task"]["followsQuestion"], first["id"])
+
+        # Both questions show the conversation; the follow-up's finding is filed by the question before it.
+        self.assertEqual((done["parentId"], done["threadId"]), (first["id"], first["id"]))
+        turns = [(t["taskId"], t["status"]) for t in done["thread"]]
+        self.assertEqual(turns, [(first["id"], "completed"), (done["id"], "completed")])
+        self.assertEqual([t["taskId"] for t in service.get(first["id"])["thread"]], [first["id"], done["id"]])
+        self.assertEqual([f["subject"] for f in done["findings"]], ["wop-000001"])
+
+        # A conversation is continued from its latest answer, and only from an answered question.
+        with self.assertRaises(QuestionUnavailable):
+            self.follow(service, first["id"], "And its glass transition?")
+        with self.assertRaises(FileNotFoundError):
+            self.follow(service, "0" * 32, "And its glass transition?")
+        with self.assertRaises(ValueError):
+            self.follow(service, "../elsewhere", "And its glass transition?")
+        failed = dict(json.loads((told.parent / "question.json").read_text()), status="failed")
+        atomic_json(told.parent / "question.json", failed, private=True)
+        with self.assertRaises(QuestionUnavailable):
+            self.follow(service, done["id"], "And its glass transition?")
+
+    def test_a_long_conversation_leaves_out_its_oldest_answers_first(self):
+        folder, service = self.root / ".oopc/loop/questions", Questions(self.root, runner=ScriptedEngine())
+        # The second question's clock is ahead of the third's: the conversation follows its links, not its clocks.
+        chain = [("a" * 32, None, "First question about PLA?", "01"), ("b" * 32, "a" * 32, "Second question?", "09"),
+                 ("c" * 32, "b" * 32, "Third question?", "05")]
+        for identifier, parent, question, hour in chain:
+            atomic_json(folder / identifier / "question.json", {"id": identifier, "question": question, "origin": "ask",
+                        "status": "completed", "submittedAt": "2026-10-30T%s:00:00+00:00" % hour,
+                        "attempts": [], **({"parentId": parent, "threadId": "a" * 32} if parent else {})})
+            atomic_json(folder / identifier / "result.json", {"answer": {"answer": question[:5] + " answer. " * 40,
+                                                                          "citations": []}})
+        third = service._read("c" * 32)
+        self.assertEqual([t["id"] for t in service.earlier(third)], ["a" * 32, "b" * 32])
+        self.assertEqual([t["id"] for t in service.thread(third)], ["a" * 32, "b" * 32, "c" * 32])
+        whole = service.conversation(third)
+        self.assertIn("Answer 1:\nFirst answer.", whole)
+        with mock.patch("oopc.ask.CONVERSATION_CHARACTERS", 600):
+            short = service.conversation(third)
+        self.assertIn("Earlier question 1: First question about PLA?\n(Its answer and findings are left out", short)
+        self.assertIn("Earlier question 2: Second question?\nAnswer 2:\nSecon answer.", short)
+        with mock.patch("oopc.ask.CONVERSATION_CHARACTERS", 50):  # The last answer is shortened, never left out.
+            self.assertIn("Answer 2:\nSecon answer.", service.conversation(third))
+
+    def test_a_follow_up_waits_for_the_answer_before_it_to_be_saved_and_reviewed(self):
+        saving, reviewing, seen = threading.Event(), threading.Event(), {}
+
+        def review(tools):
+            reviewing.wait(10)
+            return {"verdicts": [{"id": seen["finding"], "verdict": "supported", "reason": "Table 2 reports 45%."}],
+                    "notes": ""}
+
+        def follow_up(tools):  # What the follow-up finds when it starts.
+            parent = json.loads((self.root / ".oopc/loop/questions" / seen["first"] / "question.json").read_text())
+            seen.update(parent=parent["depositState"], status=knowledge.get(self.root, seen["finding"])["status"])
+            return answer("Its melting point was not in the saved findings.", [])
+        engine = ScriptedEngine(answer("It reached 45%.", ["https://example.org/pla-annealing"], [FINDING]), review,
+                                follow_up, deposits=[lambda tools: saving.wait(10) and None])
+        service = Questions(self.root, runner=engine, review_engine="codex")
+        researched = lambda: [c for c in engine.calls if c["schema"] is ANSWER_SCHEMA and not c["resume"]]  # noqa: E731
+
+        def until(check):
+            deadline = time.monotonic() + 10
+            while not check() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            self.assertTrue(check())
+        with mock.patch("oopc.ask.PARENT_POLL_SECONDS", 0.02):
+            first = service.submit({"question": "What crystallinity does annealed PLA reach?", "depth": "quick",
+                                    "authorizeSubscription": True, "runtime": "codex"})
+            seen.update(first=first["id"], finding="finding:%s-1" % first["id"][:12])
+            until(lambda: service.get(first["id"])["status"] == "completed")
+            # On the other engine, nothing else makes it wait: it waits for the findings to be saved, then reviewed.
+            second = self.follow(service, first["id"], "What about its melting point?", runtime="claude-code")
+            until(lambda: (service.get(second["id"]).get("progress") or {}).get("lastAction") == calls.WAITING["deposit"])
+            saving.set()
+            until(lambda: (service.get(second["id"]).get("progress") or {}).get("lastAction") == calls.WAITING["review"])
+            self.assertEqual(len(researched()), 1)
+            reviewing.set()
+            service.wait(10, reviews=True)
+        self.assertEqual(len(researched()), 2)
+        self.assertEqual((seen["parent"]["status"], "reviewing" in seen["parent"], seen["status"]),
+                         ("saved", False, "supported"))
+        self.assertEqual(service.get(second["id"])["status"], "completed")
+
+    def test_a_question_outside_the_scope_is_not_researched_and_points_elsewhere(self):
+        loop.update_settings(self.root, {"researchPerWeek": 5})  # Its open questions would join the queue if it ran.
+        engine = ScriptedEngine(dict(answer("", []), openQuestions=[], outOfScope="It asks for a bread recipe."))
+        service = Questions(self.root, runner=engine)
+        done = self.ask(service, "What is a good recipe for banana bread?")
+        self.assertEqual((done["status"], done["outOfScope"]), ("completed", "It asks for a bread recipe."))
+        self.assertEqual(done["redirectUrl"], "https://chatgpt.com/")  # The chat of the engine that ran it.
+        self.assertIn("Your field is " + DEFAULT_SCOPE + ".", engine.calls[0]["prompt"])
+        # One turn: no second turn, deposit, review, source capture or research queue; its session is gone.
+        self.assertEqual(len(engine.calls), 1)
+        self.assertNotIn("depositState", done)
+        self.assertEqual((done["findings"], done["notes"], loop.research_queue(self.root)), ([], [], []))
+        self.assertEqual(knowledge.review_queue(self.root), [])
+        self.assertEqual(TraceStore(self.root).run(done["runId"]).meta()["status"], "completed")
+        self.assertEqual(json.loads((self.root / ".oopc/loop/questions" / done["id"] / "result.json").read_text())
+                         ["promptVersion"], prompt_version())
+        self.assertEqual(Questions(self.root).list()["tasks"][0]["outOfScope"], "It asks for a bread recipe.")
+        # Not an answer in the counts: neither reuse nor the week's summary counts it as one.
+        self.assertEqual(reuse_stats(self.root), {"answered": 0, "citingReviewed": 0})
+        from oopc import improve
+        self.assertEqual({k: improve.summary(self.root)[k] for k in ("answered", "outOfScope", "notSavedOutsideScope")},
+                         {"answered": 0, "outOfScope": 1, "notSavedOutsideScope": 0})
+
+        loop.update_settings(self.root, {"redirectUrl": "https://example.org/other-harness"})
+        self.assertEqual(service.get(done["id"])["redirectUrl"], "https://example.org/other-harness")
+        # A follow-up can still continue the conversation, and is told the question before it was not answered.
+        engine.steps.append(answer("PLA films crystallize on annealing.", []))
+        self.follow(service, done["id"], "What about annealed PLA films instead?")
+        service.wait(10, reviews=True)
+        self.assertIn("(Not answered: outside this assistant's scope.)", engine.calls[1]["prompt"])
+
+    def test_an_answer_outside_the_scope_stands_but_saves_nothing_by_default(self):
+        loop.update_settings(self.root, {"researchPerWeek": 5})  # Its open questions would join the queue in scope.
+        outside = "It asks about graphite anodes in lithium-ion cells"
+        engine = ScriptedEngine(dict(answer("Graphite anodes reach about 372 mAh/g.", []),
+                                     openQuestions=["Which binders suit silicon anodes?"], outOfScope=outside))
+        service = Questions(self.root, runner=engine)
+        done = self.ask(service, "What capacity do graphite anodes reach?")
+        # A sentence beside an answer never declines it: the answer stands, with nothing pointing elsewhere.
+        self.assertNotIn("outOfScope", done)
+        self.assertEqual((done["status"], done["result"]["answer"]), ("completed", "Graphite anodes reach about 372 mAh/g."))
+        self.assertEqual(done["depositState"], {"status": "skipped", "reason": "outside-scope", "message": outside})
+        # One turn: no second turn, findings, review or research queue, and its session and trace are finished.
+        self.assertEqual(len(engine.calls), 1)
+        self.assertEqual((done["findings"], done["notes"], done["queuedResearch"], loop.research_queue(self.root)),
+                         ([], [], [], []))
+        self.assertEqual(knowledge.review_queue(self.root), [])
+        self.assertNotIn("session", json.loads((self.root / ".oopc/loop/questions" / done["id"] / "question.json")
+                                               .read_text()))
+        self.assertEqual(TraceStore(self.root).run(done["runId"]).meta()["status"], "completed")
+        self.assertEqual(reuse_stats(self.root), {"answered": 1, "citingReviewed": 0})  # It is an answer.
+        from oopc import improve  # ... counted apart as one whose findings were not saved.
+        self.assertEqual({k: improve.summary(self.root)[k] for k in ("answered", "outOfScope", "notSavedOutsideScope")},
+                         {"answered": 1, "outOfScope": 0, "notSavedOutsideScope": 1})
+        from oopc.cli import deposit_outcome
+        self.assertIn("outside this workspace's scope", deposit_outcome(done))
+        # A follow-up is told that it was outside the scope and saved nothing.
+        engine.steps.append(answer("PVDF is the usual binder.", []))
+        self.follow(service, done["id"], "Which polymer binders do graphite anodes use?")
+        service.wait(10, reviews=True)
+        self.assertIn("It was outside this assistant's scope, so its findings were not saved.", engine.calls[1]["prompt"])
+
+        # The owner can save such answers as in scope ones are.
+        self.assertTrue(loop.update_settings(self.root, {"saveOutsideScope": True})["saveOutsideScope"])
+        engine = ScriptedEngine(dict(answer("Graphite anodes reach about 372 mAh/g.", []), outOfScope=outside))
+        saved = self.ask(Questions(self.root, runner=engine), "What capacity do graphite anodes reach at C/10?")
+        self.assertEqual((saved["depositState"]["status"], len(engine.calls)), ("saved", 2))  # The answer, then findings.
+        for change in ({"saveOutsideScope": "yes"}, {"saveOutsideScope": 1}, {"saveOutsideScope": None}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                loop.update_settings(self.root, change)
+
+    def test_the_scope_is_a_setting_filled_into_the_researchers_prompt(self):
+        battery = "lithium-ion battery electrochemistry: electrodes, electrolytes and cell performance"
+        self.assertEqual(loop.update_settings(self.root, {"scope": "  " + battery + "\n"})["scope"], battery)
+        engine = ScriptedEngine(answer("Graphite anodes reach about 372 mAh/g.", []))
+        done = self.ask(Questions(self.root, runner=engine), "What capacity do graphite anodes reach?")
+        self.assertIn("Your field is " + battery + ".", engine.calls[0]["prompt"])
+        self.assertNotIn(DEFAULT_SCOPE, engine.calls[0]["prompt"])
+        version = json.loads((self.root / ".oopc/loop/questions" / done["id"] / "result.json").read_text())["promptVersion"]
+        self.assertEqual(version, prompt_version(scope=battery))
+        self.assertNotEqual(version, prompt_version())  # A changed scope is a changed prompt.
+        self.assertEqual(researcher_prompt("Q?", "quick"), researcher_prompt("Q?", "quick", scope=DEFAULT_SCOPE))
+        self.assertNotIn("{scope}", researcher_prompt("Q?", "quick"))
+        self.assertIn('"outOfScope"', json.dumps(ANSWER_SCHEMA["required"]))
+        self.assertIn("outOfScope as empty strings", DEPOSIT)
+
+        self.assertEqual(loop.update_settings(self.root, {"scope": ""})["scope"], "")  # Empty restores the default.
+        self.assertEqual(workspace_scope(self.root), DEFAULT_SCOPE)
+        for change in ({"scope": "polymers"}, {"scope": 42}, {"scope": "x" * 2001}, {"redirectUrl": "ftp://example.org"},
+                       {"redirectUrl": "claude.ai"}, {"redirectUrl": "https://exa mple.org"}, {"redirectUrl": None}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                loop.update_settings(self.root, change)
+        self.assertEqual(loop.update_settings(self.root, {"redirectUrl": " https://claude.ai/new "})["redirectUrl"],
+                         "https://claude.ai/new")
+        self.assertEqual(redirect_url(self.root, "claude-code"), "https://claude.ai/new")
+        loop.update_settings(self.root, {"redirectUrl": ""})
+        self.assertEqual(redirect_url(self.root, "claude-code"), CHAT_SITES["claude-code"])
 
     def test_submission_validation(self):
         service = Questions(self.root, runner=ScriptedEngine())

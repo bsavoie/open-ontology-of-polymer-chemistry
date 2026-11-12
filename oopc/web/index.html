@@ -6,6 +6,8 @@
   <meta name="color-scheme" content="light dark">
   <title>Open Ontology of Polymer Chemistry</title>
   <link rel="stylesheet" href="/researcher.css">
+  <link rel="stylesheet" href="/about.css">
+  <script src="/about.js" defer></script>
   <script src="/researcher.js" defer></script>
 </head>
 <body>
@@ -19,17 +21,30 @@
       <a href="#/polymers" data-tab="polymers">Polymers</a>
       <a href="#/knowledge" data-tab="knowledge">Knowledge</a>
       <a href="#/history" data-tab="history">History</a>
+      <a href="#/about" data-tab="about">About</a>
     </nav>
     <div class="topbar-actions">
-      <a class="topbar-link" href="/about.html">About</a>
       <button id="settings-button" class="icon-button" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button>
       <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch to dark theme" title="Switch theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" class="fill"/></svg></button>
     </div>
   </header>
   <div id="error-banner" class="error-banner" role="alert" hidden><span id="error-message"></span><button id="error-dismiss" type="button" aria-label="Dismiss">×</button></div>
   <main id="view" class="view" tabindex="-1" aria-live="polite"></main>
+  <aside id="recent" class="recent" aria-labelledby="recent-title" hidden>
+    <button class="recent-tab" type="button" aria-expanded="false" aria-controls="recent-panel" aria-label="Recent questions"><span>Recent</span></button>
+    <div id="recent-panel" class="recent-panel">
+      <a class="primary-button new-question" href="#/ask" data-new-question><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New question</a>
+      <div class="section-heading"><h2 id="recent-title">Recent questions</h2><a href="#/history">See all</a></div>
+      <div id="recent-list" class="task-list"><p class="muted">Loading…</p></div>
+    </div>
+  </aside>
   <dialog id="settings-dialog" aria-labelledby="settings-title">
     <div class="dialog-heading"><h2 id="settings-title">Settings</h2><button type="button" class="icon-button" data-close aria-label="Close settings">×</button></div>
+    <section class="settings-section" id="person-section" aria-labelledby="person-title" hidden>
+      <h3 id="person-title">You</h3>
+      <p class="small"><span id="person-name"></span> <button type="button" class="text-button" id="sign-out">Sign out</button></p>
+      <p class="muted small">Your questions and answers are yours alone. The findings they save, the review queue and the ontology’s edits are shared with everyone on this computer, marked with who saved them.</p>
+    </section>
     <section class="settings-section" aria-labelledby="account-title">
       <h3 id="account-title">Research engine</h3>
       <p class="muted small">Questions run on your own subscription, and both engines share one memory. ChatGPT (Codex) is the default: in October 2026 Claude Code’s web fetch could not open about two in five cited sources.</p>
@@ -37,7 +52,17 @@
       <p class="muted small">Sign-in happens on the provider’s own website; no password is entered here.</p>
       <p id="account-error" class="inline-error" role="alert" hidden></p>
     </section>
-    <section class="settings-section" aria-labelledby="knowledge-title">
+    <section class="settings-section" id="scope-section" aria-labelledby="scope-title">
+      <h3 id="scope-title">Scope</h3>
+      <p class="muted small">The research agent answers any question connected to this, however marginally, and answers when unsure. Only a question with no connection to it is not researched: its page links to another assistant instead.</p>
+      <label class="spot-rate scope-field">Questions it answers<textarea id="scope-text" rows="4" maxlength="2000"></textarea></label>
+      <p class="muted small">Leave it empty for the default, shown in grey.</p>
+      <label class="spot-rate">Answers outside it<select id="save-outside"><option value="false">Answer, but save nothing</option><option value="true">Answer and save their findings</option></select></label>
+      <p class="muted small">A question outside the field but connected to it is answered either way. By default its findings are not saved, so the knowledge base stays on the field.</p>
+      <label class="spot-rate scope-field">Send unrelated questions to<input type="url" id="redirect-url" maxlength="500" placeholder="The engine’s own chat: chatgpt.com or claude.ai"></label>
+      <p id="scope-error" class="inline-error" role="alert" hidden></p>
+    </section>
+    <section class="settings-section" id="knowledge-section" aria-labelledby="knowledge-title">
       <h3 id="knowledge-title">Adding findings</h3>
       <div class="runtime-list" role="radiogroup" aria-labelledby="knowledge-title">
         <label class="runtime-option"><input type="radio" name="review-mode" value="researcher"><span><strong>The research agent decides</strong><br><span class="muted small">Values read in a source’s text or a table are added at once; figure readings, conversions and combined values go to a reviewer first.</span></span></label>
@@ -45,8 +70,16 @@
       </div>
       <label class="spot-rate">Spot checks<select id="spot-rate"><option value="0">Off</option><option value="0.1">1 in 10 added findings</option><option value="0.2">1 in 5 added findings</option><option value="1">Every added finding</option></select></label>
       <p class="muted small">The reviewer also checks a sample of added findings, to show how often the agent’s judgement holds up. Answers never wait for it.</p>
+      <label class="spot-rate">Compare new findings with saved ones<select id="consistency-depth"><option value="0">Off</option><option value="3">Narrow: 3 for each</option><option value="8">Standard: 8 for each</option><option value="20">Broad: 20 for each</option></select></label>
+      <p class="muted small">The reviewer compares each new finding with the saved findings most related to it: the same polymer and property, and other readings of its source. An answer with nothing else to review is reviewed only when its values disagree with saved ones.</p>
+      <div class="runtime-list" role="radiogroup" aria-label="Conflicts with saved findings">
+        <label class="runtime-option"><input type="radio" name="conflict-resolution" value="reviewer"><span><strong>The reviewer settles conflicts</strong><br><span class="muted small">It rejects a finding that misstates its source, or keeps both, marked as disagreeing, when the sources differ.</span></span></label>
+        <label class="runtime-option"><input type="radio" name="conflict-resolution" value="person"><span><strong>I settle conflicts</strong><br><span class="muted small">Conflicts wait in the Knowledge tab with the reviewer’s reading; nothing changes until you decide.</span></span></label>
+      </div>
       <label class="spot-rate">Background research, questions a week<input type="number" id="research-per-week" min="0" max="100" step="1" inputmode="numeric"></label>
       <p class="muted small">0 turns it off. Above 0, open questions from your answers join the research queue and the hourly loop asks up to this many a week with spare quota.</p>
+      <label class="spot-rate">Questions at once<select id="parallel-questions"><option value="1">One at a time</option><option value="2">2 at once</option><option value="3">3 at once</option><option value="4">4 at once</option></select></label>
+      <p class="muted small">Questions asked while others run start at once instead of waiting. Each engine then runs that many sessions together, sharing your subscription’s limits; a follow-up still waits for the answer before it.</p>
       <p id="knowledge-error" class="inline-error" role="alert" hidden></p>
     </section>
     <section class="settings-section" aria-labelledby="privacy-title">
@@ -54,6 +87,159 @@
       <p class="small muted">Your question goes to the selected engine’s provider (OpenAI or Anthropic). The answer, its findings and its activity record stay on this computer, and your questions and activity are never included in public releases.</p>
     </section>
   </dialog>
+  <!-- The About tab: about.js copies this into the view and animates its figures. -->
+  <template id="about-view">
+    <div class="about">
+      <section class="about-hero" aria-labelledby="about-title">
+        <div class="hero-text">
+          <p class="eyebrow">OOPC · say “oopsie”</p>
+          <h1 id="about-title">A polymer knowledge base that gets better as you use it.</h1>
+          <p class="about-lede">The Open Ontology of Polymer Chemistry answers polymer questions with a research agent. It cites every fact, saves what it read with its source, has it checked, and starts the next question from it.</p>
+          <ul class="loop-key">
+            <li><span class="key-mark accumulate" aria-hidden="true"></span><strong>Accumulation</strong><span>Each answer saves the findings it read; a reviewer checks them; the next question starts from them.</span></li>
+            <li><span class="key-mark expand" aria-hidden="true"></span><strong>Expansion</strong><span>Findings attach to the polymers they describe, so the ground the knowledge base covers keeps spreading.</span></li>
+          </ul>
+          <p class="hero-actions"><a class="primary-button" href="#/ask">Ask a question</a><a class="secondary-button" href="https://github.com/bsavoie/open-ontology-of-polymer-chemistry">Source on GitHub</a></p>
+        </div>
+        <figure class="loop-figure">
+          <svg id="loop-art" viewBox="0 0 640 640" role="img" aria-labelledby="loop-art-title loop-art-desc">
+            <title id="loop-art-title">The two loops</title>
+            <desc id="loop-art-desc">A question travels around a ring through Ask, Answer, Save, Review and Reuse. At Save its findings fly into a network of polymers at the centre and attach to the polymers they describe, lighting them up; at Review a reviewer checks them; at Reuse the next question reads them first. Over many questions the lit part of the network spreads.</desc>
+          </svg>
+        </figure>
+      </section>
+
+      <section class="chapter" aria-labelledby="seed-title">
+        <div class="chapter-text">
+          <p class="chapter-step">1 · Seed</p>
+          <h2 id="seed-title">It starts from the Wiki of Open Polymer Data</h2>
+          <p>Every polymer arrives with a stable identity: its names, a structure where one is known, and its family. The seed holds 274 polymer identities, 245 chemical structures and 27,559 records from a pinned snapshot of the <a href="https://github.com/bsavoie/wiki-of-open-polymer-data">public wiki repository</a>.</p>
+          <p>Imported text stays marked <span class="badge">Imported draft</span>. Importing it is not an independent review. The seed is read-only here; corrections go back to the wiki and arrive through an explicit seed update.</p>
+        </div>
+        <figure class="chapter-figure">
+          <svg id="seed-art" viewBox="0 0 560 330" role="img" aria-labelledby="seed-art-title seed-art-desc">
+            <title id="seed-art-title">The seed</title>
+            <desc id="seed-art-desc">Pages of the Wiki of Open Polymer Data turn into a network of polymers, joined to their families, while counters rise to 274 polymer identities, 245 structures and 27,559 records.</desc>
+          </svg>
+          <dl class="seed-counts" aria-hidden="true">
+            <div><dt>polymer identities</dt><dd data-to="274">274</dd></div>
+            <div><dt>chemical structures</dt><dd data-to="245">245</dd></div>
+            <div><dt>records</dt><dd data-to="27559">27,559</dd></div>
+          </dl>
+        </figure>
+      </section>
+
+      <section class="chapter flip" aria-labelledby="save-title">
+        <div class="chapter-text">
+          <p class="chapter-step">2 · Answer, save, review</p>
+          <h2 id="save-title">Every answer is cited, and what it read is saved</h2>
+          <p>The agent searches saved findings first and open sources for the rest. Each fact it reports cites a finding or a source, and its own reasoning is labelled as such.</p>
+          <p>After the answer is shown, what it read is saved in the background as findings: a value, the polymer and conditions it applies to, and the source with a locator and a short quote. A separate reviewer checks the ones read off a figure, converted or combined, and one in five of the rest by default. Settings can require every finding to be reviewed first.</p>
+          <p>The same review compares new findings with related saved ones, checking the sources for apparent conflicts. By default the reviewer settles conflicts, keeping its reading and reason; you can choose to settle them yourself. When the sources disagree, both findings stay linked so later answers can report them together.</p>
+        </div>
+        <figure class="chapter-figure findings-art" id="findings-art" aria-label="Two findings saved by an answer, then checked by a reviewer">
+          <article class="finding-card" data-card="a">
+            <header><span class="finding-polymer">Poly(L-lactide)</span><span class="badge" data-badge>Added</span></header>
+            <p class="finding-value">Glass transition 55–60 °C, amorphous film, DSC at 10 °C/min</p>
+            <p class="finding-source">Journal article · Table 2 · “T<sub>g</sub> of 55–60 °C”</p>
+            <p class="finding-review" data-review>Spot check: Table 2 gives 55–60 °C for the amorphous films.</p>
+          </article>
+          <article class="finding-card" data-card="b">
+            <header><span class="finding-polymer">Poly(L-lactide)</span><span class="badge warn" data-badge>Needs checking</span></header>
+            <p class="finding-value">Crystallinity about 45% after 2 h at 100 °C</p>
+            <p class="finding-source">Journal article · read off Figure 4</p>
+            <p class="finding-review" data-review>Reviewer: Figure 4’s 100 °C curve levels off near 45%.</p>
+          </article>
+          <figcaption>An illustration, not findings from your knowledge base.</figcaption>
+        </figure>
+      </section>
+
+      <section class="about-labels" aria-labelledby="labels-title">
+        <h2 id="labels-title">Who vouches for a fact</h2>
+        <dl>
+          <div><dt><span class="badge good">Reviewed</span></dt><dd>A separate reviewer checked the cited source and found that it supports the finding.</dd></div>
+          <div><dt><span class="badge">Added</span></dt><dd>Read directly in the source and saved on the agent’s judgement. Not yet checked by anyone else.</dd></div>
+          <div><dt><span class="badge warn">Needs checking</span></dt><dd>Read off a figure, converted or combined, or a reviewer could not confirm it. A lead.</dd></div>
+          <div><dt><span class="badge bad">Rejected</span></dt><dd>The source does not support it. Hidden from searches, kept with the reason.</dd></div>
+        </dl>
+      </section>
+
+      <section class="chapter" aria-labelledby="reuse-title">
+        <div class="chapter-text">
+          <p class="chapter-step">3 · Reuse</p>
+          <h2 id="reuse-title">The next question starts from what the last one saved</h2>
+          <p>Search reads reviewed and added findings first, filed under the polymer each one describes. A question near earlier work needs fewer web searches, and its answer can cite findings someone has already checked.</p>
+        </div>
+        <figure class="chapter-figure about-numbers" id="live" hidden>
+          <p class="numbers-title">On this computer now</p>
+          <dl>
+            <div><dt>findings ready for the next question</dt><dd data-count="usable">—</dd></div>
+            <div><dt>checked by a separate reviewer</dt><dd data-count="reviewed">—</dd></div>
+            <div><dt>questions answered</dt><dd data-count="answered">—</dd></div>
+            <div><dt>answers that drew on saved findings</dt><dd data-count="reused">—</dd></div>
+          </dl>
+        </figure>
+      </section>
+
+      <section class="chapter flip" aria-labelledby="reflect-title">
+        <div class="chapter-text">
+          <p class="chapter-step">4 · Reflect <span class="optional">optional</span></p>
+          <h2 id="reflect-title">The vocabulary learns from searches that missed</h2>
+          <p>Reflection is off by default. When you turn it on, recorded searches are replayed to find what they missed. A curator proposes names for existing polymers, polymer ids for findings, property terms, or links between properties answers keep using together. A separate reviewer checks each proposal against its sources.</p>
+          <p>Approved edits are tried on a private copy by replaying past searches. An edit is dropped if it loses more cited results than the number of misses it fixes; a link must recover a missed connection between findings used together. The rest enter a local overlay with their proposer, reviewer's verdict, reason and measured effect. You can revert them; the seed and graph releases never change.</p>
+          <p>The study's reflection run improved lookup recall slightly, with no measurable improvement in answers. <code>oopc reflect schedule 7</code> makes a run due every seven days through <code>oopc loop tick</code>, or the hourly macOS job installed with <code>oopc loop install</code>.</p>
+        </div>
+        <figure class="chapter-figure reflect-art" id="reflect-art" aria-label="One reflection edit, from a missed search to an edit in force">
+          <ol>
+            <li data-step="0"><span class="step-label">A past search missed</span><code>Halar dielectric constant</code><span class="step-note">No polymer is named Halar</span></li>
+            <li data-step="1"><span class="step-label">A curator proposes</span><strong>Halar</strong><span class="step-note">a name for ethylene–chlorotrifluoroethylene copolymer, quoting a datasheet</span></li>
+            <li data-step="2"><span class="step-label">A reviewer checks</span><span class="badge good">Approved</span><span class="step-note">The datasheet names Halar as ECTFE.</span></li>
+            <li data-step="3"><span class="step-label">Replayed, then applied</span><strong>Fixes 3 misses, loses none</strong><span class="step-note">In force on this computer; revert any time</span></li>
+          </ol>
+          <figcaption>An illustration of one edit.</figcaption>
+        </figure>
+      </section>
+
+      <section class="chapter" aria-labelledby="engines-title">
+        <div class="chapter-text">
+          <p class="chapter-step">5 · Engines</p>
+          <h2 id="engines-title">It runs on your own subscription</h2>
+          <p>Questions run on ChatGPT through Codex or on Claude through Claude Code, signed in on the provider’s own website. No API keys, and both engines share one memory.</p>
+          <p>Your question goes to the engine’s provider. The answers, findings and activity records stay on this computer and never enter a public release.</p>
+          <p class="hero-actions"><button class="secondary-button" type="button" data-open-settings>Choose an engine</button></p>
+        </div>
+        <figure class="chapter-figure">
+          <svg id="engines-art" viewBox="0 0 560 300" role="img" aria-labelledby="engines-art-title engines-art-desc">
+            <title id="engines-art-title">Two engines, one memory</title>
+            <desc id="engines-art-desc">Findings from ChatGPT through Codex and from Claude through Claude Code flow into one knowledge base on this computer.</desc>
+          </svg>
+        </figure>
+      </section>
+
+      <section class="chapter flip" aria-labelledby="share-title">
+        <div class="chapter-text">
+          <p class="chapter-step">6 · Share</p>
+          <h2 id="share-title">Know someone who works with polymers? Send them OOPC.</h2>
+          <p>Not on an Apple Silicon Mac? The <a href="https://github.com/bsavoie/open-ontology-of-polymer-chemistry">repository</a> has the install steps for any computer with git and Python.</p>
+        </div>
+        <figure class="chapter-figure share" id="share-art" aria-label="A link to the latest release, to copy or share">
+          <div class="share-preview">
+            <span class="share-mark" aria-hidden="true"><span class="word" data-i="O">O</span><span class="word" data-i="O">O</span><span class="word" data-i="P">P</span><span class="word" data-i="C">C</span></span>
+            <p><strong>OOPC, the Open Ontology of Polymer Chemistry</strong>A polymer knowledge base that gets better as you use it, on your Claude or ChatGPT subscription.</p>
+          </div>
+          <div class="share-link">
+            <input type="text" readonly value="https://github.com/bsavoie/open-ontology-of-polymer-chemistry/releases/latest" aria-label="Download link" data-share-url>
+            <button class="primary-button" type="button" data-share-copy>Copy link</button>
+          </div>
+          <p class="share-actions" hidden><button class="secondary-button" type="button" data-share-native>Share…</button></p>
+        </figure>
+      </section>
+
+      <footer class="about-footer">
+        <p>Seeded from a pinned snapshot of the <a href="https://github.com/bsavoie/wiki-of-open-polymer-data">Wiki of Open Polymer Data</a>. Imported records keep their seed provenance. Code Apache 2.0 · data CC0 · prose CC BY 4.0.</p>
+      </footer>
+    </div>
+  </template>
   <noscript><p class="error-banner">JavaScript is required for this application.</p></noscript>
 </body>
 </html>

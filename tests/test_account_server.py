@@ -212,14 +212,27 @@ class AccountServerTests(unittest.TestCase):
     def test_settings_default_to_researcher_judgement_and_validate_changes(self):
         code, value = self.request("GET", "/api/settings")
         self.assertEqual((code, value["reviewMode"], value["researchPerWeek"]), (200, "researcher", 0))
+        self.assertEqual((value["scope"], value["redirectUrl"]), ("", ""))  # The default scope, which comes with it.
+        self.assertTrue(value["defaultScope"].startswith("polymer science and engineering"))
         code, value = self.request("POST", "/api/settings", {"reviewMode": "all"}, headers=self.headers)
         self.assertEqual((code, value["reviewMode"]), (200, "all"))
-        for body in ({"reviewMode": "never"}, {"autoQueue": True}, {"researchPerWeek": -1}, {"other": 1}, {}):
+        for body in ({"reviewMode": "never"}, {"autoQueue": True}, {"researchPerWeek": -1}, {"other": 1}, {},
+                     {"scope": "short"}, {"redirectUrl": "javascript:alert(1)"}, {"saveOutsideScope": "no"}):
             with self.subTest(body=body):
                 self.assertEqual(self.request("POST", "/api/settings", body, headers=self.headers)[0], 400)
         self.assertEqual(self.request("POST", "/api/settings", {"researchPerWeek": 5}, headers={})[0], 403)
         self.assertEqual(self.request("GET", "/api/loop")[1]["settings"],
-                         {"reviewMode": "all", "spotCheckRate": 0.2, "researchPerWeek": 0, "reflectEveryDays": 0})
+                         {"reviewMode": "all", "spotCheckRate": 0.2, "researchPerWeek": 0, "reflectEveryDays": 0,
+                          "consistencyDepth": 8, "conflictResolution": "reviewer", "parallelQuestions": 1, "scope": "",
+                          "redirectUrl": "", "saveOutsideScope": False})
+
+    def test_conflicts_are_listed_and_settled_only_with_the_token(self):
+        code, value = self.request("GET", "/api/conflicts?status=open")
+        self.assertEqual((code, value["conflicts"], value["stats"]["open"]), (200, [], 0))
+        body = {"id": "conflict:none", "resolution": "no-conflict"}
+        self.assertEqual(self.request("POST", "/api/conflicts/settle", body, headers={})[0], 403)
+        self.assertEqual(self.request("POST", "/api/conflicts/settle", body, headers=self.headers)[0], 400)
+        self.assertEqual(self.request("POST", "/api/conflicts/settle", dict(body, extra=1), headers=self.headers)[0], 400)
 
     def test_the_prompt_cannot_be_changed_through_the_app(self):
         for path in ("/api/improvement/adopt", "/api/improvement/revert"):
